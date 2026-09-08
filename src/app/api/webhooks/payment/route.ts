@@ -8,6 +8,7 @@ import {
   getTransactionAmount,
   getTransactionId,
   parseOrderCodeFromDescription,
+  evaluateWebhookDecision,
 } from '@/lib/payment-parser';
 
 interface CassoWebhookBody {
@@ -27,27 +28,28 @@ export async function POST(req: Request) {
 
     for (const txn of transactions) {
       const transactionId = getTransactionId(txn);
-      if (transactionId) {
-        const existingTransaction = await prisma.transaction.findUnique({
-          where: { bankTransId: transactionId },
-        });
-        if (existingTransaction) continue;
-      }
+      const isDuplicate = transactionId
+        ? !!(await prisma.transaction.findUnique({
+            where: { bankTransId: transactionId },
+          }))
+        : false;
 
       const matchedCode = parseOrderCodeFromDescription(txn.description);
-      if (!matchedCode) continue;
+      const order = matchedCode
+        ? await prisma.order.findFirst({
+            where: { orderCode: { equals: matchedCode, mode: 'insensitive' } },
+            include: { chatRoom: true },
+          })
+        : null;
 
-      const amount = getTransactionAmount(txn);
-      if (!amount || amount <= 0) continue;
-
-      const order = await prisma.order.findFirst({
-        where: { orderCode: { equals: matchedCode, mode: 'insensitive' } },
-        include: { chatRoom: true },
+      const decision = evaluateWebhookDecision(txn, {
+        isDuplicateTransaction: isDuplicate,
+        order,
       });
 
-      if (!order || order.paymentStatus === 'PAID') continue;
-      if (order.paymentStatus === 'EXPIRED' || order.status === 'CANCELLED') continue;
-      if (amount < order.totalAmount) continue;
+      if (decision.action === 'SKIP' || !order) continue;
+
+      const amount = decision.amount;
 
       const createdTransaction = await prisma.$transaction(async (tx) => {
         await tx.order.update({
