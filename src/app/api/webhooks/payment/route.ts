@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { createNotification } from '@/lib/notifications';
 import { pusherServer } from '@/lib/pusher-server';
@@ -51,25 +51,38 @@ export async function POST(req: Request) {
 
       const amount = decision.amount;
 
-      const createdTransaction = await prisma.$transaction(async (tx) => {
-        await tx.order.update({
-          where: { id: order.id },
-          data: { paymentStatus: 'PAID', status: 'CONFIRMED' },
-        });
+      let createdTransaction;
+      try {
+        createdTransaction = await prisma.$transaction(async (tx) => {
+          await tx.order.update({
+            where: { id: order.id },
+            data: { paymentStatus: 'PAID', status: 'CONFIRMED' },
+          });
 
-        return tx.transaction.create({
-          data: {
-            orderId: order.id,
-            bankTransId: transactionId,
-            amount,
-            description: txn.description || '',
-            bankName: txn.bankSubAccId || null,
-            receivedAt: txn.when ? new Date(txn.when) : new Date(),
-            verified: true,
-            rawWebhookData: txn as unknown as Prisma.InputJsonValue,
-          },
+          return tx.transaction.create({
+            data: {
+              orderId: order.id,
+              bankTransId: transactionId,
+              amount,
+              description: txn.description || '',
+              bankName: txn.bankSubAccId || null,
+              receivedAt: txn.when ? new Date(txn.when) : new Date(),
+              verified: true,
+              rawWebhookData: txn as unknown as Prisma.InputJsonValue,
+            },
+          });
         });
-      });
+      } catch (err) {
+        if (
+          err instanceof Prisma.PrismaClientKnownRequestError &&
+          err.code === 'P2002'
+        ) {
+          // Unique constraint violation (duplicate bankTransId or orderId due to race condition)
+          // Gracefully skip to preserve idempotency without failing the webhook request
+          continue;
+        }
+        throw err;
+      }
 
       if (!createdTransaction) continue;
 
