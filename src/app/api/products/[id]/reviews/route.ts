@@ -91,7 +91,8 @@ export async function POST(
     }
 
     const order = await prisma.order.findUnique({
-      where: { id: orderId }
+      where: { id: orderId },
+      include: { items: true },
     });
 
     if (!order) {
@@ -104,6 +105,11 @@ export async function POST(
 
     if (order.status !== 'COMPLETED') {
       return NextResponse.json({ error: 'Đơn hàng phải ở trạng thái COMPLETED' }, { status: 400 });
+    }
+
+    const hasPurchasedProduct = order.items.some((item) => item.productId === id);
+    if (!hasPurchasedProduct) {
+      return NextResponse.json({ error: 'Bạn chỉ có thể đánh giá sản phẩm đã mua trong đơn hàng này' }, { status: 403 });
     }
 
     const existingReview = await prisma.review.findFirst({

@@ -5,10 +5,10 @@ import { verifyCronAuth } from '../src/lib/cron-auth.ts';
 describe('Cron Auth Verification', () => {
   const secret = 'super-secret-cron-key';
 
-  it('should return true if no CRON_SECRET is configured', () => {
+  it('should return false (fail-closed) if no CRON_SECRET is configured', () => {
     const req = new Request('http://localhost:3000/api/cron/expire-orders');
-    assert.equal(verifyCronAuth(req, undefined), true);
-    assert.equal(verifyCronAuth(req, ''), true);
+    assert.equal(verifyCronAuth(req, undefined), false);
+    assert.equal(verifyCronAuth(req, ''), false);
   });
 
   it('should authorize with valid Bearer token in Authorization header', () => {

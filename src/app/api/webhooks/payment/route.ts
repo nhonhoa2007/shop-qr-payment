@@ -17,7 +17,8 @@ interface CassoWebhookBody {
 export async function POST(req: Request) {
   try {
     const signature = req.headers.get('secure-token');
-    if (signature !== process.env.CASSO_WEBHOOK_SECRET) {
+    const expectedSecret = process.env.CASSO_WEBHOOK_SECRET;
+    if (!expectedSecret || !signature || signature !== expectedSecret) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

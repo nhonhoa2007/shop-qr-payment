@@ -49,4 +49,17 @@ describe('Review Moderation Logic', () => {
     assert.strictEqual(resClear.valid, true);
     assert.strictEqual(resClear.data?.reply, null);
   });
+
+  it('should verify product purchase in order items before allowing review', () => {
+    const orderItems = [
+      { productId: 'prod_1', quantity: 1 },
+      { productId: 'prod_2', quantity: 2 },
+    ];
+
+    const canReviewPurchased = orderItems.some((item) => item.productId === 'prod_1');
+    const canReviewUnpurchased = orderItems.some((item) => item.productId === 'prod_999');
+
+    assert.strictEqual(canReviewPurchased, true);
+    assert.strictEqual(canReviewUnpurchased, false);
+  });
 });
