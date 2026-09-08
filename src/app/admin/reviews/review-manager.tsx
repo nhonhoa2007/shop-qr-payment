@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { formatDateTime } from '@/lib/utils';
 import { toast } from 'sonner';
 import {
@@ -283,13 +284,16 @@ export function ReviewManager({ initialReviews }: { initialReviews: AdminReviewI
                   {review.images && review.images.length > 0 && (
                     <div className="flex flex-wrap gap-2 pt-2">
                       {review.images.map((img, idx) => (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          key={idx}
-                          src={img}
-                          alt="Review attachment"
-                          className="w-16 h-16 object-cover rounded-xl border border-gray-200"
-                        />
+                        <div key={idx} className="relative w-16 h-16 rounded-xl border border-gray-200 overflow-hidden">
+                          <Image
+                            src={img}
+                            alt="Review attachment"
+                            fill
+                            sizes="64px"
+                            className="object-cover"
+                            unoptimized
+                          />
+                        </div>
                       ))}
                     </div>
                   )}

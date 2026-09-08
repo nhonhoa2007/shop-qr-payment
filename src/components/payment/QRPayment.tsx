@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { pusherClient } from '@/lib/pusher-client';
 import { formatVND, formatCountdown } from '@/lib/utils';
 import { AlertTriangle } from 'lucide-react';
@@ -95,8 +96,15 @@ export function QRPayment({ orderId, orderCode, qrUrl, totalAmount, expiresAt, b
       {isBankConfigured ? (
         <div className="flex justify-center mb-4">
           <div className="p-3 bg-white border-2 border-blue-100 rounded-2xl">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={qrUrl} alt="QR Thanh toán" className="w-64 h-64 rounded-lg" />
+            <Image
+              src={qrUrl}
+              alt="QR Thanh toán"
+              width={256}
+              height={256}
+              className="w-64 h-64 rounded-lg"
+              priority
+              unoptimized
+            />
           </div>
         </div>
       ) : (

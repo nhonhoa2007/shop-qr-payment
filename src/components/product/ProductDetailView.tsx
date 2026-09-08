@@ -8,6 +8,7 @@ import { ProductReviews } from './ProductReviews';
 import { ShoppingCart, Zap, Heart, ArrowLeft, ShieldCheck, Truck, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import Image from 'next/image';
 import type { Product } from '@/types';
 
 export function ProductDetailView({ product }: { product: Product }) {
@@ -83,10 +84,13 @@ export function ProductDetailView({ product }: { product: Product }) {
         {/* Ảnh Sản phẩm */}
         <div className="relative aspect-square bg-gray-50 rounded-3xl overflow-hidden border border-gray-100 shadow-sm">
           {product.image ? (
-            <img
+            <Image
               src={product.image}
               alt={product.name}
-              className="w-full h-full object-cover"
+              fill
+              priority
+              sizes="(max-width: 768px) 100vw, 50vw"
+              className="object-cover"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-gray-400">

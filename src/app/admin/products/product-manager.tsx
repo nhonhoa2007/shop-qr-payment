@@ -5,6 +5,7 @@ import { formatVND } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { Product } from '@/types';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Upload, Loader2, Image as ImageIcon, X } from 'lucide-react';
 
 export function AdminProductManager({ initialProducts }: { initialProducts: Product[] }) {
@@ -239,12 +240,14 @@ export function AdminProductManager({ initialProducts }: { initialProducts: Prod
                   <tr key={p.id} className="hover:bg-gray-50/50 transition">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
+                        <div className="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0 relative">
                           {p.image ? (
-                            <img
+                            <Image
                               src={p.image}
                               alt={p.name}
-                              className="w-full h-full object-cover"
+                              fill
+                              sizes="48px"
+                              className="object-cover"
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-gray-400">
@@ -405,16 +408,18 @@ export function AdminProductManager({ initialProducts }: { initialProducts: Prod
                   <div className="relative w-20 h-20 rounded-xl border border-gray-200 bg-gray-50 overflow-hidden flex-shrink-0 flex items-center justify-center group">
                     {form.image ? (
                       <>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
+                        <Image
                           src={form.image}
                           alt="Preview"
-                          className="w-full h-full object-cover"
+                          fill
+                          sizes="80px"
+                          className="object-cover"
+                          unoptimized
                         />
                         <button
                           type="button"
                           onClick={() => setForm((prev) => ({ ...prev, image: '' }))}
-                          className="absolute inset-0 bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-xl"
+                          className="absolute inset-0 bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-xl z-10"
                           title="Xóa ảnh"
                         >
                           <X className="w-5 h-5" />

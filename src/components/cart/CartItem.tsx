@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useCartStore } from '@/stores/cart-store';
 import { formatVND } from '@/lib/utils';
 import type { CartItem as CartItemType } from '@/types';
@@ -10,9 +11,9 @@ export function CartItem({ item }: { item: CartItemType }) {
 
   return (
     <div className="flex items-center gap-4 bg-white p-4 rounded-xl border border-gray-100">
-      <div className="w-20 h-20 bg-gray-50 rounded-lg overflow-hidden flex-shrink-0">
+      <div className="w-20 h-20 bg-gray-50 rounded-lg overflow-hidden flex-shrink-0 relative">
         {item.image ? (
-          <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+          <Image src={item.image} alt={item.name} fill sizes="80px" className="object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-gray-300">
             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">

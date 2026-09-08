@@ -3,6 +3,7 @@
 import { useHydrated } from '@/lib/hydration';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { CheckoutForm } from '@/components/checkout/CheckoutForm';
 import { useCartStore } from '@/stores/cart-store';
 import { formatVND } from '@/lib/utils';
@@ -63,9 +64,9 @@ export default function CheckoutPage() {
           <div className="divide-y divide-gray-50 max-h-80 overflow-y-auto mb-6 pr-2">
             {items.map((item) => (
               <div key={item.productId} className="py-3 flex items-center gap-3">
-                <div className="w-14 h-14 bg-gray-50 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center">
+                <div className="w-14 h-14 bg-gray-50 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center relative">
                   {item.image ? (
-                    <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                    <Image src={item.image} alt={item.name} fill sizes="56px" className="object-cover" />
                   ) : (
                     <span className="text-xl">📦</span>
                   )}

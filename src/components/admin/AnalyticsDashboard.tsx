@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { formatVND } from '@/lib/utils';
 import { Users, Package, ShoppingCart, TrendingUp, AlertTriangle } from 'lucide-react';
 
@@ -117,10 +118,9 @@ export function AnalyticsDashboard() {
                   <span className="w-6 h-6 flex items-center justify-center bg-gray-100 text-gray-600 font-bold rounded-full text-xs shrink-0">
                     {idx + 1}
                   </span>
-                  <div className="w-10 h-10 bg-gray-100 rounded-lg overflow-hidden shrink-0">
+                  <div className="w-10 h-10 bg-gray-100 rounded-lg overflow-hidden shrink-0 relative">
                     {p.image ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
+                      <Image src={p.image} alt={p.name} fill sizes="40px" className="object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-xs">📦</div>
                     )}
