@@ -1,0 +1,49 @@
+name: Expire Unpaid Orders Cron
+
+on:
+  schedule:
+    # Chạy mỗi 5 phút tự động
+    - cron: '*/5 * * * *'
+  workflow_dispatch: # Cho phép kích hoạt thủ công từ giao diện GitHub Actions
+
+jobs:
+  cron:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Expire Orders Endpoint
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$APP_URL" ]; then
+            echo "::error::Secret APP_URL is not set. Please add APP_URL in GitHub Repository Secrets."
+            exit 1
+          fi
+
+          # Strip trailing slash if present
+          CLEAN_APP_URL="${APP_URL%/}"
+          TARGET_URL="${CLEAN_APP_URL}/api/cron/expire-orders"
+
+          echo "Triggering cron job at $TARGET_URL..."
+
+          if [ -n "$CRON_SECRET" ]; then
+            RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X GET \
+              -H "Authorization: Bearer ${CRON_SECRET}" \
+              "$TARGET_URL?secret=$CRON_SECRET")
+          else
+            RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X GET \
+              "$TARGET_URL")
+          fi
+
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1 | sed 's/HTTP_STATUS://')
+
+          echo "Response status: $HTTP_STATUS"
+          echo "Response body: $BODY"
+
+          if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 300 ]; then
+            echo "Cron triggered successfully."
+          else
+            echo "::error::Failed to trigger cron endpoint. HTTP status: $HTTP_STATUS"
+            exit 1
+          fi
