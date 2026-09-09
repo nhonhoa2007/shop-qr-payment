@@ -46,29 +46,27 @@ export async function sendOtp(
     },
   });
 
-  // Dev mode: in OTP ra Terminal, bỏ qua gửi mail thực để test với mọi email
-  if (process.env.NODE_ENV === 'development') {
-    console.log(`\n========================================`);
-    console.log(`[DEV] OTP cho ${email}: ${otp}`);
-    console.log(`========================================\n`);
-    return { success: true };
-  }
-
   try {
-    const { error } = await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'Shop <onboarding@resend.dev>',
+    const fromAddress = process.env.EMAIL_FROM || 'Shop QR <noreply@nhonhoadev.id.vn>';
+    const { data, error } = await resend.emails.send({
+      from: fromAddress,
       to: email,
       subject: `Mã xác thực: ${otp}`,
       react: OtpVerificationEmail({ name, otp }),
     });
 
     if (error) {
-      console.error('Resend error:', error);
-      return { success: false, error: 'Gửi email thất bại' };
+      console.error('Resend error details:', JSON.stringify(error, null, 2));
+      return { success: false, error: error.message || 'Gửi email thất bại' };
     }
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[Resend] Đã gửi OTP thành công tới ${email} (ID: ${data?.id}), mã: ${otp}`);
+    }
+
     return { success: true };
   } catch (err) {
-    console.error('Email send error:', err);
+    console.error('Email send exception:', err);
     return { success: false, error: 'Gửi email thất bại' };
   }
 }
