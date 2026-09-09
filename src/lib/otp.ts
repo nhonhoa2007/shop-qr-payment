@@ -46,6 +46,14 @@ export async function sendOtp(
     },
   });
 
+  // Dev mode: in OTP ra Terminal, bỏ qua gửi mail thực để test với mọi email
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`\n========================================`);
+    console.log(`[DEV] OTP cho ${email}: ${otp}`);
+    console.log(`========================================\n`);
+    return { success: true };
+  }
+
   try {
     const { error } = await resend.emails.send({
       from: process.env.EMAIL_FROM || 'Shop <onboarding@resend.dev>',
