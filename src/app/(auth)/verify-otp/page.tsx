@@ -12,6 +12,7 @@ function VerifyOtpContent() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [otpValue, setOtpValue] = useState('');
 
   useEffect(() => {
     if (resendCooldown > 0) {
@@ -93,11 +94,29 @@ function VerifyOtpContent() {
                 </div>
               )}
 
-              <OtpInput onComplete={handleVerify} disabled={loading} />
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (otpValue.length === 6) {
+                    handleVerify(otpValue);
+                  }
+                }}
+                className="space-y-4"
+              >
+                <OtpInput
+                  onChange={setOtpValue}
+                  onComplete={handleVerify}
+                  disabled={loading}
+                />
 
-              {loading && (
-                <p className="text-blue-600 mt-4 text-sm">Đang xác thực...</p>
-              )}
+                <button
+                  type="submit"
+                  disabled={loading || otpValue.length !== 6}
+                  className="w-full mt-6 bg-[#5433eb] text-white py-3.5 rounded-full font-medium hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-[0_4px_24px_rgba(69,36,219,0.34)] active:scale-[0.98]"
+                >
+                  {loading ? 'Đang xác thực...' : 'Xác nhận mã OTP'}
+                </button>
+              </form>
 
               <div className="mt-6">
                 <p className="text-sm text-gray-400 mb-2">Không nhận được mã?</p>
