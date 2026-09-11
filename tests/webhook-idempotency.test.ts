@@ -195,7 +195,7 @@ describe('Webhook Decision - Amount Validation', () => {
 
   it('should SKIP for NaN / non-numeric amount string', () => {
     const decision = evaluateWebhookDecision(
-      makeTxn({ amount: 'not-a-number' as any }),
+      makeTxn({ amount: 'not-a-number' as unknown as number }),
       {
         isDuplicateTransaction: false,
         order: makeOrder(),

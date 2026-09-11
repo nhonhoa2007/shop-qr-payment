@@ -5,7 +5,6 @@ import { createNotification } from '@/lib/notifications';
 import { pusherServer } from '@/lib/pusher-server';
 import {
   type BankTransactionPayload,
-  getTransactionAmount,
   getTransactionId,
   parseOrderCodeFromDescription,
   evaluateWebhookDecision,
