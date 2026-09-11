@@ -4,7 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useCartStore } from '@/stores/cart-store';
 import { formatVND } from '@/lib/utils';
-import { Star, ShoppingCart } from 'lucide-react';
+import { Star, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Product } from '@/types';
 
@@ -26,13 +26,14 @@ export function ProductCard({ product }: { product: Product }) {
       price: product.price,
       image: product.image || undefined,
     });
-    toast.success(`Đã thêm "${product.name}" vào giỏ hàng`);
+    toast.success(`Đã thêm "${product.name}" vào giỏ`);
   };
 
   return (
     <Link href={`/products/${product.id}`} className="group block">
-      <div className="bg-white rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 overflow-hidden border border-gray-100 flex flex-col h-full">
-        <div className="aspect-square relative bg-gray-50 overflow-hidden">
+      <div className="bg-white rounded-[28px] shadow-card-custom hover:shadow-card-hover-custom transition-all duration-300 overflow-hidden flex flex-col h-full p-2.5">
+        {/* 1:1 Product Image with 20px inner radius creating white frame */}
+        <div className="aspect-square relative bg-[#f2f4f5] rounded-[20px] overflow-hidden">
           {product.image ? (
             <Image
               src={product.image}
@@ -42,55 +43,71 @@ export function ProductCard({ product }: { product: Product }) {
               className="object-cover group-hover:scale-105 transition-transform duration-300"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-400">
-              <svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            <div className="w-full h-full flex items-center justify-center text-[#cccccc]">
+              <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
               </svg>
             </div>
           )}
+
+          {/* Out of stock badge */}
           {product.stock <= 0 && (
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] flex items-center justify-center">
-              <span className="text-white font-bold text-sm tracking-wide bg-red-600/90 px-3 py-1.5 rounded-xl">Hết hàng</span>
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center">
+              <span className="text-white font-medium text-xs tracking-[-0.014em] bg-black/80 px-3 py-1.5 rounded-full">
+                Hết hàng
+              </span>
             </div>
           )}
+
+          {/* Category Chip */}
           {product.category && (
-            <span className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm text-gray-700 text-xs font-semibold px-2.5 py-1 rounded-lg shadow-sm">
+            <span className="absolute top-2.5 left-2.5 bg-white/90 backdrop-blur-sm text-[#000000] text-[11px] font-medium px-2.5 py-1 rounded-full shadow-soft-sm-custom">
               {product.category}
             </span>
           )}
         </div>
 
-        <div className="p-4 flex flex-col flex-1 justify-between gap-3">
+        {/* Info Stack */}
+        <div className="pt-3 pb-1 px-1.5 flex flex-col flex-1 justify-between gap-2.5">
           <div>
-            <h3 className="font-semibold text-gray-800 group-hover:text-blue-600 transition-colors line-clamp-2 text-sm leading-snug">
+            <h3 className="font-semibold text-sm leading-snug tracking-[-0.014em] text-[#000000] group-hover:text-[#5433eb] transition-colors line-clamp-2">
               {product.name}
             </h3>
 
-            {/* Đánh giá sao */}
-            <div className="flex items-center gap-1.5 mt-2">
-              <div className="flex items-center text-amber-400">
-                <Star className="w-3.5 h-3.5 fill-amber-400" />
-                <span className="text-xs font-bold text-gray-800 ml-1">
+            {/* Rating */}
+            <div className="flex items-center gap-1 mt-1">
+              <div className="flex items-center text-[#000000]">
+                <Star className="w-3 h-3 fill-[#000000] text-[#000000]" />
+                <span className="text-[11px] font-medium text-[#000000] ml-1 tracking-[-0.017em]">
                   {product.avgRating && product.avgRating > 0 ? product.avgRating : '5.0'}
                 </span>
               </div>
-              <span className="text-[11px] text-gray-400">
-                ({product.reviewCount || 0} đánh giá)
+              <span className="text-[11px] text-[#787574] tracking-[-0.017em]">
+                ({product.reviewCount || 0})
               </span>
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-2 border-t border-gray-50">
+          {/* Price and Add Action */}
+          <div className="flex items-center justify-between pt-2 border-t border-[#ebebeb]/60">
             <div>
-              <p className="text-base sm:text-lg font-extrabold text-blue-600">{formatVND(product.price)}</p>
+              <p className="text-base font-semibold text-[#000000] tracking-tight-display">
+                {formatVND(product.price)}
+              </p>
             </div>
             <button
               onClick={handleAddToCart}
               disabled={product.stock <= 0}
-              className="bg-blue-50 text-blue-600 p-2.5 rounded-xl hover:bg-blue-600 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm"
+              className="w-8 h-8 rounded-full bg-[#f2f4f5] text-[#000000] hover:bg-[#000000] hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition flex items-center justify-center"
               title="Thêm vào giỏ"
+              aria-label="Thêm vào giỏ"
             >
-              <ShoppingCart className="w-4 h-4" />
+              <Plus className="w-4 h-4" />
             </button>
           </div>
         </div>

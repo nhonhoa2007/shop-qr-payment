@@ -5,6 +5,7 @@ import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { GoogleIcon } from './GoogleIcon';
+import { ArrowRight } from 'lucide-react';
 
 export function LoginForm() {
   const router = useRouter();
@@ -51,12 +52,18 @@ export function LoginForm() {
 
   return (
     <div className="w-full max-w-md mx-auto">
-      <div className="bg-white rounded-2xl shadow-lg p-8">
-        <h1 className="text-2xl font-bold text-center mb-2">Đăng nhập</h1>
-        <p className="text-gray-500 text-center mb-6">Đăng nhập để tiếp tục mua sắm</p>
+      <div className="bg-white rounded-[28px] shadow-card-custom p-8 sm:p-10">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center gap-1 mb-2">
+            <span className="font-semibold text-2xl tracking-[-0.05em] text-[#000000]">shop</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-[#5433eb] mt-2.5" />
+          </div>
+          <h1 className="text-xl font-semibold text-[#000000] tracking-[-0.05em]">Đăng nhập</h1>
+          <p className="text-xs text-[#787574] mt-1 tracking-[-0.014em]">Chào mừng bạn quay lại mua sắm</p>
+        </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-full mb-6 text-xs tracking-[-0.014em]">
             {error}
           </div>
         )}
@@ -65,56 +72,57 @@ export function LoginForm() {
           type="button"
           onClick={handleGoogleSignIn}
           disabled={loading || googleLoading}
-          className="w-full flex items-center justify-center gap-3 bg-white border border-gray-300 text-gray-700 py-3 rounded-xl font-medium hover:bg-gray-50 active:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm"
+          className="w-full flex items-center justify-center gap-3 bg-white border border-[#ebebeb] text-[#000000] py-3 rounded-full text-xs font-medium hover:bg-[#f2f4f5] disabled:opacity-40 transition shadow-soft-sm-custom tracking-[-0.014em]"
         >
-          <GoogleIcon className="w-5 h-5" />
-          <span>{googleLoading ? 'Đang chuyển hướng...' : 'Đăng nhập với Google'}</span>
+          <GoogleIcon className="w-4 h-4" />
+          <span>{googleLoading ? 'Đang chuyển hướng...' : 'Tiếp tục với Google'}</span>
         </button>
 
         <div className="relative my-6">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-200" />
+            <div className="w-full border-t border-[#ebebeb]" />
           </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="bg-white px-4 text-gray-500">Hoặc đăng nhập với email</span>
+          <div className="relative flex justify-center text-xs">
+            <span className="bg-white px-3 text-[#787574] tracking-[-0.017em]">hoặc email</span>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <label className="block text-xs font-medium text-[#787574] mb-1 tracking-[-0.014em]">Email</label>
             <input
               type="email"
               required
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+              className="w-full px-4 py-2.5 rounded-full border border-[#000000]/10 bg-white text-xs text-[#000000] placeholder:text-[#787574] focus:outline-none focus:border-[#5433eb]/40 transition tracking-[-0.014em]"
               placeholder="email@example.com"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu</label>
+            <label className="block text-xs font-medium text-[#787574] mb-1 tracking-[-0.014em]">Mật khẩu</label>
             <input
               type="password"
               required
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-              placeholder="Mật khẩu của bạn"
+              className="w-full px-4 py-2.5 rounded-full border border-[#000000]/10 bg-white text-xs text-[#000000] placeholder:text-[#787574] focus:outline-none focus:border-[#5433eb]/40 transition tracking-[-0.014em]"
+              placeholder="••••••••"
             />
           </div>
           <button
             type="submit"
             disabled={loading || googleLoading}
-            className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+            className="w-full bg-[#000000] text-white py-3 rounded-full text-xs font-medium hover:bg-[#332f2d] disabled:opacity-40 transition flex items-center justify-center gap-1.5 tracking-[-0.014em]"
           >
-            {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+            <span>{loading ? 'Đang xử lý...' : 'Đăng nhập'}</span>
+            <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </form>
 
-        <p className="text-center text-sm text-gray-500 mt-6">
+        <p className="text-center text-xs text-[#787574] mt-6 tracking-[-0.014em]">
           Chưa có tài khoản?{' '}
-          <Link href="/register" className="text-blue-600 hover:underline font-medium">
+          <Link href="/register" className="text-[#000000] font-semibold hover:underline">
             Đăng ký ngay
           </Link>
         </p>

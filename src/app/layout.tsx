@@ -5,14 +5,14 @@ import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 
 export const metadata: Metadata = {
-  title: 'Shop QR Payment',
-  description: 'Cửa hàng trực tuyến - Thanh toán QR tự động',
+  title: 'shop. — Khám phá mua sắm & Thanh toán QR',
+  description: 'Cửa hàng trực tuyến phong cách hiện đại - Tự động tạo mã VietQR thanh toán tức thì',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="vi">
-      <body className="min-h-screen bg-gray-50 flex flex-col">
+      <body className="min-h-screen bg-[#f2f4f5] text-[#000000] flex flex-col antialiased">
         <Providers>
           <Header />
           <main className="flex-1">{children}</main>

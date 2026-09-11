@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useCartStore } from '@/stores/cart-store';
 import { formatVND } from '@/lib/utils';
-import { Heart, ShoppingCart, Trash2, ArrowLeft } from 'lucide-react';
+import { Heart, Trash2, ArrowLeft, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface WishlistProduct {
@@ -75,12 +75,12 @@ export function WishlistView() {
       price: product.price,
       image: product.image || undefined,
     });
-    toast.success(`Đã thêm "${product.name}" vào giỏ hàng`);
+    toast.success(`Đã thêm "${product.name}" vào giỏ`);
   };
 
   if (loading) {
     return (
-      <div className="text-center py-20 text-gray-400">
+      <div className="text-center py-20 text-[#787574] text-sm tracking-[-0.014em]">
         <p>Đang tải danh sách yêu thích...</p>
       </div>
     );
@@ -88,20 +88,22 @@ export function WishlistView() {
 
   if (items.length === 0) {
     return (
-      <div className="bg-white rounded-3xl p-12 text-center border border-gray-100 shadow-sm max-w-lg mx-auto">
-        <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
-          <Heart className="w-8 h-8" />
+      <div className="bg-white rounded-[28px] p-12 text-center shadow-card-custom max-w-md mx-auto">
+        <div className="w-14 h-14 bg-[#f2f4f5] text-[#000000] rounded-full flex items-center justify-center mx-auto mb-4">
+          <Heart className="w-6 h-6" />
         </div>
-        <h2 className="text-xl font-bold text-gray-900 mb-2">Danh sách yêu thích đang trống</h2>
-        <p className="text-sm text-gray-500 mb-6">
-          Hãy thả tim những sản phẩm bạn thích khi dạo shop để lưu lại và mua sau nhé!
+        <h2 className="text-lg font-semibold text-[#000000] tracking-[-0.05em] mb-1">
+          Danh sách yêu thích đang trống
+        </h2>
+        <p className="text-xs text-[#787574] tracking-[-0.014em] mb-6">
+          Hãy thả tim các sản phẩm bạn thích khi dạo shop để lưu lại mua sau nhé!
         </p>
         <Link
           href="/"
-          className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-2xl transition shadow-md"
+          className="inline-flex items-center gap-2 bg-[#000000] text-white text-xs font-medium px-5 py-2.5 rounded-full hover:bg-[#332f2d] transition tracking-[-0.014em]"
         >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Khám phá sản phẩm ngay</span>
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Khám phá ngay</span>
         </Link>
       </div>
     );
@@ -110,8 +112,8 @@ export function WishlistView() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-500">
-          Bạn đang lưu <strong className="text-gray-900">{items.length}</strong> sản phẩm
+        <p className="text-xs text-[#787574] tracking-[-0.014em]">
+          Bạn đang lưu <strong className="text-[#000000]">{items.length}</strong> sản phẩm
         </p>
       </div>
 
@@ -119,9 +121,9 @@ export function WishlistView() {
         {items.map(({ id, product }) => (
           <div
             key={id}
-            className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col justify-between hover:shadow-md transition"
+            className="bg-white rounded-[28px] shadow-card-custom p-2.5 overflow-hidden flex flex-col justify-between hover:shadow-card-hover-custom transition-all duration-300"
           >
-            <div className="relative aspect-square bg-gray-50 overflow-hidden group">
+            <div className="relative aspect-square bg-[#f2f4f5] rounded-[20px] overflow-hidden group">
               {product.image ? (
                 <Image
                   src={product.image}
@@ -131,33 +133,33 @@ export function WishlistView() {
                   className="object-cover group-hover:scale-105 transition-transform duration-300"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-gray-400">
+                <div className="w-full h-full flex items-center justify-center text-[#cccccc]">
                   <span className="text-xs">Không có ảnh</span>
                 </div>
               )}
               {product.category && (
-                <span className="absolute top-3 left-3 bg-blue-600 text-white text-[11px] font-semibold px-2 py-0.5 rounded-full shadow-sm">
+                <span className="absolute top-2.5 left-2.5 bg-white/90 backdrop-blur-sm text-[#000000] text-[11px] font-medium px-2.5 py-1 rounded-full shadow-soft-sm-custom">
                   {product.category}
                 </span>
               )}
               <button
                 onClick={() => handleRemove(product.id, product.name)}
-                className="absolute top-3 right-3 p-2 bg-white/90 hover:bg-white rounded-full shadow-sm text-gray-400 hover:text-red-500 transition"
+                className="absolute top-2.5 right-2.5 p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-soft-sm-custom text-[#787574] hover:text-red-500 transition"
                 title="Xóa khỏi yêu thích"
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+            <div className="pt-3 pb-1 px-1.5 flex-1 flex flex-col justify-between space-y-3">
               <div>
                 <Link
                   href={`/products/${product.id}`}
-                  className="font-semibold text-gray-900 hover:text-blue-600 transition line-clamp-2 text-sm"
+                  className="font-semibold text-xs text-[#000000] hover:text-[#5433eb] transition line-clamp-2 tracking-[-0.014em]"
                 >
                   {product.name}
                 </Link>
-                <p className="text-base font-bold text-blue-600 mt-1">
+                <p className="text-sm font-semibold text-[#000000] tracking-tight-display mt-1">
                   {formatVND(product.price)}
                 </p>
               </div>
@@ -166,9 +168,9 @@ export function WishlistView() {
                 type="button"
                 onClick={() => handleAddToCart(product)}
                 disabled={product.stock <= 0}
-                className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-xl transition text-xs disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-1.5 bg-[#f2f4f5] hover:bg-[#000000] hover:text-white text-[#000000] font-medium py-2 px-3 rounded-full transition text-xs tracking-[-0.014em] disabled:opacity-30"
               >
-                <ShoppingCart className="w-4 h-4" />
+                <Plus className="w-3.5 h-3.5" />
                 <span>{product.stock > 0 ? 'Thêm vào giỏ' : 'Hết hàng'}</span>
               </button>
             </div>

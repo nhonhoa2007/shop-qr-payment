@@ -1,26 +1,64 @@
 @import "tailwindcss";
 
+@theme {
+  --color-canvas-mist: #f2f4f5;
+  --color-pure-white: #ffffff;
+  --color-ink-black: #000000;
+  --color-faint-border: #ebebeb;
+  --color-muted-gray: #787574;
+  --color-cool-stone: #cccccc;
+  --color-warm-fog: #acb0aa;
+  --color-shop-violet: #5433eb;
+  --color-violet-wash: #c0b5f3;
+  --color-slate-ink: #332f2d;
+  --color-ash-veil: #665a54;
+
+  --shadow-soft-sm: rgba(0, 0, 0, 0.06) 0px 2px 8px 0px;
+  --shadow-card: rgba(0, 0, 0, 0.08) 0px 4px 6px -1px, rgba(0, 0, 0, 0.06) 0px 2px 4px -2px;
+  --shadow-card-hover: rgba(0, 0, 0, 0.12) 0px 10px 20px -3px, rgba(0, 0, 0, 0.08) 0px 4px 6px -2px;
+  --shadow-lg-soft: rgba(0, 0, 0, 0.12) 0px 4px 24px 0px;
+  --shadow-violet: rgba(69, 36, 219, 0.34) 0px 4px 24px 0px;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: #f2f4f5;
+  --foreground: #000000;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Helvetica, Arial, sans-serif;
+  letter-spacing: -0.015em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom Utilities for DESIGN.md Specifications */
+.tracking-tight-display {
+  letter-spacing: -0.05em;
+}
+
+.tracking-tight-body {
+  letter-spacing: -0.031em;
+}
+
+.tracking-tight-meta {
+  letter-spacing: -0.017em;
+}
+
+.shadow-card-custom {
+  box-shadow: rgba(0, 0, 0, 0.08) 0px 4px 6px -1px, rgba(0, 0, 0, 0.06) 0px 2px 4px -2px;
+}
+
+.shadow-card-hover-custom {
+  box-shadow: rgba(0, 0, 0, 0.12) 0px 10px 20px -3px, rgba(0, 0, 0, 0.08) 0px 4px 6px -2px;
+}
+
+.shadow-violet-custom {
+  box-shadow: rgba(69, 36, 219, 0.34) 0px 4px 24px 0px;
+}
+
+.shadow-soft-sm-custom {
+  box-shadow: rgba(0, 0, 0, 0.06) 0px 2px 8px 0px;
 }

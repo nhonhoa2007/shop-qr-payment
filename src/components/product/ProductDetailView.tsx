@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useCartStore } from '@/stores/cart-store';
 import { formatVND } from '@/lib/utils';
 import { ProductReviews } from './ProductReviews';
-import { ShoppingCart, Zap, Heart, ArrowLeft, ShieldCheck, Truck, RotateCcw } from 'lucide-react';
+import { ShoppingBag, Zap, Heart, ArrowLeft, ShieldCheck, Truck, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -32,7 +32,7 @@ export function ProductDetailView({ product }: { product: Product }) {
         image: product.image || undefined,
       });
     }
-    toast.success(`Đã thêm ${quantity} sản phẩm vào giỏ hàng`);
+    toast.success(`Đã thêm ${quantity} sản phẩm vào giỏ`);
   };
 
   const handleBuyNow = () => {
@@ -57,7 +57,7 @@ export function ProductDetailView({ product }: { product: Product }) {
         });
         if (res.ok) {
           setIsWishlisted(true);
-          toast.success('Đã thêm vào danh sách yêu thích!');
+          toast.success('Đã thêm vào danh sách yêu thích');
         } else if (res.status === 401) {
           toast.error('Vui lòng đăng nhập để lưu sản phẩm yêu thích');
         }
@@ -70,19 +70,19 @@ export function ProductDetailView({ product }: { product: Product }) {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
-      {/* Nút quay lại */}
+    <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-8">
+      {/* Back button */}
       <Link
         href="/"
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-blue-600 transition mb-6 group"
+        className="inline-flex items-center gap-1.5 text-xs font-medium text-[#787574] hover:text-[#000000] transition mb-8 group tracking-[-0.014em]"
       >
         <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-        <span>Quay lại trang chủ sản phẩm</span>
+        <span>Quay lại danh sách sản phẩm</span>
       </Link>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
-        {/* Ảnh Sản phẩm */}
-        <div className="relative aspect-square bg-gray-50 rounded-3xl overflow-hidden border border-gray-100 shadow-sm">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12 bg-white rounded-[28px] p-6 sm:p-10 shadow-card-custom">
+        {/* Product Image — 28px card with 20px inner image */}
+        <div className="relative aspect-square bg-[#f2f4f5] rounded-[20px] overflow-hidden">
           {product.image ? (
             <Image
               src={product.image}
@@ -93,13 +93,13 @@ export function ProductDetailView({ product }: { product: Product }) {
               className="object-cover"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-400">
+            <div className="w-full h-full flex items-center justify-center text-[#cccccc]">
               <span className="text-sm">Chưa có ảnh</span>
             </div>
           )}
 
           {product.category && (
-            <span className="absolute top-4 left-4 bg-blue-600/90 backdrop-blur text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-sm">
+            <span className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm text-[#000000] text-xs font-medium px-3 py-1.5 rounded-full shadow-soft-sm-custom">
               {product.category}
             </span>
           )}
@@ -107,63 +107,63 @@ export function ProductDetailView({ product }: { product: Product }) {
           <button
             onClick={handleToggleWishlist}
             disabled={togglingWishlist}
-            className="absolute top-4 right-4 p-3 bg-white/90 backdrop-blur rounded-2xl shadow-md hover:scale-110 active:scale-95 transition"
+            className="absolute top-4 right-4 p-3 bg-white/90 backdrop-blur-sm rounded-full shadow-soft-sm-custom hover:scale-105 active:scale-95 transition"
             title="Thêm vào danh sách yêu thích"
           >
             <Heart
               className={`w-5 h-5 transition-colors ${
-                isWishlisted ? 'fill-red-500 text-red-500' : 'text-gray-600 hover:text-red-500'
+                isWishlisted ? 'fill-[#5433eb] text-[#5433eb]' : 'text-[#787574] hover:text-[#000000]'
               }`}
             />
           </button>
         </div>
 
-        {/* Thông tin Chi tiết Sản phẩm */}
+        {/* Product Info */}
         <div className="flex flex-col justify-between space-y-6">
           <div className="space-y-4">
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight leading-snug">
+            <h1 className="text-2xl sm:text-3xl font-semibold text-[#000000] tracking-[-0.05em] leading-snug">
               {product.name}
             </h1>
 
             <div className="flex items-baseline gap-4">
-              <span className="text-3xl sm:text-4xl font-black text-blue-600 tracking-tight">
+              <span className="text-3xl font-semibold text-[#000000] tracking-[-0.05em]">
                 {formatVND(product.price)}
               </span>
               <span
-                className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                className={`text-xs font-medium px-3 py-1 rounded-full ${
                   product.stock > 0
-                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                    : 'bg-red-50 text-red-700 border border-red-200'
+                    ? 'bg-[#f2f4f5] text-[#000000]'
+                    : 'bg-red-50 text-red-600'
                 }`}
               >
-                {product.stock > 0 ? `Còn hàng (${product.stock} sản phẩm)` : 'Tạm hết hàng'}
+                {product.stock > 0 ? `Còn ${product.stock} sản phẩm` : 'Tạm hết hàng'}
               </span>
             </div>
 
-            {/* Mô tả tóm tắt */}
-            <div className="border-t border-b border-gray-100 py-4 text-gray-600 text-sm leading-relaxed whitespace-pre-line">
+            {/* Description */}
+            <div className="border-t border-b border-[#ebebeb] py-4 text-[#787574] text-sm leading-relaxed tracking-[-0.014em] whitespace-pre-line">
               {product.description || 'Chưa có mô tả chi tiết cho sản phẩm này.'}
             </div>
 
-            {/* Chọn số lượng */}
+            {/* Quantity Selector */}
             {product.stock > 0 && (
               <div className="flex items-center gap-4">
-                <span className="text-sm font-semibold text-gray-700">Số lượng:</span>
-                <div className="flex items-center border border-gray-200 rounded-xl bg-gray-50 overflow-hidden">
+                <span className="text-xs font-medium text-[#787574] tracking-[-0.014em]">Số lượng:</span>
+                <div className="flex items-center border border-[#ebebeb] rounded-full bg-[#f2f4f5] overflow-hidden p-0.5">
                   <button
                     type="button"
                     onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                    className="px-3.5 py-2 text-gray-600 hover:bg-gray-200 transition font-bold"
+                    className="w-8 h-8 rounded-full text-[#000000] hover:bg-white transition font-medium flex items-center justify-center text-sm"
                   >
                     -
                   </button>
-                  <span className="w-12 text-center text-sm font-bold text-gray-800 bg-white py-2">
+                  <span className="w-10 text-center text-xs font-semibold text-[#000000]">
                     {quantity}
                   </span>
                   <button
                     type="button"
                     onClick={() => setQuantity((q) => Math.min(product.stock, q + 1))}
-                    className="px-3.5 py-2 text-gray-600 hover:bg-gray-200 transition font-bold"
+                    className="w-8 h-8 rounded-full text-[#000000] hover:bg-white transition font-medium flex items-center justify-center text-sm"
                   >
                     +
                   </button>
@@ -172,16 +172,16 @@ export function ProductDetailView({ product }: { product: Product }) {
             )}
           </div>
 
-          {/* Các nút hành động */}
-          <div className="space-y-3">
+          {/* Action Buttons */}
+          <div className="space-y-3 pt-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={handleAddToCart}
                 disabled={product.stock <= 0}
-                className="w-full flex items-center justify-center gap-2 bg-blue-50 text-blue-600 hover:bg-blue-100 font-bold py-3.5 px-6 rounded-2xl border border-blue-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full flex items-center justify-center gap-2 bg-[#f2f4f5] text-[#000000] hover:bg-[#ebebeb] font-medium py-3.5 px-6 rounded-full transition text-sm tracking-[-0.014em] disabled:opacity-40"
               >
-                <ShoppingCart className="w-5 h-5" />
+                <ShoppingBag className="w-4 h-4" />
                 <span>Thêm vào giỏ</span>
               </button>
 
@@ -189,33 +189,33 @@ export function ProductDetailView({ product }: { product: Product }) {
                 type="button"
                 onClick={handleBuyNow}
                 disabled={product.stock <= 0}
-                className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-6 rounded-2xl shadow-lg hover:shadow-xl transition disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full flex items-center justify-center gap-2 bg-[#5433eb] hover:bg-[#4428d4] text-white font-medium py-3.5 px-6 rounded-full shadow-violet-custom transition text-sm tracking-[-0.014em] disabled:opacity-40"
               >
-                <Zap className="w-5 h-5 fill-white" />
+                <Zap className="w-4 h-4 fill-white" />
                 <span>Mua ngay</span>
               </button>
             </div>
 
-            {/* Cam kết của shop */}
-            <div className="grid grid-cols-3 gap-2 pt-4 border-t border-gray-100 text-center">
-              <div className="p-2.5 rounded-xl bg-gray-50">
-                <Truck className="w-5 h-5 text-blue-600 mx-auto mb-1" />
-                <span className="text-[11px] font-medium text-gray-600 block">Freeship từ 500k</span>
+            {/* Commitments */}
+            <div className="grid grid-cols-3 gap-2 pt-4 border-t border-[#ebebeb] text-center">
+              <div className="p-2.5 rounded-[20px] bg-[#f2f4f5]">
+                <Truck className="w-4 h-4 text-[#000000] mx-auto mb-1" />
+                <span className="text-[11px] font-medium text-[#787574] block">Freeship từ 500k</span>
               </div>
-              <div className="p-2.5 rounded-xl bg-gray-50">
-                <ShieldCheck className="w-5 h-5 text-emerald-600 mx-auto mb-1" />
-                <span className="text-[11px] font-medium text-gray-600 block">Chính hãng 100%</span>
+              <div className="p-2.5 rounded-[20px] bg-[#f2f4f5]">
+                <ShieldCheck className="w-4 h-4 text-[#000000] mx-auto mb-1" />
+                <span className="text-[11px] font-medium text-[#787574] block">Chính hãng 100%</span>
               </div>
-              <div className="p-2.5 rounded-xl bg-gray-50">
-                <RotateCcw className="w-5 h-5 text-purple-600 mx-auto mb-1" />
-                <span className="text-[11px] font-medium text-gray-600 block">Đổi trả 7 ngày</span>
+              <div className="p-2.5 rounded-[20px] bg-[#f2f4f5]">
+                <RotateCcw className="w-4 h-4 text-[#000000] mx-auto mb-1" />
+                <span className="text-[11px] font-medium text-[#787574] block">Đổi trả 7 ngày</span>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Phân hệ Đánh giá & Bình luận */}
+      {/* Product Reviews */}
       <ProductReviews productId={product.id} />
     </div>
   );

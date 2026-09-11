@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import { useCartStore } from '@/stores/cart-store';
 import { formatVND } from '@/lib/utils';
+import { Trash2, Minus, Plus } from 'lucide-react';
 import type { CartItem as CartItemType } from '@/types';
 
 export function CartItem({ item }: { item: CartItemType }) {
@@ -10,47 +11,57 @@ export function CartItem({ item }: { item: CartItemType }) {
   const removeItem = useCartStore((s) => s.removeItem);
 
   return (
-    <div className="flex items-center gap-4 bg-white p-4 rounded-xl border border-gray-100">
-      <div className="w-20 h-20 bg-gray-50 rounded-lg overflow-hidden flex-shrink-0 relative">
+    <div className="flex items-center gap-4 bg-white p-4 rounded-[20px] shadow-card-custom">
+      <div className="w-16 h-16 bg-[#f2f4f5] rounded-[14px] overflow-hidden flex-shrink-0 relative">
         {item.image ? (
-          <Image src={item.image} alt={item.name} fill sizes="80px" className="object-cover" />
+          <Image src={item.image} alt={item.name} fill sizes="64px" className="object-cover" />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-gray-300">
-            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="w-full h-full flex items-center justify-center text-[#cccccc]">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
             </svg>
           </div>
         )}
       </div>
+
       <div className="flex-1 min-w-0">
-        <h3 className="font-medium text-gray-800 truncate">{item.name}</h3>
-        <p className="text-blue-600 font-semibold mt-1">{formatVND(item.price)}</p>
+        <h3 className="font-semibold text-sm text-[#000000] tracking-[-0.014em] truncate">{item.name}</h3>
+        <p className="text-xs text-[#787574] mt-0.5 tracking-[-0.017em]">{formatVND(item.price)}</p>
       </div>
-      <div className="flex items-center gap-2">
+
+      {/* Quantity controls */}
+      <div className="flex items-center border border-[#ebebeb] rounded-full bg-[#f2f4f5] p-0.5">
         <button
           onClick={() => updateQuantity(item.productId, item.quantity - 1)}
-          className="w-8 h-8 flex items-center justify-center border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+          className="w-7 h-7 flex items-center justify-center rounded-full text-[#000000] hover:bg-white transition"
+          aria-label="Giảm số lượng"
         >
-          -
+          <Minus className="w-3 h-3" />
         </button>
-        <span className="w-8 text-center font-medium">{item.quantity}</span>
+        <span className="w-8 text-center text-xs font-semibold text-[#000000]">{item.quantity}</span>
         <button
           onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-          className="w-8 h-8 flex items-center justify-center border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+          className="w-7 h-7 flex items-center justify-center rounded-full text-[#000000] hover:bg-white transition"
+          aria-label="Tăng số lượng"
         >
-          +
+          <Plus className="w-3 h-3" />
         </button>
       </div>
-      <div className="text-right min-w-[100px]">
-        <p className="font-bold text-gray-800">{formatVND(item.price * item.quantity)}</p>
+
+      {/* Subtotal */}
+      <div className="text-right min-w-[90px]">
+        <p className="font-semibold text-sm text-[#000000] tracking-tight-display">
+          {formatVND(item.price * item.quantity)}
+        </p>
       </div>
+
+      {/* Remove */}
       <button
         onClick={() => removeItem(item.productId)}
-        className="p-2 text-gray-400 hover:text-red-500 transition"
+        className="p-2 text-[#787574] hover:text-red-500 rounded-full hover:bg-[#f2f4f5] transition"
+        title="Xóa sản phẩm"
       >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-        </svg>
+        <Trash2 className="w-4 h-4" />
       </button>
     </div>
   );

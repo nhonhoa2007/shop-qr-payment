@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { pusherClient } from '@/lib/pusher-client';
 import { formatVND, formatCountdown } from '@/lib/utils';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Clock } from 'lucide-react';
 import type { QRPaymentData } from '@/types';
 
 interface QRPaymentProps extends QRPaymentData {
@@ -49,15 +49,16 @@ export function QRPayment({ orderId, orderCode, qrUrl, totalAmount, expiresAt, b
 
   if (paymentStatus === 'paid') {
     return (
-      <div className="max-w-md mx-auto p-8 bg-white rounded-2xl shadow-lg text-center">
-        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
+      <div className="max-w-md mx-auto p-10 bg-white rounded-[28px] shadow-card-custom text-center">
+        <div className="w-16 h-16 bg-[#f2f4f5] rounded-full flex items-center justify-center mx-auto mb-4 text-[#000000]">
+          <CheckCircle className="w-8 h-8" />
         </div>
-        <h2 className="text-2xl font-bold text-green-600 mb-2">Thanh toán thành công! 🎉</h2>
-        <p className="text-gray-500 mb-4">Đơn hàng {orderCode} đã được xác nhận</p>
-        <Link href="/orders" className="inline-block bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-700 transition">
+        <h2 className="text-xl font-semibold text-[#000000] tracking-[-0.05em] mb-1">Thanh toán thành công</h2>
+        <p className="text-[#787574] text-xs mb-6 tracking-[-0.014em]">Đơn hàng {orderCode} đã được xác nhận</p>
+        <Link
+          href="/orders"
+          className="inline-block bg-[#000000] text-white px-6 py-3 rounded-full text-xs font-medium hover:bg-[#332f2d] transition tracking-[-0.014em]"
+        >
           Xem đơn hàng
         </Link>
       </div>
@@ -66,15 +67,16 @@ export function QRPayment({ orderId, orderCode, qrUrl, totalAmount, expiresAt, b
 
   if (paymentStatus === 'expired') {
     return (
-      <div className="max-w-md mx-auto p-8 bg-white rounded-2xl shadow-lg text-center">
-        <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <svg className="w-10 h-10 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
+      <div className="max-w-md mx-auto p-10 bg-white rounded-[28px] shadow-card-custom text-center">
+        <div className="w-16 h-16 bg-[#f2f4f5] rounded-full flex items-center justify-center mx-auto mb-4 text-[#787574]">
+          <Clock className="w-8 h-8" />
         </div>
-        <h2 className="text-2xl font-bold text-red-600 mb-2">Hết hạn thanh toán</h2>
-        <p className="text-gray-500 mb-4">Mã QR đã hết hạn. Vui lòng đặt hàng lại.</p>
-        <Link href="/" className="inline-block bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-700 transition">
+        <h2 className="text-xl font-semibold text-[#000000] tracking-[-0.05em] mb-1">Mã QR đã hết hạn</h2>
+        <p className="text-[#787574] text-xs mb-6 tracking-[-0.014em]">Vui lòng đặt hàng lại để nhận mã QR mới.</p>
+        <Link
+          href="/"
+          className="inline-block bg-[#000000] text-white px-6 py-3 rounded-full text-xs font-medium hover:bg-[#332f2d] transition tracking-[-0.014em]"
+        >
           Quay lại trang chủ
         </Link>
       </div>
@@ -82,38 +84,41 @@ export function QRPayment({ orderId, orderCode, qrUrl, totalAmount, expiresAt, b
   }
 
   return (
-    <div className="max-w-md mx-auto p-6 bg-white rounded-2xl shadow-lg">
-      <h2 className="text-xl font-bold text-center mb-1">Quét mã QR để thanh toán</h2>
-      <p className="text-gray-500 text-center text-sm mb-4">Đơn hàng: {orderCode}</p>
+    <div className="max-w-md mx-auto p-6 sm:p-8 bg-white rounded-[28px] shadow-card-custom">
+      <h2 className="text-lg font-semibold text-center text-[#000000] tracking-[-0.05em] mb-1">
+        Quét mã VietQR để thanh toán
+      </h2>
+      <p className="text-[#787574] text-center text-xs mb-6 tracking-[-0.014em]">Đơn hàng: {orderCode}</p>
 
       {!isBankConfigured && (
-        <div className="mb-4 flex items-start gap-2 bg-amber-50 border border-amber-200 text-amber-700 text-sm rounded-xl p-3">
-          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-          <span>Thông tin tài khoản ngân hàng chưa được cấu hình. Vui lòng liên hệ shop để chuyển khoản thủ công.</span>
+        <div className="mb-4 flex items-start gap-2 bg-[#f2f4f5] text-[#787574] text-xs rounded-[20px] p-3 tracking-[-0.014em]">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-[#000000]" />
+          <span>Thông tin tài khoản ngân hàng chưa được cấu hình. Vui lòng liên hệ shop.</span>
         </div>
       )}
 
       {isBankConfigured ? (
-        <div className="flex justify-center mb-4">
-          <div className="p-3 bg-white border-2 border-blue-100 rounded-2xl">
+        <div className="flex justify-center mb-6">
+          <div className="p-3 bg-[#f2f4f5] rounded-[20px]">
             <Image
               src={qrUrl}
               alt="QR Thanh toán"
-              width={256}
-              height={256}
-              className="w-64 h-64 rounded-lg"
+              width={240}
+              height={240}
+              className="w-60 h-60 rounded-[14px]"
               priority
               unoptimized
             />
           </div>
         </div>
       ) : (
-        <div className="flex items-center justify-center mb-4 h-64 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl text-gray-400 text-sm">
+        <div className="flex items-center justify-center mb-6 h-60 bg-[#f2f4f5] rounded-[20px] text-[#cccccc] text-xs">
           Không có mã QR
         </div>
       )}
 
-      <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+      {/* Info Stack */}
+      <div className="bg-[#f2f4f5] rounded-[20px] p-4 space-y-2.5 text-xs">
         <InfoRow label="Ngân hàng" value={bankInfo.bankName || '(Chưa cấu hình)'} />
         <InfoRow
           label="Số tài khoản"
@@ -122,9 +127,9 @@ export function QRPayment({ orderId, orderCode, qrUrl, totalAmount, expiresAt, b
           copied={copied === 'account'}
         />
         <InfoRow label="Chủ tài khoản" value={bankInfo.accountName || '(Chưa cấu hình)'} />
-        <div className="flex justify-between items-center py-2 border-t border-gray-200">
-          <span className="text-gray-500 text-sm">Số tiền</span>
-          <span className="text-xl font-bold text-blue-600">{formatVND(totalAmount)}</span>
+        <div className="flex justify-between items-center py-2 border-t border-[#ebebeb]">
+          <span className="text-[#787574]">Số tiền</span>
+          <span className="text-base font-semibold text-[#000000] tracking-[-0.05em]">{formatVND(totalAmount)}</span>
         </div>
         <InfoRow
           label="Nội dung CK"
@@ -134,20 +139,21 @@ export function QRPayment({ orderId, orderCode, qrUrl, totalAmount, expiresAt, b
         />
       </div>
 
-      <div className="text-center mt-4">
-        <p className="text-gray-500 text-sm">Hết hạn sau</p>
-        <p className="font-mono text-2xl font-bold text-red-500">{formatCountdown(timeLeft)}</p>
+      <div className="text-center mt-6">
+        <p className="text-[#787574] text-xs tracking-[-0.014em]">Hết hạn sau</p>
+        <p className="font-mono text-xl font-semibold text-[#000000] tracking-tight-display mt-0.5">
+          {formatCountdown(timeLeft)}
+        </p>
       </div>
 
-      <div className="flex items-center justify-center mt-4 gap-2 text-blue-600">
-        <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-        <span className="text-sm font-medium">Đang chờ thanh toán...</span>
+      <div className="flex items-center justify-center mt-4 gap-2 text-[#787574]">
+        <div className="w-4 h-4 border-2 border-[#000000] border-t-transparent rounded-full animate-spin" />
+        <span className="text-xs font-medium text-[#000000] tracking-[-0.014em]">Đang chờ thanh toán tự động...</span>
       </div>
 
-      {/* Fallback for unconfigured bank — manual contact note */}
       {!isBankConfigured && (
-        <p className="text-center text-xs text-gray-400 mt-4">
-          Mã đơn hàng: <span className="font-semibold text-gray-600">{orderId}</span>
+        <p className="text-center text-[10px] text-[#787574] mt-4">
+          Mã đơn hàng: <span className="font-semibold text-[#000000]">{orderId}</span>
         </p>
       )}
     </div>
@@ -167,11 +173,11 @@ function InfoRow({
 }) {
   return (
     <div className="flex justify-between items-center">
-      <span className="text-gray-500 text-sm">{label}</span>
+      <span className="text-[#787574]">{label}</span>
       <div className="flex items-center gap-2">
-        <span className="font-medium text-sm">{value}</span>
+        <span className="font-medium text-[#000000]">{value}</span>
         {onCopy && (
-          <button onClick={onCopy} className="text-blue-600 hover:text-blue-800 transition text-xs">
+          <button onClick={onCopy} className="text-[#5433eb] hover:underline transition text-[11px]">
             {copied ? '✓ Đã sao chép' : 'Sao chép'}
           </button>
         )}

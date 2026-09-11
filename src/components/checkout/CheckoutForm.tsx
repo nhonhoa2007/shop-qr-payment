@@ -6,7 +6,7 @@ import { useCartStore } from '@/stores/cart-store';
 import { formatVND } from '@/lib/utils';
 import { calculateCheckoutTotalsWithCoupon } from '@/lib/checkout';
 import { getErrorMessage } from '@/lib/errors';
-import { Tag, Check, X } from 'lucide-react';
+import { Tag, Check, X, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface CheckoutFormProps {
@@ -123,103 +123,112 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm animate-shake">
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-full text-xs animate-shake tracking-[-0.014em]">
           {error}
         </div>
       )}
 
-      {/* Thông tin giao hàng */}
-      <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-gray-100">
-        <h2 className="font-bold text-lg text-gray-900 mb-6 flex items-center gap-2">
-          <span>📍</span>
-          <span>Thông tin giao nhận hàng</span>
+      {/* Thông tin giao hàng — 28px card */}
+      <div className="bg-white rounded-[28px] p-6 sm:p-8 shadow-card-custom">
+        <h2 className="font-semibold text-base text-[#000000] tracking-[-0.031em] mb-6">
+          Thông tin giao nhận hàng
         </h2>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Họ và tên người nhận *</label>
+            <label className="block text-xs font-medium text-[#787574] mb-1 tracking-[-0.014em]">
+              Họ và tên người nhận *
+            </label>
             <input
               type="text"
               required
               value={form.customerName}
               onChange={(e) => setForm({ ...form, customerName: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-sm"
+              className="w-full px-4 py-2.5 rounded-full border border-[#000000]/10 bg-white text-sm text-[#000000] placeholder:text-[#787574] focus:outline-none focus:border-[#5433eb]/40 transition tracking-[-0.014em]"
               placeholder="Nguyễn Văn A"
             />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Số điện thoại liên hệ *</label>
+              <label className="block text-xs font-medium text-[#787574] mb-1 tracking-[-0.014em]">
+                Số điện thoại *
+              </label>
               <input
                 type="tel"
                 required
                 value={form.customerPhone}
                 onChange={(e) => setForm({ ...form, customerPhone: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-sm"
+                className="w-full px-4 py-2.5 rounded-full border border-[#000000]/10 bg-white text-sm text-[#000000] placeholder:text-[#787574] focus:outline-none focus:border-[#5433eb]/40 transition tracking-[-0.014em]"
                 placeholder="0912345678"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email nhận hóa đơn</label>
+              <label className="block text-xs font-medium text-[#787574] mb-1 tracking-[-0.014em]">
+                Email nhận hóa đơn
+              </label>
               <input
                 type="email"
                 value={form.customerEmail}
                 onChange={(e) => setForm({ ...form, customerEmail: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-sm"
+                className="w-full px-4 py-2.5 rounded-full border border-[#000000]/10 bg-white text-sm text-[#000000] placeholder:text-[#787574] focus:outline-none focus:border-[#5433eb]/40 transition tracking-[-0.014em]"
                 placeholder="email@example.com"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Địa chỉ chi tiết nhận hàng *</label>
+            <label className="block text-xs font-medium text-[#787574] mb-1 tracking-[-0.014em]">
+              Địa chỉ chi tiết nhận hàng *
+            </label>
             <textarea
               required
               rows={3}
               value={form.customerAddress}
               onChange={(e) => setForm({ ...form, customerAddress: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-sm"
-              placeholder="Số nhà, ngõ/ngách, tên đường, phường/xã, quận/huyện, tỉnh/thành phố"
+              className="w-full px-4 py-3 rounded-[20px] border border-[#000000]/10 bg-white text-sm text-[#000000] placeholder:text-[#787574] focus:outline-none focus:border-[#5433eb]/40 transition tracking-[-0.014em]"
+              placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành phố"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Ghi chú cho người bán / shipper</label>
+            <label className="block text-xs font-medium text-[#787574] mb-1 tracking-[-0.014em]">
+              Ghi chú cho người bán / shipper
+            </label>
             <input
               type="text"
               value={form.note}
               onChange={(e) => setForm({ ...form, note: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-sm"
+              className="w-full px-4 py-2.5 rounded-full border border-[#000000]/10 bg-white text-sm text-[#000000] placeholder:text-[#787574] focus:outline-none focus:border-[#5433eb]/40 transition tracking-[-0.014em]"
               placeholder="Ví dụ: Giao giờ hành chính, gọi trước khi giao..."
             />
           </div>
         </div>
       </div>
 
-      {/* Áp dụng Mã giảm giá (Coupon / Voucher) */}
-      <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
-        <h2 className="font-bold text-base text-gray-900 mb-4 flex items-center gap-2">
-          <Tag className="w-5 h-5 text-blue-600" />
+      {/* Áp dụng Mã giảm giá — 28px card */}
+      <div className="bg-white rounded-[28px] p-6 shadow-card-custom">
+        <h2 className="font-semibold text-sm text-[#000000] tracking-[-0.031em] mb-4 flex items-center gap-2">
+          <Tag className="w-4 h-4 text-[#787574]" />
           <span>Mã giảm giá / Voucher</span>
         </h2>
 
         {appliedCoupon ? (
-          <div className="flex items-center justify-between p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl">
-            <div className="flex items-center gap-2">
-              <Check className="w-5 h-5 text-emerald-600" />
+          <div className="flex items-center justify-between p-3 bg-[#f2f4f5] rounded-full">
+            <div className="flex items-center gap-2 pl-2">
+              <Check className="w-4 h-4 text-[#000000]" />
               <div>
-                <span className="font-bold text-emerald-800 text-sm tracking-wide">{appliedCoupon.code}</span>
-                <p className="text-xs text-emerald-600 mt-0.5">
-                  Đã giảm {formatVND(totals.discountAmount)}
-                </p>
+                <span className="font-semibold text-xs tracking-[-0.014em] text-[#000000]">{appliedCoupon.code}</span>
+                <span className="text-xs text-[#787574] ml-2 tracking-[-0.017em]">
+                  (Giảm {formatVND(totals.discountAmount)})
+                </span>
               </div>
             </div>
             <button
               type="button"
               onClick={handleRemoveCoupon}
-              className="text-gray-400 hover:text-red-500 p-1.5 rounded-lg transition"
+              className="p-1.5 text-[#787574] hover:text-red-500 rounded-full hover:bg-white transition"
               title="Hủy mã"
             >
               <X className="w-4 h-4" />
@@ -232,13 +241,13 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
               placeholder="Nhập mã ưu đãi..."
               value={couponCodeInput}
               onChange={(e) => setCouponCodeInput(e.target.value.toUpperCase())}
-              className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl uppercase text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+              className="flex-1 px-4 py-2 rounded-full border border-[#000000]/10 bg-white uppercase text-xs font-medium text-[#000000] placeholder:text-[#787574] focus:outline-none focus:border-[#5433eb]/40 tracking-wider"
             />
             <button
               type="button"
               disabled={applyingCoupon || !couponCodeInput.trim()}
               onClick={handleApplyCoupon}
-              className="bg-gray-900 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-800 disabled:opacity-50 transition"
+              className="bg-[#000000] text-white px-5 py-2 rounded-full text-xs font-medium hover:bg-[#332f2d] disabled:opacity-40 transition tracking-[-0.014em]"
             >
               {applyingCoupon ? 'Đang kiểm tra...' : 'Áp dụng'}
             </button>
@@ -247,34 +256,34 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
       </div>
 
       {/* Chi tiết thanh toán */}
-      <div className="bg-gray-50 rounded-2xl p-5 space-y-2.5 border border-gray-100">
-        <div className="flex justify-between text-sm text-gray-600">
+      <div className="bg-white rounded-[28px] p-6 space-y-2.5 shadow-card-custom">
+        <div className="flex justify-between text-xs text-[#787574] tracking-[-0.014em]">
           <span>Tiền hàng:</span>
-          <span>{formatVND(totals.subtotal)}</span>
+          <span className="font-medium text-[#000000]">{formatVND(totals.subtotal)}</span>
         </div>
-        <div className="flex justify-between text-sm text-gray-600">
+        <div className="flex justify-between text-xs text-[#787574] tracking-[-0.014em]">
           <span>Phí vận chuyển:</span>
-          <span>{totals.shippingFee === 0 ? <strong className="text-green-600">Miễn phí</strong> : formatVND(totals.shippingFee)}</span>
+          <span className="font-medium text-[#000000]">{totals.shippingFee === 0 ? 'Miễn phí' : formatVND(totals.shippingFee)}</span>
         </div>
         {totals.discountAmount > 0 && (
-          <div className="flex justify-between text-sm text-emerald-600 font-medium">
-            <span>Giảm giá khuyến mại:</span>
+          <div className="flex justify-between text-xs text-[#000000] font-medium tracking-[-0.014em]">
+            <span>Giảm giá:</span>
             <span>-{formatVND(totals.discountAmount)}</span>
           </div>
         )}
-        <div className="flex justify-between text-base font-bold text-gray-900 pt-2.5 border-t border-gray-200">
+        <div className="flex justify-between text-sm font-semibold text-[#000000] pt-2.5 border-t border-[#ebebeb] tracking-[-0.05em]">
           <span>Tổng thanh toán:</span>
-          <span className="text-xl text-blue-600">{formatVND(totals.totalAmount)}</span>
+          <span className="text-lg">{formatVND(totals.totalAmount)}</span>
         </div>
       </div>
 
       <button
         type="submit"
         disabled={loading}
-        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-2xl transition shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base"
+        className="w-full bg-[#5433eb] hover:bg-[#4428d4] text-white font-medium py-3.5 px-6 rounded-full transition shadow-violet-custom disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm tracking-[-0.014em]"
       >
-        <span>📱</span>
         <span>{loading ? 'Đang khởi tạo mã thanh toán...' : `Tạo mã QR & Thanh toán ${formatVND(totals.totalAmount)}`}</span>
+        <ArrowRight className="w-4 h-4" />
       </button>
     </form>
   );

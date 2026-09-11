@@ -8,6 +8,7 @@ import { CheckoutForm } from '@/components/checkout/CheckoutForm';
 import { useCartStore } from '@/stores/cart-store';
 import { formatVND } from '@/lib/utils';
 import { calculateCheckoutTotals } from '@/lib/checkout';
+import { ShieldCheck } from 'lucide-react';
 
 export default function CheckoutPage() {
   const { data: session } = useSession();
@@ -19,16 +20,22 @@ export default function CheckoutPage() {
 
   if (items.length === 0) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-20 text-center">
-        <span className="text-6xl block mb-4">🛒</span>
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Giỏ hàng của bạn đang trống</h1>
-        <p className="text-gray-500 mb-6 text-sm">Hãy chọn các sản phẩm ưng ý trước khi thanh toán</p>
-        <Link
-          href="/"
-          className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-xl transition"
-        >
-          Khám phá sản phẩm
-        </Link>
+      <div className="max-w-[1200px] mx-auto px-4 py-20 text-center">
+        <div className="bg-white rounded-[28px] p-16 shadow-card-custom max-w-sm mx-auto">
+          <span className="text-5xl block mb-4">🛒</span>
+          <h1 className="text-xl font-semibold text-[#000000] tracking-[-0.05em] mb-2">
+            Giỏ hàng của bạn đang trống
+          </h1>
+          <p className="text-sm text-[#787574] tracking-[-0.014em] mb-6">
+            Hãy chọn các sản phẩm ưng ý trước khi thanh toán
+          </p>
+          <Link
+            href="/"
+            className="inline-block bg-[#000000] text-white font-medium text-sm px-6 py-3 rounded-full hover:bg-[#332f2d] transition tracking-[-0.014em]"
+          >
+            Khám phá sản phẩm
+          </Link>
+        </div>
       </div>
     );
   }
@@ -37,16 +44,19 @@ export default function CheckoutPage() {
   const { shippingFee, totalAmount } = calculateCheckoutTotals(total);
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
-      <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
-        <Link href="/cart" className="hover:text-blue-600 transition">
+    <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-8">
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-2 text-xs text-[#787574] mb-6 tracking-[-0.014em]">
+        <Link href="/cart" className="hover:text-[#000000] transition">
           Giỏ hàng
         </Link>
         <span>/</span>
-        <span className="text-gray-900 font-medium">Thanh toán</span>
+        <span className="text-[#000000] font-medium">Thanh toán</span>
       </div>
 
-      <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-8">Xác nhận thông tin & Thanh toán</h1>
+      <h1 className="text-2xl font-semibold text-[#000000] tracking-[-0.05em] mb-8">
+        Xác nhận thông tin & Thanh toán
+      </h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         <div className="lg:col-span-7">
@@ -56,15 +66,16 @@ export default function CheckoutPage() {
           />
         </div>
 
-        <div className="lg:col-span-5 bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-gray-100 sticky top-24">
-          <h2 className="font-bold text-lg text-gray-900 mb-4 pb-3 border-b border-gray-100">
+        {/* Order Summary Card */}
+        <div className="lg:col-span-5 bg-white rounded-[28px] p-6 shadow-card-custom sticky top-24">
+          <h2 className="font-semibold text-base text-[#000000] tracking-[-0.031em] mb-4 pb-3 border-b border-[#ebebeb]">
             Tóm tắt giỏ hàng ({items.length})
           </h2>
 
-          <div className="divide-y divide-gray-50 max-h-80 overflow-y-auto mb-6 pr-2">
+          <div className="divide-y divide-[#ebebeb] max-h-80 overflow-y-auto mb-6 pr-2">
             {items.map((item) => (
               <div key={item.productId} className="py-3 flex items-center gap-3">
-                <div className="w-14 h-14 bg-gray-50 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center relative">
+                <div className="w-14 h-14 bg-[#f2f4f5] rounded-[14px] overflow-hidden flex-shrink-0 flex items-center justify-center relative">
                   {item.image ? (
                     <Image src={item.image} alt={item.name} fill sizes="56px" className="object-cover" />
                   ) : (
@@ -72,45 +83,47 @@ export default function CheckoutPage() {
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm text-gray-800 truncate">{item.name}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">
+                  <p className="font-medium text-xs text-[#000000] tracking-[-0.014em] truncate">{item.name}</p>
+                  <p className="text-[11px] text-[#787574] mt-0.5 tracking-[-0.017em]">
                     {formatVND(item.price)} × {item.quantity}
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="font-bold text-sm text-gray-900">{formatVND(item.price * item.quantity)}</p>
+                  <p className="font-semibold text-xs text-[#000000] tracking-tight-display">
+                    {formatVND(item.price * item.quantity)}
+                  </p>
                 </div>
               </div>
             ))}
           </div>
 
-          <div className="space-y-3 text-sm pt-4 border-t border-gray-100">
-            <div className="flex justify-between text-gray-600">
+          <div className="space-y-2.5 text-sm pt-4 border-t border-[#ebebeb]">
+            <div className="flex justify-between text-[#787574] tracking-[-0.014em]">
               <span>Tạm tính</span>
-              <span className="font-semibold text-gray-900">{formatVND(total)}</span>
+              <span className="font-medium text-[#000000]">{formatVND(total)}</span>
             </div>
-            <div className="flex justify-between text-gray-600">
+            <div className="flex justify-between text-[#787574] tracking-[-0.014em]">
               <span>Phí giao hàng</span>
-              <span className="font-semibold text-gray-900">
+              <span className="font-medium text-[#000000]">
                 {shippingFee === 0 ? (
-                  <span className="text-green-600 font-bold">Miễn phí</span>
+                  <span className="text-[#000000] font-semibold">Miễn phí</span>
                 ) : (
                   formatVND(shippingFee)
                 )}
               </span>
             </div>
-            <div className="flex justify-between text-base font-extrabold text-gray-900 pt-3 border-t border-gray-100">
+            <div className="flex justify-between text-base font-semibold text-[#000000] pt-3 border-t border-[#ebebeb] tracking-[-0.05em]">
               <span>Tổng thanh toán</span>
-              <span className="text-2xl font-black text-blue-600">{formatVND(totalAmount)}</span>
+              <span className="text-xl font-semibold text-[#000000]">{formatVND(totalAmount)}</span>
             </div>
           </div>
 
-          <div className="mt-6 p-4 bg-blue-50/60 rounded-2xl border border-blue-100/60 text-xs text-blue-800 space-y-1.5">
-            <p className="font-semibold flex items-center gap-1.5">
-              <span>🛡️</span>
+          <div className="mt-6 p-4 bg-[#f2f4f5] rounded-[20px] text-xs text-[#787574] space-y-1">
+            <p className="font-medium text-[#000000] flex items-center gap-1.5 tracking-[-0.014em]">
+              <ShieldCheck className="w-4 h-4 text-[#5433eb]" />
               <span>Thanh toán tự động với VietQR</span>
             </p>
-            <p className="text-blue-700/80 leading-relaxed">
+            <p className="leading-relaxed tracking-[-0.014em]">
               Mã QR ngân hàng động sẽ được sinh tự động chính xác số tiền và mã giao dịch sau khi nhấn đặt hàng.
             </p>
           </div>
