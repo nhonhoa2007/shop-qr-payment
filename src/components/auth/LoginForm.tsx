@@ -68,24 +68,28 @@ export function LoginForm() {
           </div>
         )}
 
-        <button
-          type="button"
-          onClick={handleGoogleSignIn}
-          disabled={loading || googleLoading}
-          className="w-full flex items-center justify-center gap-3 bg-white border border-[#ebebeb] text-[#000000] py-3 rounded-full text-xs font-medium hover:bg-[#f2f4f5] disabled:opacity-40 transition shadow-soft-sm-custom tracking-[-0.014em]"
-        >
-          <GoogleIcon className="w-4 h-4" />
-          <span>{googleLoading ? 'Đang chuyển hướng...' : 'Tiếp tục với Google'}</span>
-        </button>
+        {process.env.NEXT_PUBLIC_ENABLE_GOOGLE_AUTH === 'true' && (
+          <>
+            <button
+              type="button"
+              onClick={handleGoogleSignIn}
+              disabled={loading || googleLoading}
+              className="w-full flex items-center justify-center gap-3 bg-white border border-[#ebebeb] text-[#000000] py-3 rounded-full text-xs font-medium hover:bg-[#f2f4f5] disabled:opacity-40 transition shadow-soft-sm-custom tracking-[-0.014em]"
+            >
+              <GoogleIcon className="w-4 h-4" />
+              <span>{googleLoading ? 'Đang chuyển hướng...' : 'Tiếp tục với Google'}</span>
+            </button>
 
-        <div className="relative my-6">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-[#ebebeb]" />
-          </div>
-          <div className="relative flex justify-center text-xs">
-            <span className="bg-white px-3 text-[#787574] tracking-[-0.017em]">hoặc email</span>
-          </div>
-        </div>
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-[#ebebeb]" />
+              </div>
+              <div className="relative flex justify-center text-xs">
+                <span className="bg-white px-3 text-[#787574] tracking-[-0.017em]">hoặc email</span>
+              </div>
+            </div>
+          </>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
