@@ -5,6 +5,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import {
   validateImageFile,
+  verifyImageMagicBytes,
   getCloudinaryConfig,
   generateCloudinarySignature,
   generateSafeUploadFilename,
@@ -41,6 +42,16 @@ export async function POST(req: Request) {
 
     if (!validation.valid) {
       return NextResponse.json({ error: validation.error }, { status: 400 });
+    }
+
+    // 3b. Verify binary magic bytes to prevent disguised malicious files
+    const arrayBuffer = await file.arrayBuffer();
+    const fileBuffer = Buffer.from(arrayBuffer);
+    if (!verifyImageMagicBytes(fileBuffer)) {
+      return NextResponse.json(
+        { error: 'Nội dung file không phải là ảnh hợp lệ (JPG, PNG, WEBP, GIF)' },
+        { status: 400 }
+      );
     }
 
     // 4. Check Cloudinary Configuration
@@ -99,8 +110,7 @@ export async function POST(req: Request) {
     const filename = generateSafeUploadFilename(file.name || 'image', file.type);
     const destinationPath = path.join(uploadsDir, filename);
 
-    const arrayBuffer = await file.arrayBuffer();
-    await fs.writeFile(destinationPath, Buffer.from(arrayBuffer));
+    await fs.writeFile(destinationPath, fileBuffer);
 
     return NextResponse.json({
       url: `/uploads/${filename}`,

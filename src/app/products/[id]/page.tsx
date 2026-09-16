@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
-import { prisma } from '@/lib/prisma';
-import { ProductDetailView } from '@/components/product/ProductDetailView';
+import { CatalogService } from '@/server/modules/catalog/catalog.service';
+import { ProductDetailView } from '@/client/views/ProductDetailView';
 import type { Metadata } from 'next';
 
 interface ProductPageProps {
@@ -9,9 +9,7 @@ interface ProductPageProps {
 
 export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {
   const { id } = await params;
-  const product = await prisma.product.findUnique({
-    where: { id },
-  });
+  const product = await CatalogService.getProductDetail(id);
 
   if (!product) {
     return { title: 'Sản phẩm không tìm thấy - Shop QR Payment' };
@@ -25,11 +23,9 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
 
 export default async function ProductDetailPage({ params }: ProductPageProps) {
   const { id } = await params;
-  const product = await prisma.product.findUnique({
-    where: { id },
-  });
+  const product = await CatalogService.getProductDetail(id);
 
-  if (!product || !product.isActive) {
+  if (!product) {
     notFound();
   }
 

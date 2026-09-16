@@ -17,6 +17,7 @@ model User {
   address       String?
   role          Role                  @default(CUSTOMER)
   isVerified    Boolean               @default(false)
+  isBlocked     Boolean               @default(false)
   orders        Order[]
   sentMessages  Message[]             @relation("sender")
   chatRooms     ChatRoomParticipant[]
@@ -24,12 +25,14 @@ model User {
   reviews       Review[]
   wishlists     Wishlist[]
   couponUsages  CouponUsage[]
+  wallet        UserWallet?
   createdAt     DateTime              @default(now())
   updatedAt     DateTime              @updatedAt
 }
 
 enum Role {
   CUSTOMER
+  STAFF
   ADMIN
 }
 
@@ -106,6 +109,7 @@ model Order {
   paymentStatus   PaymentStatus @default(UNPAID)
   transaction     Transaction?
   chatRoom        ChatRoom?
+  shipment        Shipment?
   qrContent       String?
   note            String?
   expiresAt       DateTime
@@ -290,3 +294,71 @@ enum NotificationType {
   NEW_MESSAGE
   OTP_SENT
 }
+
+// ==========================================
+// MỞ RỘNG TRỤ CỘT 2: LOGISTICS AUTOMATION
+// ==========================================
+
+model Shipment {
+  id               String         @id @default(cuid())
+  orderId          String         @unique
+  order            Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  carrier          CarrierName    @default(GHN)
+  trackingCode     String         @unique
+  shippingFee      Int
+  codAmount        Int            @default(0)
+  status           ShipmentStatus @default(READY_TO_PICK)
+  estimatedArrival DateTime?
+  shippingLogs     Json?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+}
+
+enum CarrierName {
+  GHN
+  GHTK
+  VIETTEL_POST
+}
+
+enum ShipmentStatus {
+  READY_TO_PICK
+  PICKING
+  DELIVERING
+  DELIVERED
+  RETURNED
+  CANCELLED
+}
+
+// ==========================================
+// MỞ RỘNG TRỤ CỘT 3: VÍ NỘI BỘ & HOÀN TIỀN
+// ==========================================
+
+model UserWallet {
+  id           String              @id @default(cuid())
+  userId       String              @unique
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  balance      Int                 @default(0)
+  transactions WalletTransaction[]
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+}
+
+model WalletTransaction {
+  id          String       @id @default(cuid())
+  walletId    String
+  wallet      UserWallet   @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  amount      Int
+  type        WalletTxType
+  orderId     String?
+  description String
+  createdAt   DateTime     @default(now())
+
+  @@index([walletId, createdAt])
+}
+
+enum WalletTxType {
+  REFUND
+  PURCHASE_PAYMENT
+  TOPUP
+}
+

@@ -172,6 +172,44 @@ async function main() {
   }
   console.log(`✅ Đã đồng bộ ${createdProducts.length} sản phẩm danh mục phong phú`);
 
+  // 2.1 TẠO BIẾN THỂ MẪU (PRODUCT VARIANTS)
+  const shirt = createdProducts.find((p) => p.name.includes('Áo thun nam Cotton Organic'));
+  if (shirt) {
+    const shirtVariants = [
+      { sku: 'AT-COTTON-DEN-M', title: 'Đen / Size M', color: 'Đen', size: 'M', price: 289000, stock: 15 },
+      { sku: 'AT-COTTON-DEN-L', title: 'Đen / Size L', color: 'Đen', size: 'L', price: 289000, stock: 12 },
+      { sku: 'AT-COTTON-DEN-XL', title: 'Đen / Size XL', color: 'Đen', size: 'XL', price: 299000, stock: 8 },
+      { sku: 'AT-COTTON-TRANG-M', title: 'Trắng / Size M', color: 'Trắng', size: 'M', price: 289000, stock: 10 },
+      { sku: 'AT-COTTON-TRANG-L', title: 'Trắng / Size L', color: 'Trắng', size: 'L', price: 289000, stock: 0 },
+      { sku: 'AT-COTTON-TRANG-XL', title: 'Trắng / Size XL', color: 'Trắng', size: 'XL', price: 299000, stock: 5 },
+    ];
+    for (const v of shirtVariants) {
+      await prisma.productVariant.upsert({
+        where: { sku: v.sku },
+        update: {},
+        create: { ...v, productId: shirt.id },
+      });
+    }
+    console.log('✅ Đã tạo các biến thể đa thuộc tính (Size & Màu sắc) cho Áo thun nam');
+  }
+
+  const sneaker = createdProducts.find((p) => p.name.includes('Giày Sneaker'));
+  if (sneaker) {
+    const sneakerVariants = [
+      { sku: 'SNK-PRO-40', title: 'Size 40', size: '40', price: 790000, stock: 10 },
+      { sku: 'SNK-PRO-41', title: 'Size 41', size: '41', price: 790000, stock: 8 },
+      { sku: 'SNK-PRO-42', title: 'Size 42', size: '42', price: 790000, stock: 7 },
+    ];
+    for (const v of sneakerVariants) {
+      await prisma.productVariant.upsert({
+        where: { sku: v.sku },
+        update: {},
+        create: { ...v, productId: sneaker.id },
+      });
+    }
+    console.log('✅ Đã tạo các biến thể kích thước cho Giày Sneaker');
+  }
+
   // 3. TẠO MÃ GIẢM GIÁ (COUPONS)
   const sampleCoupons = [
     {

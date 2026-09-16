@@ -1,11 +1,16 @@
-import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { redirect } from 'next/navigation';
-import { AdminProductManager } from './product-manager';
+import { AdminService } from '@/server/modules/admin/admin.service';
+import { AdminProductManager as AdminProductsView } from '@/client/views/admin/AdminProductsView';
 import type { Product } from '@/types';
+import type { Metadata } from 'next';
 
 export const dynamic = 'force-dynamic';
+
+export const metadata: Metadata = {
+  title: 'Quản lý sản phẩm | Quản trị viên Shop QR',
+};
 
 export default async function AdminProductsPage() {
   const session = await getServerSession(authOptions);
@@ -13,13 +18,7 @@ export default async function AdminProductsPage() {
     redirect('/');
   }
 
-  const products: Product[] = await prisma.product.findMany({
-    orderBy: { createdAt: 'desc' },
-  });
+  const products = await AdminService.getAdminProducts();
 
-  return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <AdminProductManager initialProducts={products} />
-    </div>
-  );
+  return <AdminProductsView initialProducts={products as unknown as Product[]} />;
 }

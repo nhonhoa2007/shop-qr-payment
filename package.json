@@ -7,8 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "node ./node_modules/eslint/bin/eslint.js .",
-    "test": "node --experimental-strip-types --test tests/**/*.test.ts",
-    "seed": "node --experimental-strip-types prisma/seed.ts"
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "seed": "node --experimental-strip-types prisma/seed.ts",
+    "db:backup": "node scripts/db-backup.js",
+    "db:restore": "node scripts/db-restore.js"
   },
   "prisma": {
     "seed": "node --experimental-strip-types prisma/seed.ts"
@@ -17,7 +19,6 @@
     "@prisma/client": "^6.4.1",
     "@react-email/components": "^1.0.12",
     "bcryptjs": "^3.0.3",
-    "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.41.0",
     "next": "16.3.4",
@@ -25,10 +26,10 @@
     "prisma": "^6.4.1",
     "pusher": "^5.3.4",
     "pusher-js": "^8.6.0",
-    "qrcode.react": "^4.2.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "resend": "^6.26.0",
+    "server-only": "^0.0.1",
     "sonner": "^2.0.8",
     "tailwind-merge": "^3.6.0",
     "zustand": "^5.0.15"
@@ -42,7 +43,6 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
     "tailwindcss": "^4",
-    "tsx": "^4.19.3",
     "typescript": "^5"
   }
 }

@@ -4,6 +4,7 @@ export interface GoogleSignInUser {
   email?: string | null;
   image?: string | null;
   role?: string;
+  isBlocked?: boolean;
 }
 
 export interface GoogleSignInAccount {
@@ -16,6 +17,7 @@ export interface UserDbRecord {
   name: string | null;
   role: string;
   isVerified: boolean;
+  isBlocked?: boolean;
 }
 
 export interface UserPrismaDelegate {
@@ -62,8 +64,13 @@ export async function handleGoogleSignIn({
       });
     }
 
+    if (dbUser.isBlocked) {
+      throw new Error('Tài khoản của bạn đã bị tạm khóa. Vui lòng liên hệ quản trị viên.');
+    }
+
     user.id = dbUser.id;
     user.role = dbUser.role;
+    user.isBlocked = dbUser.isBlocked ?? false;
     return true;
   }
   return true;

@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   validateImageFile,
+  verifyImageMagicBytes,
   parseCloudinaryUrl,
   getCloudinaryConfig,
   generateCloudinarySignature,
@@ -22,6 +23,27 @@ describe('Image Upload Validation Logic', () => {
 
     const validGif = validateImageFile({ size: 1024 * 800, type: 'image/gif' });
     assert.equal(validGif.valid, true);
+  });
+
+  it('should verify binary magic bytes correctly', () => {
+    // PNG magic bytes: 89 50 4E 47 0D 0A 1A 0A
+    const pngBuffer = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d]);
+    assert.equal(verifyImageMagicBytes(pngBuffer), true);
+
+    // JPEG magic bytes: FF D8 FF
+    const jpgBuffer = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01]);
+    assert.equal(verifyImageMagicBytes(jpgBuffer), true);
+
+    // GIF magic bytes: 47 49 46 38
+    const gifBuffer = Buffer.from([0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00, 0x01, 0x00, 0x80, 0x00]);
+    assert.equal(verifyImageMagicBytes(gifBuffer), true);
+
+    // Fake text / php script disguised as png
+    const fakeBuffer = Buffer.from('<?php echo "evil"; ?>');
+    assert.equal(verifyImageMagicBytes(fakeBuffer), false);
+
+    // Short buffer
+    assert.equal(verifyImageMagicBytes(Buffer.from([0x89, 0x50])), false);
   });
 
   it('should reject files exceeding 5MB', () => {

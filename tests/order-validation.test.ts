@@ -33,6 +33,15 @@ describe('Order Validation - parseOrderItems', () => {
     assert.equal(res.items?.[0].productId, 'prod_1');
     assert.equal(res.items?.[0].quantity, 5);
   });
+
+  it('should parse valid items with variantId correctly', () => {
+    const res = parseOrderItems([{ productId: 'prod_1', variantId: 'var_1', quantity: 3 }]);
+    assert.equal(res.error, undefined);
+    assert.equal(res.items?.length, 1);
+    assert.equal(res.items?.[0].productId, 'prod_1');
+    assert.equal(res.items?.[0].variantId, 'var_1');
+    assert.equal(res.items?.[0].quantity, 3);
+  });
 });
 
 describe('Order Validation - buildValidatedOrderItems', () => {
@@ -72,5 +81,105 @@ describe('Order Validation - buildValidatedOrderItems', () => {
     assert.equal(res.subtotal, 200_000);
     assert.equal(res.shippingFee, 30_000);
     assert.equal(res.totalAmount, 230_000);
+  });
+
+  it('should require variant selection if product has active variants', () => {
+    const productsWithVariants = [
+      {
+        id: 'p_var',
+        name: 'Áo thun có size',
+        price: 150_000,
+        stock: 50,
+        isActive: true,
+        variants: [
+          { id: 'v_s', productId: 'p_var', title: 'Size S', price: 150_000, stock: 5, isActive: true },
+          { id: 'v_m', productId: 'p_var', title: 'Size M', price: 160_000, stock: 10, isActive: true },
+        ],
+      },
+    ] as unknown as Product[];
+
+    const res = buildValidatedOrderItems([{ productId: 'p_var', quantity: 1 }], productsWithVariants);
+    assert.ok(res.error);
+    assert.match(res.error!, /chọn phân loại/);
+  });
+
+  it('should return error if variant does not exist or is inactive', () => {
+    const productsWithVariants = [
+      {
+        id: 'p_var',
+        name: 'Áo thun',
+        price: 150_000,
+        stock: 50,
+        isActive: true,
+        variants: [
+          { id: 'v_active', productId: 'p_var', title: 'Size S', price: 150_000, stock: 5, isActive: true },
+          { id: 'v_inactive', productId: 'p_var', title: 'Size M', price: 160_000, stock: 10, isActive: false },
+        ],
+      },
+    ] as unknown as Product[];
+
+    const resMissing = buildValidatedOrderItems(
+      [{ productId: 'p_var', variantId: 'v_non_existent', quantity: 1 }],
+      productsWithVariants
+    );
+    assert.ok(resMissing.error);
+    assert.match(resMissing.error!, /không tồn tại/);
+
+    const resInactive = buildValidatedOrderItems(
+      [{ productId: 'p_var', variantId: 'v_inactive', quantity: 1 }],
+      productsWithVariants
+    );
+    assert.ok(resInactive.error);
+    assert.match(resInactive.error!, /ngừng bán/);
+  });
+
+  it('should return error if quantity exceeds variant stock', () => {
+    const productsWithVariants = [
+      {
+        id: 'p_var',
+        name: 'Áo thun',
+        price: 150_000,
+        stock: 50,
+        isActive: true,
+        variants: [
+          { id: 'v_s', productId: 'p_var', title: 'Size S', price: 150_000, stock: 3, isActive: true },
+        ],
+      },
+    ] as unknown as Product[];
+
+    const res = buildValidatedOrderItems(
+      [{ productId: 'p_var', variantId: 'v_s', quantity: 5 }],
+      productsWithVariants
+    );
+    assert.ok(res.error);
+    assert.match(res.error!, /chỉ còn 3/);
+  });
+
+  it('should calculate totals using variant price and include variant metadata', () => {
+    const productsWithVariants = [
+      {
+        id: 'p_var',
+        name: 'Áo thun',
+        price: 150_000,
+        stock: 50,
+        isActive: true,
+        variants: [
+          { id: 'v_xl', productId: 'p_var', title: 'Size XL', price: 180_000, stock: 10, isActive: true },
+        ],
+      },
+    ] as unknown as Product[];
+
+    const res = buildValidatedOrderItems(
+      [{ productId: 'p_var', variantId: 'v_xl', quantity: 2 }],
+      productsWithVariants
+    );
+    assert.equal(res.error, undefined);
+    assert.equal(res.orderItems?.length, 1);
+    assert.equal(res.orderItems?.[0].variantId, 'v_xl');
+    assert.equal(res.orderItems?.[0].variantTitle, 'Size XL');
+    assert.equal(res.orderItems?.[0].price, 180_000);
+    assert.equal(res.subtotal, 360_000);
+    assert.equal(res.shippingFee, 30_000);
+    assert.equal(res.totalAmount, 390_000);
   });
 });

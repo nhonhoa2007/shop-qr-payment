@@ -21,6 +21,8 @@ export interface CartItem {
   price: number;
   image?: string;
   quantity: number;
+  variantId?: string | null;
+  variantTitle?: string | null;
 }
 
 export interface OrderItem {
@@ -50,6 +52,7 @@ export interface Order {
   totalAmount: number;
   status: OrderStatus;
   paymentStatus: PaymentStatus;
+  shipment?: Shipment | null;
   qrContent?: string | null;
   note?: string | null;
   expiresAt: Date | string;
@@ -175,3 +178,76 @@ export interface WishlistItem {
   product?: Product;
   createdAt: Date | string;
 }
+
+export type CarrierName = 'GHN' | 'GHTK' | 'VIETTEL_POST';
+
+export type ShipmentStatus =
+  | 'READY_TO_PICK'
+  | 'PICKING'
+  | 'DELIVERING'
+  | 'DELIVERED'
+  | 'RETURNED'
+  | 'CANCELLED';
+
+export interface Shipment {
+  id: string;
+  orderId: string;
+  carrier: CarrierName;
+  trackingCode: string;
+  shippingFee: number;
+  codAmount: number;
+  status: ShipmentStatus;
+  estimatedArrival?: Date | string | null;
+  shippingLogs?: unknown;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
+
+export type WalletTxType = 'REFUND' | 'PURCHASE_PAYMENT' | 'TOPUP';
+
+export interface WalletTransaction {
+  id: string;
+  walletId: string;
+  amount: number;
+  type: WalletTxType;
+  orderId?: string | null;
+  description: string;
+  createdAt: Date | string;
+}
+
+export interface UserWallet {
+  id: string;
+  userId: string;
+  balance: number;
+  transactions?: WalletTransaction[];
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
+
+export type UserRole = 'CUSTOMER' | 'STAFF' | 'ADMIN';
+
+export interface UserAccount {
+  id: string;
+  email: string;
+  name: string | null;
+  phone: string | null;
+  avatar: string | null;
+  address: string | null;
+  role: UserRole;
+  isVerified: boolean;
+  isBlocked: boolean;
+  createdAt: string;
+  orderCount?: number;
+  paidOrderCount?: number;
+  totalSpent?: number;
+  recentOrders?: Array<{
+    id: string;
+    orderCode: string;
+    totalAmount: number;
+    status: string;
+    paymentStatus: string;
+    createdAt: string;
+  }>;
+}
+
+

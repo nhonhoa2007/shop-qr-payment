@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { useCartStore } from '@/stores/cart-store';
+import { useCartStore } from '@/client/stores/cart-store';
 import { toast } from 'sonner';
+import { ShoppingCart } from 'lucide-react';
 import type { Product } from '@/types';
 
 export function AddToCartButton({ product }: { product: Product }) {
@@ -13,16 +14,17 @@ export function AddToCartButton({ product }: { product: Product }) {
   const handleAddToCart = () => {
     if (isOutOfStock) return;
 
-    for (let i = 0; i < quantity; i++) {
-      addItem({
+    addItem(
+      {
         productId: product.id,
         name: product.name,
         price: product.price,
         image: product.image || undefined,
-      });
-    }
+      },
+      quantity
+    );
 
-    toast.success(`Đã thêm ${quantity} sản phẩm vào giỏ hàng! 🛒`);
+    toast.success(`Đã thêm ${quantity} sản phẩm vào giỏ hàng`);
   };
 
   return (
@@ -55,7 +57,7 @@ export function AddToCartButton({ product }: { product: Product }) {
         onClick={handleAddToCart}
         className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3.5 px-6 rounded-xl transition shadow-sm hover:shadow disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
       >
-        <span>🛒</span>
+        <ShoppingCart className="w-5 h-5" />
         <span>{isOutOfStock ? 'Tạm hết hàng' : 'Thêm vào giỏ hàng'}</span>
       </button>
     </div>

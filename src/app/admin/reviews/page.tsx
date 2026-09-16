@@ -1,10 +1,15 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { redirect } from 'next/navigation';
-import { prisma } from '@/lib/prisma';
-import { ReviewManager } from './review-manager';
+import { AdminService } from '@/server/modules/admin/admin.service';
+import { ReviewManager as AdminReviewsView } from '@/client/views/admin/AdminReviewsView';
+import type { Metadata } from 'next';
 
 export const dynamic = 'force-dynamic';
+
+export const metadata: Metadata = {
+  title: 'Kiểm duyệt đánh giá | Quản trị viên Shop QR',
+};
 
 export default async function AdminReviewsPage() {
   const session = await getServerSession(authOptions);
@@ -12,31 +17,7 @@ export default async function AdminReviewsPage() {
     redirect('/');
   }
 
-  const reviews = await prisma.review.findMany({
-    include: {
-      product: {
-        select: {
-          id: true,
-          name: true,
-          image: true,
-          price: true,
-        },
-      },
-      user: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          avatar: true,
-        },
-      },
-    },
-    orderBy: { createdAt: 'desc' },
-  });
+  const reviews = await AdminService.getAdminReviews();
 
-  return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <ReviewManager initialReviews={JSON.parse(JSON.stringify(reviews))} />
-    </div>
-  );
+  return <AdminReviewsView initialReviews={reviews} />;
 }

@@ -1,10 +1,15 @@
-import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { redirect } from 'next/navigation';
-import { AdminOrderManager, type AdminOrder } from './order-manager';
+import { AdminService } from '@/server/modules/admin/admin.service';
+import { AdminOrderManager as AdminOrdersView } from '@/client/views/admin/AdminOrdersView';
+import type { Metadata } from 'next';
 
 export const dynamic = 'force-dynamic';
+
+export const metadata: Metadata = {
+  title: 'Quản lý đơn hàng | Quản trị viên Shop QR',
+};
 
 export default async function AdminOrdersPage() {
   const session = await getServerSession(authOptions);
@@ -12,35 +17,11 @@ export default async function AdminOrdersPage() {
     redirect('/');
   }
 
-  const orders = await prisma.order.findMany({
-    include: {
-      items: { include: { product: true } },
-      transaction: true,
-      user: { select: { id: true, name: true, email: true } },
-    },
-    orderBy: { createdAt: 'desc' },
-  });
-  const serializedOrders: AdminOrder[] = orders.map((order) => ({
-    ...order,
-    customerEmail: order.customerEmail || undefined,
-    note: order.note || undefined,
-    createdAt: order.createdAt.toISOString(),
-    status: order.status,
-    paymentStatus: order.paymentStatus,
-    items: order.items.map((item) => ({
-      id: item.id,
-      quantity: item.quantity,
-      price: item.price,
-      product: {
-        name: item.product.name,
-        image: item.product.image || undefined,
-      },
-    })),
-  }));
+  const serializedOrders = await AdminService.getAdminOrders();
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
-      <AdminOrderManager initialOrders={serializedOrders} />
+      <AdminOrdersView initialOrders={serializedOrders} />
     </div>
   );
 }
