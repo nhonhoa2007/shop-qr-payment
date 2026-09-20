@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { useChatMessages } from '@/client/hooks/useChatMessages';
+import { useChatMessages } from '@client/hooks/useChatMessages';
 import { MessageBubble } from './MessageBubble';
 import { MessageInput } from './MessageInput';
 import { TypingIndicator } from './TypingIndicator';
 import { MessageSquare } from 'lucide-react';
-import type { Message } from '@/types';
+import type { Message } from '@shared/types';
 
 interface ChatWindowProps {
   roomId: string;

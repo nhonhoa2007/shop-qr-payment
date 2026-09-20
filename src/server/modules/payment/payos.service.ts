@@ -20,12 +20,13 @@ export interface PayOSCreatePaymentParams {
 
 export interface PayOSCreatePaymentResult {
   success: boolean;
-  checkoutUrl: string;
-  paymentLinkId: string;
-  orderCode: number;
+  checkoutUrl?: string;
+  paymentLinkId?: string;
+  orderCode?: number;
   qrCode?: string;
-  source: 'PAYOS_API' | 'MOCK';
+  source?: 'PAYOS_API' | 'MOCK';
   rawResponse?: unknown;
+  error?: string;
 }
 
 export interface PayOSWebhookData {
@@ -73,7 +74,20 @@ export function generatePayOSRequestSignature(
 }
 
 /**
- * Xác thực tính hợp lệ của chữ ký Webhook từ PayOS bằng HMAC-SHA256 và so sánh an toàn timingSafeEqual
+ * Xác thực tính hợp lệ của chữ ký Webhook từ cổng thanh toán PayOS bằng thuật toán HMAC-SHA256
+ *
+ * @param data - Dữ liệu payload webhook (`body.data`) chứa thông tin giao dịch thanh toán
+ * @param signature - Chữ ký số nhận được từ header/body của request PayOS
+ * @param checksumKey - Khóa bí mật `PAYOS_CHECKSUM_KEY` cấu hình trong biến môi trường
+ * @returns `true` nếu chữ ký hợp lệ và payload nguyên vẹn; `false` nếu bị giả mạo hoặc sai khóa
+ *
+ * @security Protocol
+ * 1. Sắp xếp thuộc tính (Deterministic Key Sorting):
+ *    - PayOS quy định toàn bộ các khóa trong object `data` phải được sort theo thứ tự từ điển A-Z (`Object.keys(data).sort()`).
+ * 2. Chuẩn hóa Query String: Ghép nối dạng `key1=val1&key2=val2`.
+ * 3. Chống tấn công dò thời gian (Timing Attack Protection):
+ *    - Sử dụng `crypto.timingSafeEqual(sigBuf, compBuf)` để so sánh hai chuỗi băm trong thời gian hằng số,
+ *      ngăn chặn kẻ tấn công suy đoán byte chữ ký dựa trên độ trễ phản hồi mạng.
  */
 export function verifyPayOSWebhookSignature(
   data: Record<string, unknown>,
@@ -122,14 +136,30 @@ export function parsePayOSOrderCode(orderCodeStr: string): number {
 }
 
 /**
- * Khởi tạo liên kết thanh toán PayOS
+ * Khởi tạo liên kết thanh toán PayOS và tạo mã VietQR động theo chuẩn Napas247
+ *
+ * @param params - Thông tin tạo phiên thanh toán (`orderCode`, `amount`, `description`, `cancelUrl`, `returnUrl`)
+ * @returns `PayOSCreatePaymentResult` chứa checkoutUrl, paymentLinkId, mã QR và nguồn dữ liệu (PAYOS_API hoặc MOCK)
+ *
+ * @security & Production Fail-Closed Invariant (SEC-02)
+ * 1. Môi trường Production (`NODE_ENV === 'production'`):
+ *    - Áp dụng cơ chế **Fail-Closed**: Tuyệt đối không fallback sang trang giả lập Mock Checkout.
+ *    - Nếu thiếu thông tin API credentials hoặc đối tác gặp sự cố, trả về lỗi rõ ràng để bảo vệ an toàn tài chính.
+ * 2. Môi trường Development / Test:
+ *    - Cho phép tự động fallback sang Mock Checkout (`/payment/payos-checkout`) giúp lập trình viên kiểm thử luồng thanh toán ngoại tuyến.
  */
 export async function createPayOSPaymentLink(
   params: PayOSCreatePaymentParams
 ): Promise<PayOSCreatePaymentResult> {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const clientId = PAYOS_CLIENT_ID || process.env.PAYOS_CLIENT_ID || '';
+  const apiKey = PAYOS_API_KEY || process.env.PAYOS_API_KEY || '';
+  const checksumKey = PAYOS_CHECKSUM_KEY || process.env.PAYOS_CHECKSUM_KEY || '';
+  const apiUrl = PAYOS_API_URL || process.env.PAYOS_API_URL || 'https://api-merchant.payos.vn/v2';
+
   const cleanDescription = params.description.slice(0, 25);
 
-  if (PAYOS_CLIENT_ID && PAYOS_API_KEY && PAYOS_CHECKSUM_KEY) {
+  if (clientId && apiKey && checksumKey) {
     try {
       const signature = generatePayOSRequestSignature(
         {
@@ -139,7 +169,7 @@ export async function createPayOSPaymentLink(
           orderCode: params.orderCode,
           returnUrl: params.returnUrl,
         },
-        PAYOS_CHECKSUM_KEY
+        checksumKey
       );
 
       const requestBody = {
@@ -152,12 +182,12 @@ export async function createPayOSPaymentLink(
         signature,
       };
 
-      const res = await fetch(`${PAYOS_API_URL}/payment-requests`, {
+      const res = await fetch(`${apiUrl}/payment-requests`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-client-id': PAYOS_CLIENT_ID,
-          'x-api-key': PAYOS_API_KEY,
+          'x-client-id': clientId,
+          'x-api-key': apiKey,
         },
         body: JSON.stringify(requestBody),
       });
@@ -179,6 +209,15 @@ export async function createPayOSPaymentLink(
     } catch (error) {
       console.warn('PayOS API call failed, falling back to mock checkout:', error);
     }
+  }
+
+  // Môi trường production tuyệt đối KHÔNG fallback sang mock checkout
+  if (isProduction) {
+    console.error('[PayOS] Cổng thanh toán PayOS tạm thời không khả dụng trong môi trường production');
+    return {
+      success: false,
+      error: 'Cổng thanh toán PayOS tạm thời không khả dụng',
+    };
   }
 
   // Fallback Mock link an toàn cho dev/testing

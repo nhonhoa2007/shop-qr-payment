@@ -85,8 +85,10 @@ describe('Shop Wallet - refundOrderToWallet (Refund Engine)', () => {
 
   it('should refund 100% money into user wallet and record transaction for member orders', async () => {
     let orderUpdatedData: unknown = null;
+    let orderUpdatedWhere: unknown = null;
     let walletIncrementArgs: unknown = null;
     let txCreatedArgs: unknown = null;
+    let productStockIncrementArgs: unknown = null;
 
     const fakeOrder = {
       id: 'ord_paid_123',
@@ -95,6 +97,9 @@ describe('Shop Wallet - refundOrderToWallet (Refund Engine)', () => {
       totalAmount: 350_000,
       paymentStatus: 'PAID',
       status: 'PROCESSING',
+      items: [
+        { productId: 'prod_101', quantity: 2, variantId: null },
+      ],
     };
 
     const fakeWallet = {
@@ -106,10 +111,20 @@ describe('Shop Wallet - refundOrderToWallet (Refund Engine)', () => {
     const fakeTx = {
       order: {
         findUnique: async () => fakeOrder,
-        update: async (args: { data: unknown }) => {
+        updateMany: async (args: { where: unknown; data: unknown }) => {
+          orderUpdatedWhere = args.where;
           orderUpdatedData = args.data;
+          return { count: 1 };
+        },
+      },
+      product: {
+        update: async (args: unknown) => {
+          productStockIncrementArgs = args;
           return {};
         },
+      },
+      productVariant: {
+        update: async () => ({}),
       },
       userWallet: {
         findUnique: async () => fakeWallet,
@@ -133,9 +148,19 @@ describe('Shop Wallet - refundOrderToWallet (Refund Engine)', () => {
     assert.equal(res.newBalance, 450_000);
     assert.equal(res.transactionId, 'wtx_ref_001');
 
+    assert.deepEqual(orderUpdatedWhere, {
+      id: fakeOrder.id,
+      paymentStatus: 'PAID',
+    });
+
     assert.deepEqual(orderUpdatedData, {
       paymentStatus: 'REFUNDED',
       status: 'CANCELLED',
+    });
+
+    assert.deepEqual(productStockIncrementArgs, {
+      where: { id: 'prod_101' },
+      data: { stock: { increment: 2 } },
     });
 
     assert.deepEqual(walletIncrementArgs, {
@@ -151,6 +176,80 @@ describe('Shop Wallet - refundOrderToWallet (Refund Engine)', () => {
         orderId: fakeOrder.id,
         description: 'Khách yêu cầu hủy đơn',
       },
+    });
+  });
+
+  it('should reject refund if atomic CAS update fails (count !== 1) to prevent double-refund race condition', async () => {
+    const fakeOrder = {
+      id: 'ord_cas_fail',
+      orderCode: 'DH7777',
+      userId: 'user_456',
+      totalAmount: 200_000,
+      paymentStatus: 'PAID',
+      status: 'PROCESSING',
+      items: [],
+    };
+
+    const fakeTx = {
+      order: {
+        findUnique: async () => fakeOrder,
+        updateMany: async () => ({ count: 0 }),
+      },
+    } as unknown as TxClient;
+
+    const res = await refundOrderToWallet(fakeTx, fakeOrder.id);
+    assert.equal(res.success, false);
+    assert.match(res.error!, /Đơn hàng đã được xử lý hoàn tiền hoặc không ở trạng thái hợp lệ/);
+  });
+
+  it('should release variant stock and base product stock when refunding order with multiple items', async () => {
+    const variantUpdated: unknown[] = [];
+    const productUpdated: unknown[] = [];
+
+    const fakeOrder = {
+      id: 'ord_multi_items',
+      orderCode: 'DH6666',
+      userId: null,
+      totalAmount: 500_000,
+      paymentStatus: 'PAID',
+      status: 'PROCESSING',
+      items: [
+        { productId: 'p1', variantId: 'v1', quantity: 3 },
+        { productId: 'p2', variantId: null, quantity: 1 },
+      ],
+    };
+
+    const fakeTx = {
+      order: {
+        findUnique: async () => fakeOrder,
+        updateMany: async () => ({ count: 1 }),
+      },
+      productVariant: {
+        update: async (args: unknown) => {
+          variantUpdated.push(args);
+          return {};
+        },
+      },
+      product: {
+        update: async (args: unknown) => {
+          productUpdated.push(args);
+          return {};
+        },
+      },
+    } as unknown as TxClient;
+
+    const res = await refundOrderToWallet(fakeTx, fakeOrder.id);
+    assert.equal(res.success, true);
+    assert.equal(res.isGuest, true);
+    assert.equal(variantUpdated.length, 1);
+    assert.deepEqual(variantUpdated[0], {
+      where: { id: 'v1' },
+      data: { stock: { increment: 3 } },
+    });
+    assert.equal(productUpdated.length, 1);
+    assert.deepEqual(productUpdated[0], {
+      where: { id: 'p2' },
+      data: { stock: { increment: 1 } },
     });
   });
 });

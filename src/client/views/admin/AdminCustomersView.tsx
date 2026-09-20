@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { formatVND, formatDateTime, getStatusColor, getStatusLabel } from '@/lib/utils';
+import { formatVND, formatDateTime, getStatusColor, getStatusLabel } from '@shared/utils';
 import {
   Users,
   Search,
@@ -58,7 +58,7 @@ interface ConfirmState {
   action: () => Promise<void>;
 }
 
-export function CustomerManager({ initialCustomers }: { initialCustomers: CustomerItem[] }) {
+export function AdminCustomersView({ initialCustomers }: { initialCustomers: CustomerItem[] }) {
   const [customers, setCustomers] = useState<CustomerItem[]>(() =>
     initialCustomers.map((c) => ({
       ...c,
@@ -784,4 +784,4 @@ export function CustomerManager({ initialCustomers }: { initialCustomers: Custom
   );
 }
 
-export { CustomerManager as AdminCustomersView };
+export { AdminCustomersView as CustomerManager, AdminCustomersView as default };

@@ -1,4 +1,4 @@
-import { prisma } from '@/server/database/prisma';
+import { prisma } from '@server/database/prisma';
 import type { Product } from '@/types';
 
 export class CatalogService {

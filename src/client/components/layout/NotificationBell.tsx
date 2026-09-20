@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useNotificationStore } from '@/client/stores/notification-store';
-import { NotificationDropdown } from '@/client/components/notification/NotificationDropdown';
+import { useNotificationStore } from '@client/stores/notification-store';
+import { NotificationDropdown } from '@client/components/notification/NotificationDropdown';
 
 export function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);

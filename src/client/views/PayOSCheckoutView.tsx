@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { formatVND } from '@/lib/utils';
+import { formatVND } from '@shared/utils';
 import { ShieldCheck, ArrowLeft, CheckCircle2, XCircle, Loader2, QrCode } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';

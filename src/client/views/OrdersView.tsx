@@ -1,6 +1,6 @@
 'use client';
 
-import { formatVND, formatDateTime, getStatusLabel, getStatusColor } from '@/lib/utils';
+import { formatVND, formatDateTime, getStatusLabel, getStatusColor } from '@shared/utils';
 import Link from 'next/link';
 import { Package } from 'lucide-react';
 

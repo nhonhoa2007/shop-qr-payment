@@ -13,6 +13,22 @@ export interface CouponValidationResult {
   };
 }
 
+/**
+ * Thẩm định tính hợp lệ và điều kiện áp dụng mã giảm giá (Voucher Validation Engine)
+ *
+ * @param code - Mã khuyến mãi do người dùng nhập vào (sẽ được trim và uppercase)
+ * @param userId - ID người dùng hiện tại (nếu là khách vãng lai thì truyền `null`)
+ * @param subtotal - Tổng giá trị tiền hàng của đơn trước khi áp mã
+ * @returns `CouponValidationResult` chứa trạng thái `valid: boolean`, thông báo lỗi (nếu có) và chi tiết mức giảm
+ *
+ * @business Rules & Constraints
+ * 1. Trạng thái kích hoạt: Mã phải tồn tại và có `isActive: true`.
+ * 2. Hiệu lực thời gian: Thời điểm hiện tại `now` phải nằm trong khoảng `startDate <= now <= endDate`.
+ * 3. Hạn mức toàn hệ thống: Số lượt đã dùng `userUsages` không được vượt quá tổng hạn mức `usageLimit`.
+ * 4. Ngưỡng giá trị đơn tối thiểu: `subtotal >= minOrderAmount`.
+ * 5. Hạn mức theo từng tài khoản: Nếu đã đăng nhập (`userId` khác null), kiểm tra số lần tài khoản này
+ *    đã dùng mã không vượt quá `perUserLimit` (thường là 1 lần/người).
+ */
 export async function validateCoupon(
   code: string,
   userId: string | null,

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { formatVND, formatDateTime } from '@/lib/utils';
+import { formatVND, formatDateTime } from '@shared/utils';
 import { toast } from 'sonner';
 import {
   CreditCard,
@@ -39,7 +39,7 @@ export interface AdminTransactionItem {
   } | null;
 }
 
-export function TransactionManager({
+export function AdminTransactionsView({
   initialTransactions,
 }: {
   initialTransactions: AdminTransactionItem[];
@@ -426,3 +426,5 @@ export function TransactionManager({
     </div>
   );
 }
+
+export { AdminTransactionsView as TransactionManager, AdminTransactionsView as default };

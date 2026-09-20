@@ -1,7 +1,7 @@
 import { prisma } from './prisma';
 import { resend } from './resend';
-import { OtpVerificationEmail } from '@/emails/OtpVerification';
-import { PasswordResetEmail } from '@/emails/PasswordResetEmail';
+import { OtpVerificationEmail } from '@server/emails/OtpVerification';
+import { PasswordResetEmail } from '@server/emails/PasswordResetEmail';
 import {
   normalizeEmail,
   generateOtp,

@@ -1,16 +1,17 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { prisma } from '@/lib/prisma';
-import { generateVietQRUrl, getBankInfo } from '@/lib/vietqr';
-import { generateOrderCode } from '@/lib/utils';
-import { createNotification } from '@/lib/notifications';
+import { prisma } from '@server/database/prisma';
+import { generateVietQRUrl, getBankInfo } from '@server/modules/payment/vietqr.service';
+import { generateOrderCode } from '@shared/utils';
+import { createNotification } from '@server/modules/notifications/notifications.service';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { parseOrderItems, buildValidatedOrderItems } from '@/lib/order-validation';
-import { expireUnpaidOrders, reserveOrderStock } from '@/lib/inventory';
+import { expireUnpaidOrders, reserveOrderStock } from '@server/modules/inventory/inventory.service';
 import { normalizeEmail } from '@/lib/otp';
 import { validateCoupon } from '@/lib/coupon';
 import { calculateDiscount } from '@/lib/checkout';
-import { checkDistributedRateLimit, getClientIp } from '@/lib/rate-limit';
+import { checkDistributedRateLimit, getClientIp } from '@server/infrastructure/rate-limit';
+import { pusherServer } from '@server/infrastructure/pusher';
 
 interface CreateOrderBody {
   items?: unknown;
@@ -199,6 +200,15 @@ export async function POST(req: Request) {
         message: `${customerName} - ${finalTotalAmount.toLocaleString('vi-VN')}đ`,
         data: { orderId: order.id, orderCode },
       });
+    }
+
+    try {
+      await pusherServer.trigger('private-admin-channel', 'analytics-updated', {
+        type: 'ORDER_CREATED',
+        timestamp: Date.now(),
+      });
+    } catch (pusherErr) {
+      console.error('[Orders] Pusher admin trigger error:', pusherErr);
     }
 
     return NextResponse.json({

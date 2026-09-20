@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { CatalogService } from '@/server/modules/catalog/catalog.service';
-import { ProductDetailView } from '@/client/views/ProductDetailView';
+import { ProductDetailView } from '@client/views/ProductDetailView';
 import type { Metadata } from 'next';
 
 interface ProductPageProps {

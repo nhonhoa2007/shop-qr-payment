@@ -4,6 +4,7 @@ import {
   mapGHNStatusToShipmentStatus,
   calculateGHNFee,
   createGHNShipment,
+  verifyGHNWebhookAuth,
 } from '../src/lib/ghn.ts';
 
 describe('GHN Logistics - Status Mapping', () => {
@@ -115,5 +116,70 @@ describe('GHN Logistics - Shipment Creation', () => {
     assert.equal(res.carrier, 'GHN');
     assert.equal(res.shippingFee, 30_000);
     assert.ok(res.expectedDeliveryTime instanceof Date);
+  });
+});
+
+describe('GHN Logistics - Webhook Authentication (SEC-01)', () => {
+  const validSecret = 'ghn_secret_token_abcdef123';
+
+  it('should fail-closed with 500 in production when GHN_WEBHOOK_TOKEN is not configured', () => {
+    const req = new Request('http://localhost/api/webhooks/ghn', { method: 'POST' });
+    const res = verifyGHNWebhookAuth(req, undefined, 'production');
+    assert.equal(res.authorized, false);
+    assert.equal(res.status, 500);
+    assert.match(res.error!, /chưa được cấu hình bảo mật/);
+
+    const resEmpty = verifyGHNWebhookAuth(req, '   ', 'production');
+    assert.equal(resEmpty.authorized, false);
+    assert.equal(resEmpty.status, 500);
+  });
+
+  it('should allow requests in development when GHN_WEBHOOK_TOKEN is not configured (with warning)', () => {
+    const req = new Request('http://localhost/api/webhooks/ghn', { method: 'POST' });
+    const res = verifyGHNWebhookAuth(req, undefined, 'development');
+    assert.equal(res.authorized, true);
+  });
+
+  it('should reject requests with 401 when token is missing and token is configured', () => {
+    const req = new Request('http://localhost/api/webhooks/ghn', { method: 'POST' });
+    const res = verifyGHNWebhookAuth(req, validSecret, 'production');
+    assert.equal(res.authorized, false);
+    assert.equal(res.status, 401);
+  });
+
+  it('should reject requests with 401 when token is invalid or wrong length', () => {
+    const reqWrong = new Request('http://localhost/api/webhooks/ghn', {
+      method: 'POST',
+      headers: { token: 'wrong_token' },
+    });
+    const resWrong = verifyGHNWebhookAuth(reqWrong, validSecret, 'production');
+    assert.equal(resWrong.authorized, false);
+    assert.equal(resWrong.status, 401);
+
+    const reqDiffLen = new Request('http://localhost/api/webhooks/ghn', {
+      method: 'POST',
+      headers: { token: 'short' },
+    });
+    const resDiffLen = verifyGHNWebhookAuth(reqDiffLen, validSecret, 'production');
+    assert.equal(resDiffLen.authorized, false);
+    assert.equal(resDiffLen.status, 401);
+  });
+
+  it('should authorize requests with valid "token" header', () => {
+    const req = new Request('http://localhost/api/webhooks/ghn', {
+      method: 'POST',
+      headers: { token: validSecret },
+    });
+    const res = verifyGHNWebhookAuth(req, validSecret, 'production');
+    assert.equal(res.authorized, true);
+  });
+
+  it('should authorize requests with valid "x-ghn-token" header', () => {
+    const req = new Request('http://localhost/api/webhooks/ghn', {
+      method: 'POST',
+      headers: { 'x-ghn-token': validSecret },
+    });
+    const res = verifyGHNWebhookAuth(req, validSecret, 'production');
+    assert.equal(res.authorized, true);
   });
 });

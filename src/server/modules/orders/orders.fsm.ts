@@ -19,6 +19,25 @@ export function isPaymentStatus(value: unknown): value is PaymentStatus {
   return typeof value === 'string' && PAYMENT_STATUSES.includes(value as PaymentStatus);
 }
 
+/**
+ * Bộ kiểm tra hợp lệ của Cỗ máy hữu hạn trạng thái đơn hàng (Order Finite State Machine - FSM)
+ *
+ * @param params.currentStatus - Trạng thái xử lý đơn hàng hiện tại
+ * @param params.currentPaymentStatus - Trạng thái thanh toán hiện tại
+ * @param params.nextStatus - Trạng thái xử lý đơn hàng dự kiến chuyển tiếp
+ * @param params.nextPaymentStatus - Trạng thái thanh toán dự kiến chuyển tiếp
+ * @returns `null` nếu bước chuyển trạng thái hợp lệ; chuỗi `string` thông báo lỗi nếu vi phạm luật FSM
+ *
+ * @invariants & Business State Rules
+ * 1. Đơn hàng đã hủy (Terminal State):
+ *    - `CANCELLED` là trạng thái kết thúc (Terminal State). Tuyệt đối không cho phép đổi sang bất kỳ trạng thái nào khác.
+ * 2. Đơn quá hạn thanh toán (Expired Invariant):
+ *    - Khi `currentPaymentStatus === 'EXPIRED'`, không được phép đổi sang `PAID` qua luồng cập nhật thông thường
+ *      (buộc phải qua luồng đối soát thủ công hoặc yêu cầu tạo đơn mới để kiểm tra lại tồn kho).
+ * 3. Ràng buộc giao hàng & hoàn tất (Payment Requirement):
+ *    - Không được chuyển đơn sang `SHIPPING` hoặc `COMPLETED` nếu `effectivePaymentStatus !== 'PAID'`.
+ *      (Đảm bảo nguyên tắc không bao giờ giao hàng hoặc đóng đơn cho đơn chưa trả tiền).
+ */
 export function validateOrderTransition(params: {
   currentStatus: OrderStatus;
   currentPaymentStatus: PaymentStatus;

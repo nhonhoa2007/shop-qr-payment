@@ -2,7 +2,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { redirect } from 'next/navigation';
 import { AdminService } from '@/server/modules/admin/admin.service';
-import { CustomerManager as AdminCustomersView } from '@/client/views/admin/AdminCustomersView';
+import { AdminCustomersView } from '@client/views/admin/AdminCustomersView';
 import type { Metadata } from 'next';
 
 export const dynamic = 'force-dynamic';

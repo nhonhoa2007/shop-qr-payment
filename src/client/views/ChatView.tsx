@@ -1,8 +1,8 @@
 'use client';
 
-import { ChatRoomList } from '@/client/components/chat/ChatRoomList';
+import { ChatRoomList } from '@client/components/chat/ChatRoomList';
 import { MessageSquare, Inbox } from 'lucide-react';
-import type { ChatRoom } from '@/types';
+import type { ChatRoom } from '@shared/types';
 
 export interface ChatViewProps {
   rooms: ChatRoom[];

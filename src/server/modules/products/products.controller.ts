@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@server/database/prisma';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import {
   buildProductCacheKey,
   getCachedProductList,
   setCachedProductList,
   invalidateProductCache,
-} from '@/lib/redis';
+} from '@server/infrastructure/redis';
 
 interface ProductBody {
   id?: unknown;

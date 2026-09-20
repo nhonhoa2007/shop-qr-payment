@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useCartStore } from '@/client/stores/cart-store';
-import { formatVND } from '@/lib/utils';
+import { useCartStore } from '@client/stores/cart-store';
+import { formatVND } from '@shared/utils';
 import { Heart, Trash2, ArrowLeft, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 

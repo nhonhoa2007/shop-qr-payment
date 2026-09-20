@@ -103,6 +103,27 @@ export function validateUserUpdatePayload(body: unknown): {
   };
 }
 
+/**
+ * Cập nhật vai trò (Role) và trạng thái khóa/xác thực tài khoản người dùng (RBAC Management Engine)
+ *
+ * @param params.adminId - ID của Quản trị viên đang thực hiện thao tác
+ * @param params.userId - ID của người dùng mục tiêu cần cập nhật
+ * @param params.role - Vai trò mới (`CUSTOMER`, `STAFF`, hoặc `ADMIN`)
+ * @param params.isBlocked - Cờ khóa tài khoản (`true`: khóa, `false`: mở khóa)
+ * @param params.isVerified - Cờ xác thực tài khoản thủ công
+ * @param prismaUser - Prisma delegate của bảng User
+ * @returns `UpdateUserResult` chứa thông tin user sau khi cập nhật hoặc mã lỗi
+ *
+ * @security Invariants & Safety Guards
+ * 1. Chống tự khóa tài khoản (Self-Lockout Guard):
+ *    - Admin không được phép tự đặt `isBlocked = true` cho chính tài khoản của mình (`userId === adminId`),
+ *      ngăn chặn việc hệ thống mất quyền quản trị do sơ suất.
+ * 2. Bảo vệ Admin duy nhất (Sole Admin Protection):
+ *    - Nếu tài khoản mục tiêu là `ADMIN` và có yêu cầu hạ quyền xuống `STAFF` hoặc `CUSTOMER`,
+ *      hệ thống kiểm tra tổng số lượng Admin trong DB. Nếu `adminCount <= 1`, từ chối thao tác ngay lập tức
+ *      để đảm bảo hệ thống luôn có ít nhất 1 Super Admin quản trị.
+ * 3. Bảo vệ tính toàn vẹn dữ liệu: Validate các giá trị role hợp lệ theo Enum.
+ */
 export async function updateUserRbac(
   params: UpdateUserParams,
   prismaUser: UserPrismaRbacDelegate
@@ -186,6 +207,22 @@ export async function updateUserRbac(
   };
 }
 
+/**
+ * Ủy quyền và xác thực đăng nhập qua Email/Mật khẩu cho NextAuth (Credentials Authorization Engine)
+ *
+ * @param params.credentials - Dữ liệu form đăng nhập chứa `email` và `password`
+ * @param params.prismaUser - Prisma delegate để tra cứu người dùng theo email
+ * @param params.comparePassword - Hàm so sánh mật khẩu mã hóa (mặc định: `bcrypt.compare`)
+ * @returns Thông tin định danh của người dùng (`id`, `email`, `name`, `role`, `isBlocked`) hoặc `null` nếu xác thực thất bại
+ * @throws `Error` nếu tài khoản đang bị quản trị viên khóa (`isBlocked === true`)
+ *
+ * @security Protocol
+ * 1. Chuẩn hóa Email: Trim khoảng trắng và chuyển chữ thường để tránh phân mảnh tài khoản.
+ * 2. Xác thực kích hoạt: Chặn đăng nhập nếu tài khoản chưa hoàn tất xác thực OTP (`isVerified === false`).
+ * 3. Chặn tài khoản bị khóa (Account Lockout Enforcement):
+ *    - Ném lỗi thông báo rõ ràng "Tài khoản của bạn đã bị tạm khóa..." để NextAuth chuyển tiếp tới UI.
+ * 4. So sánh mật khẩu an toàn: Sử dụng `bcrypt.compare` chống tấn công phân tích thời gian thực thi (Timing Attack).
+ */
 export async function authorizeCredentialsLogin({
   credentials,
   prismaUser,

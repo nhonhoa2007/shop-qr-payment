@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { OtpInput } from '@/client/components/auth/OtpInput';
+import { OtpInput } from '@client/components/auth/OtpInput';
 import { Mail, CheckCircle2 } from 'lucide-react';
 
 function VerifyOtpContent() {

@@ -1,6 +1,6 @@
 'use client';
 
-import { RegisterForm } from '@/client/components/auth/RegisterForm';
+import { RegisterForm } from '@client/components/auth/RegisterForm';
 
 export function RegisterView() {
   return (

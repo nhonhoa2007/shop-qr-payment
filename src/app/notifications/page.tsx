@@ -2,7 +2,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { redirect } from 'next/navigation';
 import { NotificationsService } from '@/server/modules/notifications/notifications.service';
-import { NotificationsView } from '@/client/views/NotificationsView';
+import { NotificationsView } from '@client/views/NotificationsView';
 
 export const dynamic = 'force-dynamic';
 

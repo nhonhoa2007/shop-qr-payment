@@ -1,15 +1,15 @@
 import { NextResponse } from 'next/server';
 import crypto from 'node:crypto';
 import { Prisma } from '@prisma/client';
-import { prisma } from '@/lib/prisma';
-import { createNotification } from '@/lib/notifications';
-import { pusherServer } from '@/lib/pusher-server';
+import { prisma } from '@server/database/prisma';
+import { createNotification } from '@server/modules/notifications/notifications.service';
+import { pusherServer } from '@server/infrastructure/pusher';
 import {
   type BankTransactionPayload,
   getTransactionId,
   parseOrderCodeFromDescription,
   evaluateWebhookDecision,
-} from '@/lib/payment-parser';
+} from '@server/modules/payment/vietqr-parser.service';
 
 interface CassoWebhookBody {
   data?: BankTransactionPayload[];
@@ -138,6 +138,15 @@ export async function POST(req: Request) {
             createdAt: message.createdAt.toISOString(),
           });
         }
+      }
+
+      try {
+        await pusherServer.trigger('private-admin-channel', 'analytics-updated', {
+          type: 'CASSO_PAYMENT',
+          timestamp: Date.now(),
+        });
+      } catch (pusherErr) {
+        console.error('[Casso Webhook] Pusher admin trigger error:', pusherErr);
       }
     }
 

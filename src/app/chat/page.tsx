@@ -2,7 +2,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { redirect } from 'next/navigation';
 import { ChatService } from '@/server/modules/chat/chat.service';
-import { ChatView } from '@/client/views/ChatView';
+import { ChatView } from '@client/views/ChatView';
 import type { Metadata } from 'next';
 
 export const dynamic = 'force-dynamic';

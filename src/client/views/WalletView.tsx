@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { formatVND, formatDate } from '@/lib/utils';
+import { formatVND, formatDate } from '@shared/utils';
 import { pusherClient } from '@/lib/pusher-client';
 import {
   Wallet,
@@ -18,7 +18,7 @@ import {
   CheckCircle2,
   Lock,
 } from 'lucide-react';
-import type { WalletTransaction, UserWallet } from '@/types';
+import type { WalletTransaction, UserWallet } from '@shared/types';
 
 interface WalletViewProps {
   initialWallet: UserWallet & {

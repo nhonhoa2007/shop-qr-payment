@@ -1,4 +1,4 @@
-import { ForgotPasswordView } from '@/client/views/auth/ForgotPasswordView';
+import { ForgotPasswordView } from '@client/views/auth/ForgotPasswordView';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {

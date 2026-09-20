@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { prisma } from '@/lib/prisma';
-import { pusherServer } from '@/lib/pusher-server';
+import { prisma } from '@server/database/prisma';
+import { pusherServer } from '@server/infrastructure/pusher';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 export async function POST(req: Request) {
@@ -14,6 +14,10 @@ export async function POST(req: Request) {
     const formData = await req.formData();
     const socketId = formData.get('socket_id') as string;
     const channelName = formData.get('channel_name') as string;
+
+    if (channelName === 'private-admin-channel' || channelName.startsWith('private-admin-')) {
+      if (session.user.role !== 'ADMIN') return new Response('Forbidden', { status: 403 });
+    }
 
     if (channelName.startsWith('private-chat-')) {
       const roomId = channelName.replace('private-chat-', '');

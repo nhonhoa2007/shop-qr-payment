@@ -1,4 +1,4 @@
-import { formatDateTime } from '@/lib/utils';
+import { formatDateTime } from '@shared/utils';
 import {
   ShoppingBag,
   Coins,
@@ -9,7 +9,7 @@ import {
   KeyRound,
   Bell,
 } from 'lucide-react';
-import type { Notification } from '@/types';
+import type { Notification } from '@shared/types';
 
 function renderNotificationIcon(type: string) {
   const iconProps = { className: 'w-4 h-4' };

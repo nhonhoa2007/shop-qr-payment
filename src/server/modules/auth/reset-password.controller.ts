@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@server/database/prisma';
 import { normalizeEmail, verifyOtp } from '@/lib/otp';
-import { checkDistributedRateLimit, getClientIp } from '@/lib/rate-limit';
-import { createNotification } from '@/lib/notifications';
+import { checkDistributedRateLimit, getClientIp } from '@server/infrastructure/rate-limit';
+import { createNotification } from '@server/modules/notifications/notifications.service';
 
 interface ResetPasswordBody {
   email?: unknown;

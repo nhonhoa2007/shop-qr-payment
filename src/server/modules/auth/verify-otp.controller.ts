@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@server/database/prisma';
 import { verifyOtp } from '@/lib/otp';
-import { createNotification } from '@/lib/notifications';
+import { createNotification } from '@server/modules/notifications/notifications.service';
 
 interface VerifyOtpBody {
   email?: unknown;

@@ -3,11 +3,11 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { useCartStore } from '@/client/stores/cart-store';
-import { formatVND } from '@/lib/utils';
+import { useCartStore } from '@client/stores/cart-store';
+import { formatVND } from '@shared/utils';
 import { Star, Plus, SlidersHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
-import type { Product } from '@/types';
+import type { Product } from '@shared/types';
 
 export function ProductCard({ product }: { product: Product }) {
   const router = useRouter();

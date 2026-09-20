@@ -1,20 +1,20 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import type { OrderStatus, PaymentStatus } from '@/types';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@server/database/prisma';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { createNotification } from '@/lib/notifications';
-import { pusherServer } from '@/lib/pusher-server';
-import { formatVND } from '@/lib/utils';
-import { releaseOrderStock } from '@/lib/inventory';
-import { createGHNShipment } from '@/lib/ghn';
-import { refundOrderToWallet } from '@/lib/wallet';
+import { createNotification } from '@server/modules/notifications/notifications.service';
+import { pusherServer } from '@server/infrastructure/pusher';
+import { formatVND } from '@shared/utils';
+import { releaseOrderStock } from '@server/modules/inventory/inventory.service';
+import { createGHNShipment } from '@server/modules/shipping/ghn.service';
+import { refundOrderToWallet } from '@server/modules/wallet/wallet.service';
 import {
   STATUS_NOTIFICATION_MAP,
   isOrderStatus,
   isPaymentStatus,
   validateOrderTransition,
-} from '@/lib/order-transitions';
+} from '@server/modules/orders/orders.fsm';
 
 interface UpdateOrderBody {
   status?: unknown;
@@ -117,14 +117,13 @@ export async function PATCH(
         where: { id },
         data: {
           ...(nextStatus && { status: nextStatus }),
-          ...(nextPaymentStatus && { paymentStatus: nextPaymentStatus }),
+          ...(!shouldRefundPaidOrder && nextPaymentStatus && { paymentStatus: nextPaymentStatus }),
         },
         include: { items: { include: { product: true, variant: true } } },
       });
 
       if (shouldRefundPaidOrder) {
         await refundOrderToWallet(tx, currentOrder.id, 'Hủy đơn hàng bởi Quản trị viên');
-        await releaseOrderStock(tx, currentOrder.items);
       } else if (shouldReleaseStock) {
         await releaseOrderStock(tx, currentOrder.items);
 
@@ -254,6 +253,15 @@ export async function PATCH(
           createdAt: new Date().toISOString(),
         });
       }
+    }
+
+    try {
+      await pusherServer.trigger('private-admin-channel', 'analytics-updated', {
+        type: 'ORDER_STATUS_CHANGED',
+        timestamp: Date.now(),
+      });
+    } catch (pusherErr) {
+      console.error('[Order Detail] Pusher admin trigger error:', pusherErr);
     }
 
     return NextResponse.json({ order: updatedOrder });

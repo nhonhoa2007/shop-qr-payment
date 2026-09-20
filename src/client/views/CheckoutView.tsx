@@ -4,9 +4,9 @@ import { useHydrated } from '@/lib/hydration';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { CheckoutForm } from '@/client/components/checkout/CheckoutForm';
-import { useCartStore } from '@/client/stores/cart-store';
-import { formatVND } from '@/lib/utils';
+import { CheckoutForm } from '@client/components/checkout/CheckoutForm';
+import { useCartStore } from '@client/stores/cart-store';
+import { formatVND } from '@shared/utils';
 import { calculateCheckoutTotals } from '@/lib/checkout';
 import { ShieldCheck, ShoppingBag, Package } from 'lucide-react';
 

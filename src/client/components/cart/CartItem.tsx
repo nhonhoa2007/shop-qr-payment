@@ -1,10 +1,10 @@
 'use client';
 
 import Image from 'next/image';
-import { useCartStore } from '@/client/stores/cart-store';
-import { formatVND } from '@/lib/utils';
+import { useCartStore } from '@client/stores/cart-store';
+import { formatVND } from '@shared/utils';
 import { Trash2, Minus, Plus } from 'lucide-react';
-import type { CartItem as CartItemType } from '@/types';
+import type { CartItem as CartItemType } from '@shared/types';
 
 export function CartItem({ item }: { item: CartItemType }) {
   const updateQuantity = useCartStore((s) => s.updateQuantity);

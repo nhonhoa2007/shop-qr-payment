@@ -1,5 +1,5 @@
-import { formatTime } from '@/lib/utils';
-import type { Message } from '@/types';
+import { formatTime } from '@shared/utils';
+import type { Message } from '@shared/types';
 
 export function MessageBubble({ message, isOwn }: { message: Message; isOwn: boolean }) {
   if (message.type === 'SYSTEM') {

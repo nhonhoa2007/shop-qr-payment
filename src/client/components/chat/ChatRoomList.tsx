@@ -1,9 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { formatTime } from '@/lib/utils';
+import { formatTime } from '@shared/utils';
 import { MessageSquare, ShoppingBag } from 'lucide-react';
-import type { ChatRoom } from '@/types';
+import type { ChatRoom } from '@shared/types';
 
 interface ChatRoomListProps {
   rooms: ChatRoom[];

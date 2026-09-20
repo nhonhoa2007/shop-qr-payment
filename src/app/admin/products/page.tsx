@@ -2,7 +2,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { redirect } from 'next/navigation';
 import { AdminService } from '@/server/modules/admin/admin.service';
-import { AdminProductManager as AdminProductsView } from '@/client/views/admin/AdminProductsView';
+import { AdminProductsView } from '@client/views/admin/AdminProductsView';
 import type { Product } from '@/types';
 import type { Metadata } from 'next';
 

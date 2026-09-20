@@ -144,7 +144,25 @@ export function validateResetPasswordInput(body: unknown): {
 }
 
 /**
- * Core sendOtp logic
+ * Lõi sinh mã và gửi OTP xác thực (OTP Generation & Dispatch Engine)
+ *
+ * @param params.rawEmail - Địa chỉ email người nhận (sẽ được chuẩn hóa chữ thường & trim khoảng trắng)
+ * @param params.name - Tên người nhận hiển thị trong nội dung email
+ * @param params.type - Loại OTP (`REGISTRATION` cho kích hoạt tài khoản hoặc `PASSWORD_RESET` cho quên mật khẩu)
+ * @param params.prismaOtp - Prisma delegate của bảng `OtpCode` (hỗ trợ Dependency Injection khi test)
+ * @param params.sendEmailFn - Callback hàm gửi email thực tế qua Resend
+ * @param params.now - Mốc thời gian tham chiếu (hỗ trợ kiểm thử thời gian giả lập)
+ * @returns `{ success: boolean; error?: string; otp?: string; record?: OtpCodeRecord }`
+ *
+ * @security & Anti-Spam Protocol
+ * 1. Dọn dẹp bản ghi cũ: Tự động xóa các OTP đã hết hạn hoặc đã sử dụng trước khi tạo mới.
+ * 2. Cơ chế Cooldown 60 giây (Rate Limiting):
+ *    - Tra cứu OTP gần nhất cùng loại (`type`). Nếu thời gian tạo chưa đủ 60 giây (`OTP_COOLDOWN_MS`),
+ *      từ chối yêu cầu và yêu cầu người dùng chờ.
+ * 3. Bảo mật mã OTP:
+ *    - Sinh chuỗi ngẫu nhiên 6 chữ số qua `crypto.randomInt`.
+ *    - Băm một chiều qua `bcrypt.hash(otp, 10)` trước khi lưu vào DB (chống lộ mã khi DB bị rò rỉ).
+ * 4. Thời gian hết hạn (TTL): Mã tự động hết hiệu lực sau 5 phút (`OTP_TTL_MS = 300,000ms`).
  */
 export async function sendOtpCore({
   rawEmail,
@@ -204,7 +222,24 @@ export async function sendOtpCore({
 }
 
 /**
- * Core verifyOtp logic
+ * Lõi xác thực mã OTP người dùng nhập vào (OTP Verification Engine)
+ *
+ * @param params.rawEmail - Địa chỉ email cần đối chiếu
+ * @param params.inputOtp - Mã OTP 6 chữ số do người dùng gửi lên
+ * @param params.type - Loại OTP cần xác thực (`REGISTRATION` hoặc `PASSWORD_RESET`)
+ * @param params.prismaOtp - Prisma delegate của bảng `OtpCode`
+ * @param params.now - Thời điểm xác thực (mặc định: `new Date()`)
+ * @returns `true` nếu mã hợp lệ và chưa từng dùng; `false` nếu sai mã, quá hạn, hoặc bị khóa do nhập sai nhiều lần
+ *
+ * @security & Anti-Bruteforce Protocol
+ * 1. Chống tấn công vét cạn (Brute-force Lockout):
+ *    - Giới hạn tối đa 5 lần thử (`MAX_OTP_ATTEMPTS = 5`).
+ *    - Mỗi lần nhập sai mã, hệ thống tự động tăng `attempts: { increment: 1 }`.
+ *    - Khi đạt 5 lần sai, mã bị khóa vĩnh viễn, vô hiệu hóa hoàn toàn khả năng dò mã.
+ * 2. Chống tấn công phát lại (Replay Attack Prevention):
+ *    - Ngay khi xác thực thành công, mã được đánh dấu `used: true`.
+ *    - Lần xác thực tiếp theo với cùng mã này sẽ bị từ chối 100%.
+ * 3. Kiểm tra hạn dùng (TTL Verification): Chỉ tìm kiếm các mã có `expiresAt > now`.
  */
 export async function verifyOtpCore({
   rawEmail,

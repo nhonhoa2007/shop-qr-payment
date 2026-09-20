@@ -1,5 +1,5 @@
 import { CatalogService } from '@/server/modules/catalog/catalog.service';
-import { HomeView } from '@/client/views/HomeView';
+import { HomeView } from '@client/views/HomeView';
 
 export const dynamic = 'force-dynamic';
 

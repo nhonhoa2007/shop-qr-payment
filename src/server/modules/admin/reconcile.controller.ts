@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@server/database/prisma';
 import { validateReconcileInput, canReconcileOrder } from '@/lib/reconciliation';
-import { createNotification } from '@/lib/notifications';
-import { pusherServer } from '@/lib/pusher-server';
+import { createNotification } from '@server/modules/notifications/notifications.service';
+import { pusherServer } from '@server/infrastructure/pusher';
 
 export async function POST(req: Request) {
   try {
@@ -106,6 +106,15 @@ export async function POST(req: Request) {
       } catch (pusherErr) {
         console.error('Pusher trigger error in manual reconcile:', pusherErr);
       }
+    }
+
+    try {
+      await pusherServer.trigger('private-admin-channel', 'analytics-updated', {
+        type: 'MANUAL_RECONCILE',
+        timestamp: Date.now(),
+      });
+    } catch (pusherErr) {
+      console.error('[Reconcile] Pusher admin trigger error:', pusherErr);
     }
 
     return NextResponse.json({

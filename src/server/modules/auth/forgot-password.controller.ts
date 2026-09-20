@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@server/database/prisma';
 import { normalizeEmail, sendOtp } from '@/lib/otp';
-import { checkDistributedRateLimit, getClientIp } from '@/lib/rate-limit';
+import { checkDistributedRateLimit, getClientIp } from '@server/infrastructure/rate-limit';
 
 interface ForgotPasswordBody {
   email?: unknown;

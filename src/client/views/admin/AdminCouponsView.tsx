@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { formatVND } from '@/lib/utils';
+import { formatVND } from '@shared/utils';
 import { Tag, Plus, Trash2, Calendar, Percent, DollarSign, Truck, ChevronLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -41,7 +41,7 @@ function getDefaultFormData() {
   };
 }
 
-export function CouponManager() {
+export function AdminCouponsView() {
   const [coupons, setCoupons] = useState<CouponItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -426,3 +426,5 @@ export function CouponManager() {
     </div>
   );
 }
+
+export { AdminCouponsView as CouponManager, AdminCouponsView as default };

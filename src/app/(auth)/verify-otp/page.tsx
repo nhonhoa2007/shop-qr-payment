@@ -1,1 +1,1 @@
-export { default } from '@/client/views/auth/VerifyOtpView';
+export { default } from '@client/views/auth/VerifyOtpView';

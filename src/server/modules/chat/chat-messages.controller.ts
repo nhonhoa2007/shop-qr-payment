@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { prisma } from '@/lib/prisma';
-import { pusherServer } from '@/lib/pusher-server';
-import { createNotification } from '@/lib/notifications';
+import { prisma } from '@server/database/prisma';
+import { pusherServer } from '@server/infrastructure/pusher';
+import { createNotification } from '@server/modules/notifications/notifications.service';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 export async function POST(req: Request) {

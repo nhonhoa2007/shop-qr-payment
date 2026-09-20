@@ -1,9 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { ChatRoomList } from '@/client/components/chat/ChatRoomList';
+import { ChatRoomList } from '@client/components/chat/ChatRoomList';
 import { MessageSquare, ChevronRight, Headphones, Inbox } from 'lucide-react';
-import type { ChatRoom } from '@/types';
+import type { ChatRoom } from '@shared/types';
 
 interface AdminChatViewProps {
   rooms: ChatRoom[];

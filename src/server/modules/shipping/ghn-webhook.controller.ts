@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { mapGHNStatusToShipmentStatus } from '@/lib/ghn';
-import { createNotification } from '@/lib/notifications';
-import { pusherServer } from '@/lib/pusher-server';
+import { prisma } from '@server/database/prisma';
+import { mapGHNStatusToShipmentStatus, verifyGHNWebhookAuth } from '@server/modules/shipping/ghn.service';
+import { createNotification } from '@server/modules/notifications/notifications.service';
+import { pusherServer } from '@server/infrastructure/pusher';
 import type { Prisma } from '@prisma/client';
 
 interface GHNWebhookPayload {
@@ -17,6 +17,15 @@ interface GHNWebhookPayload {
 
 export async function POST(req: Request) {
   try {
+    // SEC-01: GHN Webhook Authentication
+    const authResult = verifyGHNWebhookAuth(req);
+    if (!authResult.authorized) {
+      return NextResponse.json(
+        { error: authResult.error },
+        { status: authResult.status || 401 }
+      );
+    }
+
     const body = (await req.json()) as GHNWebhookPayload;
 
     const ghnOrderCode =

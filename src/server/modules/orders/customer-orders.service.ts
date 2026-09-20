@@ -1,4 +1,4 @@
-import { prisma } from '@/server/database/prisma';
+import { prisma } from '@server/database/prisma';
 import type { SerializedOrder } from '@/client/views/OrdersView';
 
 export class CustomerOrderService {

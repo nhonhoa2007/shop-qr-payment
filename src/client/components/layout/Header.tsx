@@ -3,11 +3,11 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
-import { useCartStore } from '@/client/stores/cart-store';
+import { useCartStore } from '@client/stores/cart-store';
 import { NotificationBell } from './NotificationBell';
-import { useNotifications } from '@/client/hooks/useNotifications';
+import { useNotifications } from '@client/hooks/useNotifications';
 import { useHydrated } from '@/lib/hydration';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import {
   ShoppingCart,
   Menu,
@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 
 export function Header() {
+  const pathname = usePathname();
   const { data: session } = useSession();
   const getTotalItems = useCartStore((s) => s.getTotalItems);
   const hydrated = useHydrated();
@@ -31,6 +32,10 @@ export function Header() {
   const [searchQuery, setSearchQuery] = useState('');
   const router = useRouter();
   useNotifications(session?.user?.id);
+
+  if (pathname?.startsWith('/admin')) {
+    return null;
+  }
 
   const cartCount = hydrated ? getTotalItems() : 0;
 

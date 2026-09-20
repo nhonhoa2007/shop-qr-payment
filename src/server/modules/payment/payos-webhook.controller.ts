@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { verifyPayOSWebhookSignature, PAYOS_CHECKSUM_KEY, type PayOSWebhookPayload } from '@/lib/payos';
-import { parseOrderCodeFromDescription } from '@/lib/payment-parser';
-import { pusherServer } from '@/lib/pusher-server';
-import { createNotification } from '@/lib/notifications';
+import { prisma } from '@server/database/prisma';
+import { verifyPayOSWebhookSignature, PAYOS_CHECKSUM_KEY, type PayOSWebhookPayload } from '@server/modules/payment/payos.service';
+import { parseOrderCodeFromDescription } from '@server/modules/payment/vietqr-parser.service';
+import { pusherServer } from '@server/infrastructure/pusher';
+import { createNotification } from '@server/modules/notifications/notifications.service';
 
 export async function POST(req: Request) {
   try {
@@ -13,18 +13,27 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Payload không hợp lệ' }, { status: 400 });
     }
 
-    // 1. Xác thực Chữ ký số HMAC-SHA256 (nếu môi trường có cấu hình PAYOS_CHECKSUM_KEY)
-    if (PAYOS_CHECKSUM_KEY) {
-      const isValid = verifyPayOSWebhookSignature(
+    const checksumKey = PAYOS_CHECKSUM_KEY || process.env.PAYOS_CHECKSUM_KEY;
+
+    // 1. Xác thực Chữ ký số HMAC-SHA256 (Fail-Closed)
+    if (!checksumKey) {
+      console.error('[PayOS Webhook] PAYOS_CHECKSUM_KEY chưa được cấu hình');
+      return NextResponse.json(
+        { error: 'Cổng thanh toán chưa cấu hình chữ ký bảo mật' },
+        { status: 500 }
+      );
+    }
+
+    if (
+      !body.signature ||
+      !verifyPayOSWebhookSignature(
         body.data as Record<string, unknown>,
         body.signature,
-        PAYOS_CHECKSUM_KEY
-      );
-
-      if (!isValid) {
-        console.warn('[PayOS Webhook] Chữ ký không hợp lệ từ IP client');
-        return NextResponse.json({ error: 'Chữ ký số không hợp lệ' }, { status: 400 });
-      }
+        checksumKey
+      )
+    ) {
+      console.warn('[PayOS Webhook] Chữ ký không hợp lệ từ IP client');
+      return NextResponse.json({ error: 'Chữ ký số không hợp lệ' }, { status: 400 });
     }
 
     if (body.code !== '00') {
@@ -133,6 +142,15 @@ export async function POST(req: Request) {
         message: `Đơn hàng ${order.orderCode} đã được thanh toán thành công qua PayOS (${amount.toLocaleString('vi-VN')}đ).`,
         data: { orderId: order.id, orderCode: order.orderCode, amount },
       });
+    }
+
+    try {
+      await pusherServer.trigger('private-admin-channel', 'analytics-updated', {
+        type: 'PAYOS_PAYMENT',
+        timestamp: Date.now(),
+      });
+    } catch (pusherErr) {
+      console.error('[PayOS Webhook] Pusher admin trigger error:', pusherErr);
     }
 
     return NextResponse.json({

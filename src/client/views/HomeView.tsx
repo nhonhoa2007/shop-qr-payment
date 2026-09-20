@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { ProductGrid } from '@/client/components/product/ProductGrid';
-import type { Product } from '@/types';
+import { ProductGrid } from '@client/components/product/ProductGrid';
+import type { Product } from '@shared/types';
 import { Search, ChevronRight, ArrowRight } from 'lucide-react';
 
 export interface HomeViewProps {

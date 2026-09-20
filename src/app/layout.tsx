@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { Providers } from './providers';
-import { Header } from '@/client/components/layout/Header';
-import { Footer } from '@/client/components/layout/Footer';
+import { Header } from '@client/components/layout/Header';
+import { Footer } from '@client/components/layout/Footer';
 
 export const metadata: Metadata = {
   title: 'shop. — Khám phá mua sắm & Thanh toán QR',

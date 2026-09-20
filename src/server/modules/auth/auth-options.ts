@@ -1,7 +1,7 @@
 import { AuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from 'next-auth/providers/google';
-import { prisma } from '@/server/database/prisma';
+import { prisma } from '@server/database/prisma';
 import { handleGoogleSignIn } from '@/lib/auth-helpers';
 import { authorizeCredentialsLogin } from '@/lib/admin-rbac';
 

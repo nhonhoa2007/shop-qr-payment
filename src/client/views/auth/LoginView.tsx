@@ -1,6 +1,6 @@
 'use client';
 
-import { LoginForm } from '@/client/components/auth/LoginForm';
+import { LoginForm } from '@client/components/auth/LoginForm';
 
 export function LoginView() {
   return (

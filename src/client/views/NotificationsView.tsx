@@ -1,8 +1,8 @@
 'use client';
 
-import { NotificationItem } from '@/client/components/notification/NotificationItem';
+import { NotificationItem } from '@client/components/notification/NotificationItem';
 import { Bell, Inbox } from 'lucide-react';
-import type { Notification } from '@/types';
+import type { Notification } from '@shared/types';
 
 export interface NotificationsViewProps {
   notifications: Notification[];

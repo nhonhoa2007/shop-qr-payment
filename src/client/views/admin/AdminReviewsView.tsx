@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { formatDateTime } from '@/lib/utils';
+import { formatDateTime } from '@shared/utils';
 import { toast } from 'sonner';
 import {
   Star,
@@ -43,7 +43,7 @@ export interface AdminReviewItem {
   };
 }
 
-export function ReviewManager({ initialReviews }: { initialReviews: AdminReviewItem[] }) {
+export function AdminReviewsView({ initialReviews }: { initialReviews: AdminReviewItem[] }) {
   const [reviews, setReviews] = useState<AdminReviewItem[]>(initialReviews);
   const [search, setSearch] = useState('');
   const [filterRating, setFilterRating] = useState<string>('ALL');
@@ -410,3 +410,5 @@ export function ReviewManager({ initialReviews }: { initialReviews: AdminReviewI
     </div>
   );
 }
+
+export { AdminReviewsView as ReviewManager, AdminReviewsView as default };

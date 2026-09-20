@@ -2,7 +2,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { redirect } from 'next/navigation';
 import { CustomerOrderService } from '@/server/modules/orders/customer-orders.service';
-import { OrdersView } from '@/client/views/OrdersView';
+import { OrdersView } from '@client/views/OrdersView';
 
 export const dynamic = 'force-dynamic';
 

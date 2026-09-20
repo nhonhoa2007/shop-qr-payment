@@ -1,14 +1,14 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { formatVND } from '@/lib/utils';
+import { formatVND } from '@shared/utils';
 import { toast } from 'sonner';
-import type { Product } from '@/types';
+import type { Product } from '@shared/types';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Upload, Loader2, Image as ImageIcon, X, Package } from 'lucide-react';
 
-export function AdminProductManager({ initialProducts }: { initialProducts: Product[] }) {
+export function AdminProductsView({ initialProducts }: { initialProducts: Product[] }) {
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState('ALL');
@@ -517,3 +517,5 @@ export function AdminProductManager({ initialProducts }: { initialProducts: Prod
     </div>
   );
 }
+
+export { AdminProductsView as AdminProductManager, AdminProductsView as default };

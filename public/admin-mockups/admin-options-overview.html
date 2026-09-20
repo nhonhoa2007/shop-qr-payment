@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>So sánh 3 Phương Án Thiết Kế Lại Giao Diện Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      background-color: #0b0f19;
+      color: #f8fafc;
+      -webkit-font-smoothing: antialiased;
+    }
+  </style>
+</head>
+<body class="w-[1440px] h-[920px] p-8 flex flex-col justify-between overflow-hidden">
+  
+  <!-- Header -->
+  <div class="flex items-center justify-between border-b border-slate-800 pb-5">
+    <div>
+      <div class="flex items-center gap-3">
+        <span class="px-2.5 py-1 rounded-md bg-[#5433eb] text-white text-xs font-black tracking-wider uppercase">DESIGN PROPOSAL</span>
+        <h1 class="text-2xl font-extrabold text-white">So Sánh 3 Phương Án Thiết Kế Lại Giao Diện Admin Shop QR Payment</h1>
+      </div>
+      <p class="text-xs text-slate-400 mt-1">Đánh giá kiến trúc Layout, luồng thao tác và trải nghiệm người dùng (UX) theo quy chuẩn DESIGN.md</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <div class="text-right">
+        <div class="text-xs font-bold text-slate-300">Dự án: shop-qr-payment</div>
+        <div class="text-[11px] text-slate-500">Tech Lead & System Architect</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3 Options Cards -->
+  <div class="grid grid-cols-3 gap-6 flex-1 my-6">
+    
+    <!-- CỘT 1 -->
+    <div class="bg-slate-900/90 rounded-2xl border-2 border-[#5433eb] p-5 flex flex-col justify-between relative shadow-xl shadow-[#5433eb]/10">
+      <div class="absolute -top-3 right-4 px-2.5 py-0.5 rounded-full bg-[#5433eb] text-white text-[10px] font-extrabold tracking-wide uppercase">
+        Khuyến nghị (Best Choice)
+      </div>
+
+      <div>
+        <div class="flex items-center gap-2 text-[#5433eb] font-bold text-xs uppercase tracking-wider mb-1">
+          <span>Lựa chọn 1</span>
+        </div>
+        <h2 class="text-lg font-black text-white">Modern SaaS Workspace</h2>
+        <p class="text-xs text-slate-400 mt-1">Sidebar điều hướng chuyên nghiệp + Dashboard Bento Grid hiện đại.</p>
+
+        <!-- Preview Mockup Miniature -->
+        <div class="mt-4 rounded-xl border border-slate-700 overflow-hidden bg-slate-950 p-2 shadow-inner">
+          <div class="flex gap-1.5 h-36">
+            <!-- Mini Sidebar -->
+            <div class="w-12 bg-white rounded-lg p-1.5 flex flex-col justify-between shrink-0">
+              <div class="space-y-1">
+                <div class="w-4 h-4 rounded bg-[#5433eb]"></div>
+                <div class="w-full h-1.5 rounded bg-slate-200"></div>
+                <div class="w-full h-1.5 rounded bg-[#5433eb]"></div>
+                <div class="w-full h-1.5 rounded bg-slate-200"></div>
+              </div>
+              <div class="w-4 h-4 rounded-full bg-slate-300"></div>
+            </div>
+            <!-- Mini Content -->
+            <div class="flex-1 flex flex-col gap-1.5">
+              <div class="h-4 bg-white/10 rounded flex items-center px-2 text-[8px] text-slate-400">Topbar / Search</div>
+              <div class="grid grid-cols-3 gap-1">
+                <div class="h-8 bg-white/20 rounded p-1"><div class="w-6 h-2 bg-emerald-400 rounded"></div></div>
+                <div class="h-8 bg-white/20 rounded p-1"><div class="w-6 h-2 bg-blue-400 rounded"></div></div>
+                <div class="h-8 bg-white/20 rounded p-1"><div class="w-6 h-2 bg-[#5433eb] rounded"></div></div>
+              </div>
+              <div class="flex-1 bg-white/10 rounded p-1.5 flex items-end">
+                <div class="w-full h-8 border-b border-l border-white/20 relative">
+                  <div class="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-[#5433eb]/40 to-transparent"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Đặc điểm chính -->
+        <div class="mt-4 space-y-2 text-xs">
+          <div class="flex items-start gap-2">
+            <span class="text-emerald-400 font-bold">✓</span>
+            <span class="text-slate-300">Tách hoàn toàn khỏi Header/Footer của khách mua sắm.</span>
+          </div>
+          <div class="flex items-start gap-2">
+            <span class="text-emerald-400 font-bold">✓</span>
+            <span class="text-slate-300">Chuyển đổi giữa Đơn hàng, GHN, VietQR chỉ với 1 click.</span>
+          </div>
+          <div class="flex items-start gap-2">
+            <span class="text-emerald-400 font-bold">✓</span>
+            <span class="text-slate-300">Bento Grid trực quan, làm nổi bật ngay số liệu kinh doanh.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pt-4 border-t border-slate-800 text-[11px] text-slate-400">
+        <strong>Thích hợp nhất:</strong> Quản lý toàn diện cửa hàng, cân bằng giữa báo cáo tổng quan và tác vụ thường nhật.
+      </div>
+    </div>
+
+    <!-- CỘT 2 -->
+    <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-5 flex flex-col justify-between relative hover:border-slate-700 transition">
+      <div>
+        <div class="flex items-center gap-2 text-emerald-400 font-bold text-xs uppercase tracking-wider mb-1">
+          <span>Lựa chọn 2</span>
+        </div>
+        <h2 class="text-lg font-black text-white">Minimalist Top-Nav Deck</h2>
+        <p class="text-xs text-slate-400 mt-1">Điều hướng Tab nằm ngang, tối đa hóa bề ngang cho bảng dữ liệu lớn.</p>
+
+        <!-- Preview Mockup Miniature -->
+        <div class="mt-4 rounded-xl border border-slate-700 overflow-hidden bg-slate-950 p-2 shadow-inner">
+          <div class="flex flex-col gap-1.5 h-36">
+            <!-- Mini Top Header -->
+            <div class="h-6 bg-white rounded flex items-center justify-between px-2">
+              <div class="flex gap-1 items-center">
+                <div class="w-3 h-3 rounded bg-[#5433eb]"></div>
+                <div class="w-12 h-1 bg-slate-300 rounded"></div>
+              </div>
+              <div class="flex gap-1">
+                <div class="w-6 h-1 bg-[#5433eb] rounded"></div>
+                <div class="w-6 h-1 bg-slate-200 rounded"></div>
+                <div class="w-6 h-1 bg-slate-200 rounded"></div>
+              </div>
+            </div>
+            <!-- Mini Content -->
+            <div class="grid grid-cols-4 gap-1">
+              <div class="h-6 bg-white/20 rounded"></div>
+              <div class="h-6 bg-white/20 rounded"></div>
+              <div class="h-6 bg-white/20 rounded"></div>
+              <div class="h-6 bg-white/20 rounded"></div>
+            </div>
+            <div class="flex-1 grid grid-cols-2 gap-1.5">
+              <div class="bg-white/10 rounded p-1 space-y-1">
+                <div class="h-2 bg-white/30 rounded w-1/2"></div>
+                <div class="h-1 bg-white/20 rounded"></div>
+                <div class="h-1 bg-white/20 rounded"></div>
+              </div>
+              <div class="bg-white/10 rounded p-1 space-y-1">
+                <div class="h-2 bg-white/30 rounded w-1/2"></div>
+                <div class="h-1 bg-white/20 rounded"></div>
+                <div class="h-1 bg-white/20 rounded"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Đặc điểm chính -->
+        <div class="mt-4 space-y-2 text-xs">
+          <div class="flex items-start gap-2">
+            <span class="text-emerald-400 font-bold">✓</span>
+            <span class="text-slate-300">Không tốn 260px diện tích bên trái cho sidebar.</span>
+          </div>
+          <div class="flex items-start gap-2">
+            <span class="text-emerald-400 font-bold">✓</span>
+            <span class="text-slate-300">Xem bảng đối soát VietQR và đơn hàng cực kỳ thoáng đãng.</span>
+          </div>
+          <div class="flex items-start gap-2">
+            <span class="text-amber-400 font-bold">⚠</span>
+            <span class="text-slate-300">Khi có nhiều phân hệ con sẽ bị chật chội trên thanh Tab ngang.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pt-4 border-t border-slate-800 text-[11px] text-slate-400">
+        <strong>Thích hợp nhất:</strong> Quản trị viên thích phong cách Stripe / Linear tối giản, tập trung tra cứu bảng dữ liệu lớn.
+      </div>
+    </div>
+
+    <!-- CỘT 3 -->
+    <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-5 flex flex-col justify-between relative hover:border-slate-700 transition">
+      <div>
+        <div class="flex items-center gap-2 text-amber-400 font-bold text-xs uppercase tracking-wider mb-1">
+          <span>Lựa chọn 3</span>
+        </div>
+        <h2 class="text-lg font-black text-white">Operation-Centric Dual-Panel</h2>
+        <p class="text-xs text-slate-400 mt-1">Hàng đợi việc cần xử lý ngay (Live Queue) + Chi tiết tác chiến 1-Click.</p>
+
+        <!-- Preview Mockup Miniature -->
+        <div class="mt-4 rounded-xl border border-slate-700 overflow-hidden bg-slate-950 p-2 shadow-inner">
+          <div class="flex gap-1.5 h-36">
+            <!-- Icon rail -->
+            <div class="w-5 bg-slate-900 rounded p-1 flex flex-col items-center gap-1">
+              <div class="w-3 h-3 rounded bg-[#5433eb]"></div>
+              <div class="w-2.5 h-2.5 rounded bg-slate-700"></div>
+              <div class="w-2.5 h-2.5 rounded bg-slate-700"></div>
+            </div>
+            <!-- Live Queue -->
+            <div class="w-24 bg-white/10 rounded p-1 flex flex-col gap-1">
+              <div class="h-2 bg-rose-400 rounded w-3/4"></div>
+              <div class="h-7 bg-[#5433eb]/30 border border-[#5433eb] rounded"></div>
+              <div class="h-7 bg-white/10 rounded"></div>
+              <div class="h-7 bg-white/10 rounded"></div>
+            </div>
+            <!-- Detail workspace -->
+            <div class="flex-1 bg-white rounded p-1 flex flex-col justify-between">
+              <div class="h-3 bg-slate-200 rounded w-1/3"></div>
+              <div class="h-8 bg-slate-100 rounded"></div>
+              <div class="h-5 bg-[#5433eb] rounded flex items-center justify-center text-[7px] text-white font-bold">1-CLICK ACTION</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Đặc điểm chính -->
+        <div class="mt-4 space-y-2 text-xs">
+          <div class="flex items-start gap-2">
+            <span class="text-emerald-400 font-bold">✓</span>
+            <span class="text-slate-300">Xử lý ngay lập tức các đơn chờ duyệt, giao dịch lệch tiền.</span>
+          </div>
+          <div class="flex items-start gap-2">
+            <span class="text-emerald-400 font-bold">✓</span>
+            <span class="text-slate-300">Thao tác 1-Click: Đẩy GHN, Hủy hoàn tiền ví, Khớp mã QR.</span>
+          </div>
+          <div class="flex items-start gap-2">
+            <span class="text-slate-300">Thiết kế theo dạng Trung tâm tác chiến (Command Center).</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pt-4 border-t border-slate-800 text-[11px] text-slate-400">
+        <strong>Thích hợp nhất:</strong> Nhân viên vận hành xử lý đơn hàng liên tục, cần tốc độ thao tác tối đa trong giờ cao điểm.
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Footer Info -->
+  <div class="flex items-center justify-between text-xs text-slate-500 pt-3 border-t border-slate-800">
+    <div>Gợi ý từ Tech Lead: <strong>Lựa chọn 1 (Modern SaaS Workspace)</strong> mang lại độ hoàn thiện cao nhất, dễ mở rộng tính năng về sau và chuẩn hóa theo hệ Design System của dự án.</div>
+    <div class="text-slate-400 font-medium">Bấm vào ảnh chi tiết từng lựa chọn bên dưới để xem cận cảnh</div>
+  </div>
+
+</body>
+</html>

@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { prisma } from '@/lib/prisma';
-import { payOrderWithWallet } from '@/lib/wallet';
-import { pusherServer } from '@/lib/pusher-server';
-import { createNotification } from '@/lib/notifications';
+import { prisma } from '@server/database/prisma';
+import { payOrderWithWallet } from '@server/modules/wallet/wallet.service';
+import { pusherServer } from '@server/infrastructure/pusher';
+import { createNotification } from '@server/modules/notifications/notifications.service';
 
 interface PayWithWalletBody {
   orderId?: unknown;
@@ -58,6 +58,15 @@ export async function POST(req: Request) {
         message: `Đơn hàng ${order.orderCode} đã được thanh toán thành công bằng Ví Shop.`,
         data: { orderId, orderCode: order.orderCode, amount: result.paidAmount },
       });
+    }
+
+    try {
+      await pusherServer.trigger('private-admin-channel', 'analytics-updated', {
+        type: 'WALLET_PAYMENT',
+        timestamp: Date.now(),
+      });
+    } catch (pusherErr) {
+      console.error('[Wallet Pay] Pusher admin trigger error:', pusherErr);
     }
 
     return NextResponse.json({

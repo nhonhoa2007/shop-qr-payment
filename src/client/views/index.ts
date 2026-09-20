@@ -17,10 +17,11 @@ export { ForgotPasswordView } from './auth/ForgotPasswordView';
 
 // Admin Views
 export { AdminDashboardView } from './admin/AdminDashboardView';
-export { ShipmentManager as AdminShipmentsView } from './admin/AdminShipmentsView';
-export { AdminOrderManager as AdminOrdersView } from './admin/AdminOrdersView';
-export { AdminProductManager as AdminProductsView } from './admin/AdminProductsView';
-export { TransactionManager as AdminTransactionsView } from './admin/AdminTransactionsView';
-export { CouponManager as AdminCouponsView } from './admin/AdminCouponsView';
-export { ReviewManager as AdminReviewsView } from './admin/AdminReviewsView';
-export { CustomerManager as AdminCustomersView } from './admin/AdminCustomersView';
+export { AdminShipmentsView } from './admin/AdminShipmentsView';
+export { AdminOrdersView } from './admin/AdminOrdersView';
+export { AdminProductsView } from './admin/AdminProductsView';
+export { AdminTransactionsView } from './admin/AdminTransactionsView';
+export { AdminCouponsView } from './admin/AdminCouponsView';
+export { AdminReviewsView } from './admin/AdminReviewsView';
+export { AdminCustomersView } from './admin/AdminCustomersView';
+export { AdminChatView } from './admin/AdminChatView';

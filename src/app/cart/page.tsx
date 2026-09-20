@@ -1,1 +1,1 @@
-export { default } from '@/client/views/CartView';
+export { default } from '@client/views/CartView';

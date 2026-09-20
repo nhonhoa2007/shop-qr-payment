@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { expireUnpaidOrders } from '@/lib/inventory';
-import { verifyCronAuth } from '@/lib/cron-auth';
+import { prisma } from '@server/database/prisma';
+import { expireUnpaidOrders } from '@server/modules/inventory/inventory.service';
+import { verifyCronAuth } from '@server/infrastructure/cron-auth';
 
 export async function GET(req: Request) {
   try {

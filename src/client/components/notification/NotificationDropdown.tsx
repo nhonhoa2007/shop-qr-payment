@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useNotificationStore } from '@/client/stores/notification-store';
+import { useNotificationStore } from '@client/stores/notification-store';
 import { NotificationItem } from './NotificationItem';
 import Link from 'next/link';
-import type { Notification } from '@/types';
+import type { Notification } from '@shared/types';
 
 export function NotificationDropdown({ onClose }: { onClose: () => void }) {
   const { notifications: realtimeNotifications } = useNotificationStore();

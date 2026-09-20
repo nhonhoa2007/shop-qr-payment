@@ -1,9 +1,9 @@
 'use client';
 
 import { useHydrated } from '@/lib/hydration';
-import { useCartStore } from '@/client/stores/cart-store';
-import { CartItem } from '@/client/components/cart/CartItem';
-import { CartSummary } from '@/client/components/cart/CartSummary';
+import { useCartStore } from '@client/stores/cart-store';
+import { CartItem } from '@client/components/cart/CartItem';
+import { CartSummary } from '@client/components/cart/CartSummary';
 import Link from 'next/link';
 import { ShoppingBag } from 'lucide-react';
 

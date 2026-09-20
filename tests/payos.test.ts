@@ -78,8 +78,10 @@ describe('PayOS Integration - Webhook Signature Verification', () => {
   it('should reject when signature is missing, empty or wrong key', () => {
     const data = { orderCode: 123456, amount: 150000 };
     assert.equal(verifyPayOSWebhookSignature(data, '', checksumKey), false);
+    assert.equal(verifyPayOSWebhookSignature(data, undefined as unknown as string, checksumKey), false);
     assert.equal(verifyPayOSWebhookSignature(data, 'invalid_sig', checksumKey), false);
     assert.equal(verifyPayOSWebhookSignature(data, 'a'.repeat(64), 'wrong_key'), false);
+    assert.equal(verifyPayOSWebhookSignature(data, 'a'.repeat(64), ''), false);
   });
 });
 
@@ -89,18 +91,44 @@ describe('PayOS Integration - Order Code Parsing & Link Creation', () => {
     assert.equal(parsePayOSOrderCode('ORD-998877'), 998877);
   });
 
-  it('should create mock payment link when API credentials are absent', async () => {
-    const res = await createPayOSPaymentLink({
-      orderCode: 778899,
-      amount: 320000,
-      description: 'Thanh toán đơn hàng',
-      cancelUrl: 'http://localhost/cancel',
-      returnUrl: 'http://localhost/return',
-    });
+  it('should create mock payment link when API credentials are absent in non-production', async () => {
+    const origEnv = process.env.NODE_ENV;
+    try {
+      process.env.NODE_ENV = 'test';
+      const res = await createPayOSPaymentLink({
+        orderCode: 778899,
+        amount: 320000,
+        description: 'Thanh toán đơn hàng',
+        cancelUrl: 'http://localhost/cancel',
+        returnUrl: 'http://localhost/return',
+      });
 
-    assert.equal(res.success, true);
-    assert.equal(res.source, 'MOCK');
-    assert.match(res.checkoutUrl, /payos-checkout/);
-    assert.equal(res.orderCode, 778899);
+      assert.equal(res.success, true);
+      assert.equal(res.source, 'MOCK');
+      assert.match(res.checkoutUrl!, /payos-checkout/);
+      assert.equal(res.orderCode, 778899);
+    } finally {
+      process.env.NODE_ENV = origEnv;
+    }
+  });
+
+  it('should NEVER fallback to mock checkout in production (SEC-02 Production Guard)', async () => {
+    const origEnv = process.env.NODE_ENV;
+    try {
+      process.env.NODE_ENV = 'production';
+      const res = await createPayOSPaymentLink({
+        orderCode: 889900,
+        amount: 500000,
+        description: 'Thanh toán đơn hàng prod',
+        cancelUrl: 'http://localhost/cancel',
+        returnUrl: 'http://localhost/return',
+      });
+
+      assert.equal(res.success, false);
+      assert.equal(res.error, 'Cổng thanh toán PayOS tạm thời không khả dụng');
+      assert.equal(res.checkoutUrl, undefined);
+    } finally {
+      process.env.NODE_ENV = origEnv;
+    }
   });
 });

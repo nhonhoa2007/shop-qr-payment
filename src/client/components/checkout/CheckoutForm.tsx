@@ -3,8 +3,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { useCartStore } from '@/client/stores/cart-store';
-import { formatVND } from '@/lib/utils';
+import { useCartStore } from '@client/stores/cart-store';
+import { formatVND } from '@shared/utils';
 import { getErrorMessage } from '@/lib/errors';
 import {
   Tag,

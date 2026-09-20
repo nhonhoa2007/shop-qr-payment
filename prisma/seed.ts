@@ -268,13 +268,32 @@ async function main() {
   }
   console.log(`✅ Đã tạo ${sampleCoupons.length} mã khuyến mại & voucher`);
 
-  // 4. TẠO ĐƠN HÀNG MẪU ĐA TRẠNG THÁI (ORDERS & TRANSACTIONS)
+  // 4. TẠO ĐƠN HÀNG MẪU ĐA TRẠNG THÁI (ORDERS, TRANSACTIONS & SHIPMENTS)
   const p1 = createdProducts[0]; // Áo thun 289k
+  const p2 = createdProducts[1]; // Quần Jeans 499k
   const p3 = createdProducts[2]; // Giày 790k
   const p4 = createdProducts[3]; // Tai nghe 1250k
+  const p5 = createdProducts[4]; // Đồng hồ 890k
+  const p6 = createdProducts[5]; // Bàn phím 1150k
   const p7 = createdProducts[6]; // Balo 390k
+  const p8 = createdProducts[7]; // Bình giữ nhiệt 245k
 
-  // Đơn 1: COMPLETED + PAID (Khách: Trần Thị Mai)
+  // Cập nhật 1 sản phẩm có tồn kho thấp để kích hoạt cảnh báo Action Center thật
+  await prisma.product.update({
+    where: { id: p6.id },
+    data: { stock: 2 },
+  });
+
+  const now = new Date();
+  const todayMorning = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 30);
+  const todayAfternoon = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 14, 15);
+  const yesterdayMorning = new Date(now.getTime() - 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000);
+  const yesterdayEvening = new Date(now.getTime() - 24 * 60 * 60 * 1000 + 8 * 60 * 60 * 1000);
+  const day3Ago = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+  const day5Ago = new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000);
+  const day6Ago = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000);
+
+  // Đơn 1: Đặt 6 ngày trước - COMPLETED + PAID (Khách: Trần Thị Mai)
   const existingOrder1 = await prisma.order.findUnique({ where: { orderCode: 'DH100001' } });
   let order1 = existingOrder1;
   if (!order1) {
@@ -294,15 +313,14 @@ async function main() {
         paymentStatus: 'PAID',
         qrContent: 'https://api.vietqr.io/image/970422-123456789-compact2.jpg?amount=790000&addInfo=DH100001',
         note: 'Giao trong giờ hành chính giúp mình',
-        expiresAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000 + 15 * 60 * 1000),
-        createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+        expiresAt: new Date(day6Ago.getTime() + 15 * 60 * 1000),
+        createdAt: day6Ago,
         items: {
           create: [{ productId: p3.id, quantity: 1, price: p3.price }],
         },
       },
     });
 
-    // Tạo bản ghi giao dịch ngân hàng khớp lệnh
     await prisma.transaction.create({
       data: {
         bankTransId: 'MBB_20260905_100001',
@@ -311,12 +329,23 @@ async function main() {
         description: 'MBVCB.987654321.DH100001.TRAN THI MAI CHUYEN TIEN',
         bankName: 'MBBANK',
         verified: true,
-        createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+        createdAt: day6Ago,
+      },
+    });
+
+    await prisma.shipment.create({
+      data: {
+        orderId: order1.id,
+        trackingCode: 'GHN9820001',
+        carrier: 'GHN',
+        shippingFee: 30000,
+        status: 'DELIVERED',
+        createdAt: day6Ago,
       },
     });
   }
 
-  // Đơn 2: SHIPPING + PAID (Khách: Hoàng Nam)
+  // Đơn 2: Đặt 5 ngày trước - COMPLETED + PAID (Khách: Hoàng Nam)
   const existingOrder2 = await prisma.order.findUnique({ where: { orderCode: 'DH100002' } });
   let order2 = existingOrder2;
   if (!order2) {
@@ -333,12 +362,12 @@ async function main() {
         discountAmount: 50000,
         couponCode: 'VIP2026',
         totalAmount: 1200000,
-        status: 'SHIPPING',
+        status: 'COMPLETED',
         paymentStatus: 'PAID',
         qrContent: 'https://api.vietqr.io/image/970422-123456789-compact2.jpg?amount=1200000&addInfo=DH100002',
         note: 'Đóng gói kỹ tai nghe giúp shop',
-        expiresAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000 + 15 * 60 * 1000),
-        createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+        expiresAt: new Date(day5Ago.getTime() + 15 * 60 * 1000),
+        createdAt: day5Ago,
         items: {
           create: [{ productId: p4.id, quantity: 1, price: p4.price }],
         },
@@ -353,12 +382,12 @@ async function main() {
         description: 'DH100002 HOANG NAM THANH TOAN TAI NGHE',
         bankName: 'VIETCOMBANK',
         verified: true,
-        createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+        createdAt: day5Ago,
       },
     });
   }
 
-  // Đơn 3: PENDING + UNPAID (Đang chờ khách quét mã VietQR)
+  // Đơn 3: Đặt 3 ngày trước - COMPLETED + PAID (Khách: Lê Thu Trang)
   const existingOrder3 = await prisma.order.findUnique({ where: { orderCode: 'DH100003' } });
   if (!existingOrder3) {
     await prisma.order.create({
@@ -369,22 +398,232 @@ async function main() {
         customerPhone: '0977889900',
         customerAddress: '88 Nguyễn Thị Minh Khai, Quận 3, TP. Hồ Chí Minh',
         customerEmail: customer3.email,
-        subtotal: 679000, // 289k + 390k
+        subtotal: 679000,
         shippingFee: 0,
         discountAmount: 20000,
         couponCode: 'CHAOBAN',
         totalAmount: 659000,
-        status: 'PENDING',
-        paymentStatus: 'UNPAID',
+        status: 'COMPLETED',
+        paymentStatus: 'PAID',
         qrContent: 'https://api.vietqr.io/image/970422-123456789-compact2.jpg?amount=659000&addInfo=DH100003',
-        expiresAt: new Date(Date.now() + 14 * 60 * 1000),
-        createdAt: new Date(),
+        expiresAt: new Date(day3Ago.getTime() + 15 * 60 * 1000),
+        createdAt: day3Ago,
         items: {
           create: [
             { productId: p1.id, quantity: 1, price: p1.price },
             { productId: p7.id, quantity: 1, price: p7.price },
           ],
         },
+      },
+    });
+  }
+
+  // Đơn 4: Đặt HÔM QUA - SHIPPING + PAID (Khách: Hoàng Nam) có vận đơn GHN đang giao
+  const existingOrder4 = await prisma.order.findUnique({ where: { orderCode: 'DH100004' } });
+  if (!existingOrder4) {
+    const o4 = await prisma.order.create({
+      data: {
+        orderCode: 'DH100004',
+        userId: customer2.id,
+        customerName: 'Hoàng Nam',
+        customerPhone: '0912345678',
+        customerAddress: '128 Cầu Giấy, Quận Cầu Giấy, Hà Nội',
+        customerEmail: customer2.email,
+        subtotal: 890000,
+        shippingFee: 0,
+        discountAmount: 0,
+        totalAmount: 890000,
+        status: 'SHIPPING',
+        paymentStatus: 'PAID',
+        qrContent: 'https://api.vietqr.io/image/970422-123456789-compact2.jpg?amount=890000&addInfo=DH100004',
+        expiresAt: new Date(yesterdayMorning.getTime() + 15 * 60 * 1000),
+        createdAt: yesterdayMorning,
+        items: {
+          create: [{ productId: p5.id, quantity: 1, price: p5.price }],
+        },
+      },
+    });
+
+    await prisma.transaction.create({
+      data: {
+        bankTransId: 'VCB_YESTERDAY_04',
+        orderId: o4.id,
+        amount: 890000,
+        description: 'ShopQR DH100004',
+        bankName: 'VIETCOMBANK',
+        verified: true,
+        createdAt: yesterdayMorning,
+      },
+    });
+
+    await prisma.shipment.create({
+      data: {
+        orderId: o4.id,
+        trackingCode: 'GHN9821004',
+        carrier: 'GHN',
+        shippingFee: 30000,
+        status: 'DELIVERING',
+        createdAt: yesterdayMorning,
+      },
+    });
+  }
+
+  // Đơn 5: Đặt HÔM QUA - PROCESSING + PAID (Khách: Trần Thị Mai)
+  const existingOrder5 = await prisma.order.findUnique({ where: { orderCode: 'DH100005' } });
+  if (!existingOrder5) {
+    const o5 = await prisma.order.create({
+      data: {
+        orderCode: 'DH100005',
+        userId: customer1.id,
+        customerName: 'Trần Thị Mai',
+        customerPhone: '0987654321',
+        customerAddress: 'Số 45 Lê Duẩn, Quận 1, TP. Hồ Chí Minh',
+        customerEmail: customer1.email,
+        subtotal: 499000,
+        shippingFee: 30000,
+        discountAmount: 0,
+        totalAmount: 529000,
+        status: 'PROCESSING',
+        paymentStatus: 'PAID',
+        qrContent: 'https://api.vietqr.io/image/970422-123456789-compact2.jpg?amount=529000&addInfo=DH100005',
+        expiresAt: new Date(yesterdayEvening.getTime() + 15 * 60 * 1000),
+        createdAt: yesterdayEvening,
+        items: {
+          create: [{ productId: p2.id, quantity: 1, price: p2.price }],
+        },
+      },
+    });
+
+    await prisma.transaction.create({
+      data: {
+        bankTransId: 'MBB_YESTERDAY_05',
+        orderId: o5.id,
+        amount: 529000,
+        description: 'ShopQR DH100005',
+        bankName: 'MBBANK',
+        verified: true,
+        createdAt: yesterdayEvening,
+      },
+    });
+  }
+
+  // Đơn 6: Đặt HÔM NAY (Sáng) - PROCESSING + PAID qua VietQR (Khách: Lê Thu Trang)
+  const existingOrder6 = await prisma.order.findUnique({ where: { orderCode: 'DH100006' } });
+  if (!existingOrder6) {
+    const o6 = await prisma.order.create({
+      data: {
+        orderCode: 'DH100006',
+        userId: customer3.id,
+        customerName: 'Lê Thu Trang',
+        customerPhone: '0977889900',
+        customerAddress: '88 Nguyễn Thị Minh Khai, Quận 3, TP. Hồ Chí Minh',
+        customerEmail: customer3.email,
+        subtotal: 578000,
+        shippingFee: 0,
+        discountAmount: 0,
+        totalAmount: 578000,
+        status: 'PROCESSING',
+        paymentStatus: 'PAID',
+        qrContent: 'https://api.vietqr.io/image/970422-123456789-compact2.jpg?amount=578000&addInfo=DH100006',
+        expiresAt: new Date(todayMorning.getTime() + 15 * 60 * 1000),
+        createdAt: todayMorning,
+        items: {
+          create: [{ productId: p1.id, quantity: 2, price: p1.price }],
+        },
+      },
+    });
+
+    await prisma.transaction.create({
+      data: {
+        bankTransId: 'PAYOS_TODAY_06',
+        orderId: o6.id,
+        amount: 578000,
+        description: 'ShopQR DH100006',
+        bankName: 'VIETQR_PAYOS',
+        verified: true,
+        createdAt: todayMorning,
+      },
+    });
+  }
+
+  // Đơn 7: Đặt HÔM NAY (Chiều) - CONFIRMED + PAID qua Ví Shop (Khách: Hoàng Nam)
+  const existingOrder7 = await prisma.order.findUnique({ where: { orderCode: 'DH100007' } });
+  if (!existingOrder7) {
+    const o7 = await prisma.order.create({
+      data: {
+        orderCode: 'DH100007',
+        userId: customer2.id,
+        customerName: 'Hoàng Nam',
+        customerPhone: '0912345678',
+        customerAddress: '128 Cầu Giấy, Quận Cầu Giấy, Hà Nội',
+        customerEmail: customer2.email,
+        subtotal: 245000,
+        shippingFee: 30000,
+        discountAmount: 0,
+        totalAmount: 275000,
+        status: 'CONFIRMED',
+        paymentStatus: 'PAID',
+        expiresAt: new Date(todayAfternoon.getTime() + 15 * 60 * 1000),
+        createdAt: todayAfternoon,
+        items: {
+          create: [{ productId: p8.id, quantity: 1, price: p8.price }],
+        },
+      },
+    });
+
+    await prisma.transaction.create({
+      data: {
+        bankTransId: 'WALLET_TODAY_07',
+        orderId: o7.id,
+        amount: 275000,
+        description: 'Thanh toán qua ví nội bộ ShopQR',
+        bankName: 'SHOP_WALLET',
+        verified: true,
+        createdAt: todayAfternoon,
+      },
+    });
+  }
+
+  // Đơn 8: Đặt HÔM NAY (Mới) - PENDING + UNPAID (Khách: Trần Thị Mai)
+  const existingOrder8 = await prisma.order.findUnique({ where: { orderCode: 'DH100008' } });
+  let o8 = existingOrder8;
+  if (!o8) {
+    o8 = await prisma.order.create({
+      data: {
+        orderCode: 'DH100008',
+        userId: customer1.id,
+        customerName: 'Trần Thị Mai',
+        customerPhone: '0987654321',
+        customerAddress: 'Số 45 Lê Duẩn, Quận 1, TP. Hồ Chí Minh',
+        customerEmail: customer1.email,
+        subtotal: 390000,
+        shippingFee: 30000,
+        discountAmount: 0,
+        totalAmount: 420000,
+        status: 'PENDING',
+        paymentStatus: 'UNPAID',
+        qrContent: 'https://api.vietqr.io/image/970422-123456789-compact2.jpg?amount=420000&addInfo=DH100008',
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+        createdAt: new Date(),
+        items: {
+          create: [{ productId: p7.id, quantity: 1, price: p7.price }],
+        },
+      },
+    });
+  }
+
+  // Tạo 1 giao dịch chuyển khoản chưa khớp (khách chuyển sai cú pháp) liên kết với đơn DH100008
+  const existingUnmatched = await prisma.transaction.findFirst({ where: { bankTransId: 'VCB_UNMATCHED_01' } });
+  if (!existingUnmatched && o8) {
+    await prisma.transaction.create({
+      data: {
+        bankTransId: 'VCB_UNMATCHED_01',
+        orderId: o8.id,
+        amount: 420000,
+        description: 'CK TIEN MUA BALO LE DUAN',
+        bankName: 'VIETCOMBANK',
+        verified: false,
+        createdAt: new Date(),
       },
     });
   }
