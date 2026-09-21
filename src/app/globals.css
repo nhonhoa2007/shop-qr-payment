@@ -62,3 +62,76 @@ body {
 .shadow-soft-sm-custom {
   box-shadow: rgba(0, 0, 0, 0.06) 0px 2px 8px 0px;
 }
+
+/* 3D Floating Levitation & Liquid Shimmer Keyframes */
+@keyframes floatSlow {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(1.2deg);
+  }
+}
+
+@keyframes floatMedium {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-16px) rotate(-1.5deg);
+  }
+}
+
+@keyframes floatFast {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-9px) rotate(1.5deg);
+  }
+}
+
+@keyframes shadowPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(0.78);
+    opacity: 0.25;
+  }
+}
+
+@keyframes liquidFlow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animate-float-slow {
+  animation: floatSlow 5.2s ease-in-out infinite;
+}
+
+.animate-float-medium {
+  animation: floatMedium 3.9s ease-in-out infinite;
+}
+
+.animate-float-fast {
+  animation: floatFast 4.5s ease-in-out infinite;
+}
+
+.animate-shadow-pulse {
+  animation: shadowPulse 3.9s ease-in-out infinite;
+}
+
+.animate-liquid-flow {
+  background-size: 240% 240%;
+  animation: liquidFlow 7s ease infinite;
+}
+

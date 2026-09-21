@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { ProductGrid } from '@client/components/product/ProductGrid';
+import { HeroFloatingConstellation } from '@client/components/home/HeroFloatingConstellation';
 import type { Product } from '@shared/types';
 import { Search, ChevronRight, ArrowRight } from 'lucide-react';
 
@@ -19,50 +19,13 @@ export function HomeView({
   currentCategory,
   searchQuery,
 }: HomeViewProps) {
-  // Pick top 3 products for the hero floating constellation
-  const heroProducts = products.slice(0, 3);
-
   return (
     <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-10 space-y-16">
       {/* Hero Section — Floating constellation on canvas mist */}
       {!currentCategory && !searchQuery && (
-        <section className="text-center pt-6 pb-4">
-          {/* Floating constellation preview cards */}
-          {heroProducts.length > 0 && (
-            <div className="flex justify-center items-center gap-4 sm:gap-6 mb-8 overflow-hidden px-4">
-              {heroProducts.map((hp, idx) => (
-                <div
-                  key={hp.id}
-                  className={`bg-white rounded-[28px] p-2 shadow-card-custom transition duration-300 hover:shadow-card-hover-custom flex-shrink-0 ${
-                    idx === 1 ? 'w-36 sm:w-44 -translate-y-2' : 'w-28 sm:w-36 hidden sm:block opacity-90'
-                  }`}
-                >
-                  <div className="aspect-square relative bg-[#f2f4f5] rounded-[20px] overflow-hidden">
-                    {hp.image && (
-                      <Image
-                        src={hp.image}
-                        alt={hp.name}
-                        fill
-                        sizes="180px"
-                        className="object-cover"
-                      />
-                    )}
-                  </div>
-                  <p className="mt-2 text-xs font-semibold text-[#000000] truncate tracking-[-0.014em] text-left px-1">
-                    {hp.name}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Wordmark shop. */}
-          <div className="inline-flex items-center justify-center gap-1 mb-4">
-            <h1 className="text-5xl sm:text-6xl font-semibold tracking-[-0.05em] text-[#000000]">
-              shop
-            </h1>
-            <span className="w-3 h-3 rounded-full bg-[#5433eb] mt-5 sm:mt-6" />
-          </div>
+        <section className="text-center pt-2 pb-4">
+          {/* 3D Interactive Floating Constellation & Dynamic Wordmark */}
+          <HeroFloatingConstellation products={products} />
 
           <p className="text-[#787574] text-base sm:text-lg max-w-md mx-auto mb-8 tracking-[-0.031em] leading-relaxed">
             Khám phá những món đồ tuyển chọn. Tự động sinh mã VietQR thanh toán tức thì.
