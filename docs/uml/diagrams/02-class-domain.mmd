@@ -1,0 +1,141 @@
+classDiagram
+    direction TB
+
+    class User {
+        +String id
+        +String email
+        +String passwordHash
+        +Role role
+        +Boolean isVerified
+        +Boolean isBlocked
+        +DateTime createdAt
+    }
+
+    class Order {
+        +String id
+        +String orderCode
+        +Int totalAmount
+        +Int subtotal
+        +Int discountAmount
+        +Int shippingFee
+        +OrderStatus status
+        +PaymentStatus paymentStatus
+        +String qrContent
+        +DateTime expiresAt
+    }
+
+    class OrderItem {
+        +String id
+        +Int quantity
+        +Int price
+        +String variantTitle
+    }
+
+    class Product {
+        +String id
+        +String name
+        +Int price
+        +Int stock
+        +Boolean isActive
+    }
+
+    class ProductVariant {
+        +String id
+        +String sku
+        +String title
+        +Int price
+        +Int stock
+        +Boolean isActive
+    }
+
+    class Transaction {
+        +String id
+        +String bankTransId
+        +Int amount
+        +String description
+        +Boolean verified
+    }
+
+    class Shipment {
+        +String id
+        +String trackingCode
+        +CarrierName carrier
+        +Int shippingFee
+        +ShipmentStatus status
+    }
+
+    class UserWallet {
+        +String id
+        +Int balance
+    }
+
+    class WalletTransaction {
+        +String id
+        +Int amount
+        +WalletTxType type
+        +String description
+    }
+
+    class Coupon {
+        +String code
+        +DiscountType discountType
+        +Int discountValue
+        +Int minOrderAmount
+        +Boolean isActive
+    }
+
+    class Review {
+        +String id
+        +Int rating
+        +String comment
+        +Boolean isApproved
+    }
+
+    class ChatRoom {
+        +String id
+        +String orderId
+        +String lastMessage
+    }
+
+    class Message {
+        +String id
+        +String content
+        +MessageType type
+        +Boolean isRead
+    }
+
+    %% Domain Service Classes
+    class WalletService {
+        +getOrCreateWallet(userId)
+        +payOrderWithWallet(userId, orderId)
+        +refundOrderToWallet(orderId)
+    }
+
+    class InventoryService {
+        +reserveOrderStock(tx, items)
+        +releaseOrderStock(tx, items)
+        +expireUnpaidOrders(prisma)
+    }
+
+    class OrderFSM {
+        +validateOrderTransition(order, nextStatus)
+    }
+
+    %% Relationships
+    User "1" --> "*" Order : creates
+    User "1" --> "1" UserWallet : owns
+    UserWallet "1" --> "*" WalletTransaction : logs
+    Order "1" --> "*" OrderItem : contains
+    Product "1" --> "*" ProductVariant : owns
+    Product "1" --> "*" OrderItem : relates
+    ProductVariant "1" --> "*" OrderItem : fulfills
+    Order "1" --> "1" Transaction : paid_via
+    Order "1" --> "0..1" Shipment : delivered_via
+    Coupon "1" --> "*" Order : discounts
+    Order "1" --> "0..1" ChatRoom : associates
+    ChatRoom "1" --> "*" Message : contains
+    User "1" --> "*" Review : writes
+    Product "1" --> "*" Review : receives
+    WalletService ..> UserWallet : operates
+    InventoryService ..> Product : manages_stock
+    OrderFSM ..> Order : guards_transitions

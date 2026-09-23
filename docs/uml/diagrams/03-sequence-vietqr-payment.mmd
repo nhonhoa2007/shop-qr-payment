@@ -1,0 +1,44 @@
+sequenceDiagram
+    autonumber
+    actor Customer as Khách hàng
+    participant UI as Giao diện Web (Client)
+    participant API as Order Controller (Server)
+    participant Inv as Inventory Service
+    participant PayOS as Cổng VietQR (PayOS)
+    participant BankApp as App Ngân hàng (Mobile)
+    participant Webhook as Webhook Controller
+    participant DB as PostgreSQL
+    participant Pusher as Pusher Realtime
+    participant GHN as GHN Logistics
+
+    Customer->>UI: Bấm "Thanh toán VietQR"
+    UI->>API: POST /api/orders
+    activate API
+    API->>DB: Bắt đầu Database Transaction
+    API->>Inv: reserveOrderStock(tx, items) [Trừ kho nguyên tử]
+    Inv-->>API: Kho hợp lệ (OK)
+    API->>PayOS: createPayOSPaymentLink(orderCode, amount)
+    PayOS-->>API: Trả về qrContent & checkoutUrl
+    API->>DB: Lưu Order (status: PENDING, paymentStatus: UNPAID, expiresAt: +15m)
+    API-->>UI: Trả về qrContent
+    deactivate API
+
+    UI-->>Customer: Hiển thị mã QR ngân hàng động kèm đồng hồ đếm ngược 15:00
+    Customer->>BankApp: Mở App Ngân hàng quét QR & Xác nhận chuyển khoản
+    BankApp->>PayOS: Xử lý giao dịch liên ngân hàng NAPAS 24/7
+    PayOS->>Webhook: POST /api/webhooks/payos (Kèm chữ ký HMAC-SHA256)
+    
+    activate Webhook
+    Webhook->>Webhook: verifyPayOSWebhookSignature(timingSafeEqual)
+    Webhook->>DB: Kiểm tra chống phát lại (Replay Idempotency bankTransId)
+    Webhook->>DB: Atomic Update Order (status: CONFIRMED, paymentStatus: PAID)
+    Webhook->>DB: Lưu Transaction (bankTransId, verified: true)
+    Webhook->>GHN: createGHNShipment (Tự động sinh vận đơn giao hàng)
+    GHN-->>Webhook: Trả về mã trackingCode GHN
+    Webhook->>DB: Lưu Shipment (trackingCode, status: READY_TO_PICK)
+    Webhook->>Pusher: trigger("order-paid", "analytics-updated")
+    Webhook-->>PayOS: HTTP 200 OK (Đã tiếp nhận thành công)
+    deactivate Webhook
+
+    Pusher-->>UI: Sự kiện "order-paid" đến trình duyệt
+    UI-->>Customer: Màn hình tự động chuyển sang "Đã thanh toán thành công!"

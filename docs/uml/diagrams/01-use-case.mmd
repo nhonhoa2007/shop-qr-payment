@@ -1,0 +1,67 @@
+flowchart LR
+    %% Actors
+    Customer(["👤 Khách hàng (Customer)"])
+    Admin(["👑 Quản trị viên (Admin)"])
+    Staff(["👔 Nhân viên (Staff)"])
+    PayOS_Bank(["🏦 PayOS & Ngân hàng"])
+    GHN(["🚚 GHN Logistics"])
+    SystemCron(["⏰ Hệ thống Quét Tự động"])
+
+    %% Storefront Subsystem
+    subgraph Storefront ["🛒 Phân hệ Mua sắm & Khách hàng"]
+        UC1[1. Xem & Tìm kiếm Sản phẩm]
+        UC2[2. Chọn Biến thể Màu / Kích thước]
+        UC3[3. Quản lý Giỏ hàng & Áp Coupon]
+        UC4[4. Đặt hàng & Nhận mã VietQR]
+        UC5[5. Thanh toán bằng Ví Shop]
+        UC6[6. Hủy đơn & Hoàn tiền vào Ví]
+        UC7[7. Chat tư vấn trực tuyến]
+        UC8[8. Đánh giá Sản phẩm đã mua]
+    end
+
+    %% Admin Subsystem
+    subgraph AdminPortal ["📊 Phân hệ Quản trị SaaS Bento"]
+        UC9[9. Giám sát Doanh thu Realtime]
+        UC10[10. Đối soát Giao dịch VietQR]
+        UC11[11. Quản lý Đơn & Đẩy vận đơn GHN]
+        UC12[12. Quản lý Sản phẩm & Tồn kho]
+        UC13[13. Phân quyền RBAC & Khóa tài khoản]
+        UC14[14. Kiểm duyệt Đánh giá Review]
+    end
+
+    %% Background & Gateways
+    subgraph Gateways ["⚡ Phân hệ Cổng Tích hợp Ngoài"]
+        UC15[15. Bắn Webhook Biến động Số dư]
+        UC16[16. Cập nhật Trạng thái Vận chuyển]
+        UC17[17. Tự động Hủy đơn & Nhả kho quá hạn]
+    end
+
+    %% Customer Connections
+    Customer --> UC1
+    Customer --> UC2
+    Customer --> UC3
+    Customer --> UC4
+    Customer --> UC5
+    Customer --> UC6
+    Customer --> UC7
+    Customer --> UC8
+
+    %% Staff Connections
+    Staff --> UC11
+    Staff --> UC12
+    Staff --> UC7
+
+    %% Admin Connections
+    Admin --> UC9
+    Admin --> UC10
+    Admin --> UC11
+    Admin --> UC12
+    Admin --> UC13
+    Admin --> UC14
+
+    %% Third-party System Connections
+    PayOS_Bank --> UC15
+    UC15 -.->|Kích hoạt xác nhận tự động| UC4
+    GHN --> UC16
+    UC11 -.->|Sinh mã vận đơn tự động| GHN
+    SystemCron --> UC17

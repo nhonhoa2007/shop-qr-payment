@@ -1,0 +1,33 @@
+flowchart TD
+    Start([Nhận Request POST Webhook]) --> CheckEnv{Môi trường Production?}
+    
+    CheckEnv -- Có --> CheckSecretConfig{Có cấu hình Webhook Secret?}
+    CheckSecretConfig -- Thiếu --> FailClosed500[Từ chối Fail-Closed 500: Missing Gateway Key] --> StopErr([Dừng])
+    CheckSecretConfig -- Có --> VerifySignature
+    
+    CheckEnv -- Development --> DevWarning[Ghi log cảnh báo Dev Mode] --> VerifySignature
+
+    VerifySignature{Kiểm tra chữ ký HMAC-SHA256 timingSafeEqual?}
+    VerifySignature -- Sai chữ ký --> Reject401[Từ chối 401: Unauthorized / Tampered] --> StopErr
+    
+    VerifySignature -- Khớp chữ ký --> ParseDesc[Phân tích nội dung chuyển khoản bằng Regex]
+    ParseDesc --> FindOrderCode{Trích xuất được Mã Đơn DHxxxx?}
+    FindOrderCode -- Không tìm thấy --> LogUnmatched[Lưu Transaction: verified=false, UNMATCHED] --> Resp200[Trả về 200 OK để Ngân hàng không retry]
+    
+    FindOrderCode -- Tìm thấy mã --> QueryDB[Truy vấn Order trong PostgreSQL]
+    QueryDB --> OrderExists{Tìm thấy đơn hàng?}
+    OrderExists -- Không --> LogUnmatched
+    
+    OrderExists -- Có đơn hàng --> CheckIdempotency{bankTransId đã tồn tại trong DB?}
+    CheckIdempotency -- Đã tồn tại (Replay Attack) --> SkipDuplicate[Bỏ qua: Tránh ghi nhận trùng tiền] --> Resp200
+    
+    CheckIdempotency -- Giao dịch mới --> CheckOrderStatus{Trạng thái Đơn hiện tại?}
+    CheckOrderStatus -- Đã PAID / CANCELLED / EXPIRED --> LogLateTx[Lưu Transaction ghi nhận kèm cảnh báo Admin] --> Resp200
+    
+    CheckOrderStatus -- PENDING (Chờ tiền) --> CompareAmount{Số tiền nhận >= Tổng tiền đơn?}
+    CompareAmount -- Thiếu tiền --> UnderpaidAlert[Lưu Transaction: Cảnh báo Khách chuyển thiếu tiền] --> Resp200
+    
+    CompareAmount -- Đủ hoặc Thừa tiền --> AtomicUpdate[Cập nhật Order: status=CONFIRMED, paymentStatus=PAID]
+    AtomicUpdate --> PushGHN[Tự động tạo Vận đơn GHN OpenAPI]
+    PushGHN --> BroadcastRealtime[Bắn WebSocket Pusher: 'order-paid' & 'analytics-updated']
+    BroadcastRealtime --> Resp200 --> EndDone([Hoàn tất xử lý an toàn])

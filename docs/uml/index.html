@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bảng Điều Khiển 10 Sơ Đồ UML — shop-qr-payment (shop.)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+  <style>
+    /* Boutique Refero Tokens */
+    :root {
+      --canvas: #f2f4f5;
+      --violet: #5433eb;
+      --ink: #000000;
+      --muted: #787574;
+    }
+    body {
+      background-color: var(--canvas);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .shadow-violet {
+      box-shadow: 0 4px 24px rgba(69, 36, 219, 0.28);
+    }
+    .shadow-card {
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04), 0 2px 4px rgba(0, 0, 0, 0.02);
+    }
+  </style>
+</head>
+<body class="text-[#000000] min-h-screen flex flex-col">
+
+  <!-- TOPBAR -->
+  <header class="bg-white border-b border-[#ebebeb] sticky top-0 z-50 px-6 py-4 flex items-center justify-between shadow-xs">
+    <div class="flex items-center gap-3">
+      <div class="inline-flex items-center gap-1">
+        <span class="font-extrabold text-2xl tracking-tighter text-[#000000]">shop</span>
+        <span class="w-2.5 h-2.5 rounded-full bg-[#5433eb]"></span>
+      </div>
+      <span class="text-xs px-2.5 py-1 rounded-full bg-[#5433eb]/10 text-[#5433eb] font-bold">
+        UML 2.5 Architecture Board
+      </span>
+    </div>
+    <div class="text-xs text-[#787574] font-medium hidden sm:block">
+      Hệ thống Bán lẻ & Thanh toán VietQR Tự động • 10 Sơ đồ Chuẩn hóa
+    </div>
+  </header>
+
+  <!-- MAIN WORKSPACE -->
+  <div class="flex-1 flex flex-col md:flex-row max-w-7xl w-full mx-auto p-4 sm:p-6 gap-6">
+
+    <!-- SIDEBAR NAVIGATION TABS -->
+    <aside class="w-full md:w-80 flex-shrink-0 space-y-2">
+      <div class="bg-white rounded-[24px] p-4 border border-[#ebebeb] shadow-card">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-[#787574] mb-3 px-2">
+          Danh sách 10 Sơ đồ UML
+        </h2>
+        <nav class="space-y-1" id="nav-list">
+          
+            <button
+              onclick="switchTab(0)"
+              id="tab-btn-0"
+              class="w-full text-left px-3.5 py-2.5 rounded-[16px] text-xs font-semibold transition-all flex items-center justify-between bg-[#5433eb] text-white shadow-violet"
+            >
+              <div class="truncate mr-2">
+                <span class="opacity-70 mr-1.5 font-mono">#01</span>
+                <span>Sơ đồ Ca sử dụng</span>
+              </div>
+              <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-white/20 text-white">
+                Use Case
+              </span>
+            </button>
+          
+            <button
+              onclick="switchTab(1)"
+              id="tab-btn-1"
+              class="w-full text-left px-3.5 py-2.5 rounded-[16px] text-xs font-semibold transition-all flex items-center justify-between text-slate-700 hover:bg-slate-100"
+            >
+              <div class="truncate mr-2">
+                <span class="opacity-70 mr-1.5 font-mono">#02</span>
+                <span>Sơ đồ Lớp Thực thể & Miền Nghiệp vụ</span>
+              </div>
+              <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                Class / Domain
+              </span>
+            </button>
+          
+            <button
+              onclick="switchTab(2)"
+              id="tab-btn-2"
+              class="w-full text-left px-3.5 py-2.5 rounded-[16px] text-xs font-semibold transition-all flex items-center justify-between text-slate-700 hover:bg-slate-100"
+            >
+              <div class="truncate mr-2">
+                <span class="opacity-70 mr-1.5 font-mono">#03</span>
+                <span>Sơ đồ Tuần tự 1: Thanh toán VietQR & Đối soát Tự động</span>
+              </div>
+              <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                Sequence
+              </span>
+            </button>
+          
+            <button
+              onclick="switchTab(3)"
+              id="tab-btn-3"
+              class="w-full text-left px-3.5 py-2.5 rounded-[16px] text-xs font-semibold transition-all flex items-center justify-between text-slate-700 hover:bg-slate-100"
+            >
+              <div class="truncate mr-2">
+                <span class="opacity-70 mr-1.5 font-mono">#04</span>
+                <span>Sơ đồ Tuần tự 2: Hủy đơn & Hoàn tiền Ví CAS Nguyên tử</span>
+              </div>
+              <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                Sequence
+              </span>
+            </button>
+          
+            <button
+              onclick="switchTab(4)"
+              id="tab-btn-4"
+              class="w-full text-left px-3.5 py-2.5 rounded-[16px] text-xs font-semibold transition-all flex items-center justify-between text-slate-700 hover:bg-slate-100"
+            >
+              <div class="truncate mr-2">
+                <span class="opacity-70 mr-1.5 font-mono">#05</span>
+                <span>Sơ đồ Hoạt động 1: Quy trình Đặt hàng & Giữ kho Nguyên tử</span>
+              </div>
+              <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                Activity
+              </span>
+            </button>
+          
+            <button
+              onclick="switchTab(5)"
+              id="tab-btn-5"
+              class="w-full text-left px-3.5 py-2.5 rounded-[16px] text-xs font-semibold transition-all flex items-center justify-between text-slate-700 hover:bg-slate-100"
+            >
+              <div class="truncate mr-2">
+                <span class="opacity-70 mr-1.5 font-mono">#06</span>
+                <span>Sơ đồ Hoạt động 2: Bộ lọc An ninh & Đối soát Webhook Ngân hàng</span>
+              </div>
+              <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                Activity
+              </span>
+            </button>
+          
+            <button
+              onclick="switchTab(6)"
+              id="tab-btn-6"
+              class="w-full text-left px-3.5 py-2.5 rounded-[16px] text-xs font-semibold transition-all flex items-center justify-between text-slate-700 hover:bg-slate-100"
+            >
+              <div class="truncate mr-2">
+                <span class="opacity-70 mr-1.5 font-mono">#07</span>
+                <span>Sơ đồ Máy trạng thái: Vòng đời Đơn hàng & Thanh toán</span>
+              </div>
+              <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                State Machine
+              </span>
+            </button>
+          
+            <button
+              onclick="switchTab(7)"
+              id="tab-btn-7"
+              class="w-full text-left px-3.5 py-2.5 rounded-[16px] text-xs font-semibold transition-all flex items-center justify-between text-slate-700 hover:bg-slate-100"
+            >
+              <div class="truncate mr-2">
+                <span class="opacity-70 mr-1.5 font-mono">#08</span>
+                <span>Sơ đồ Thành phần Kiến trúc Phần mềm</span>
+              </div>
+              <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                Component
+              </span>
+            </button>
+          
+            <button
+              onclick="switchTab(8)"
+              id="tab-btn-8"
+              class="w-full text-left px-3.5 py-2.5 rounded-[16px] text-xs font-semibold transition-all flex items-center justify-between text-slate-700 hover:bg-slate-100"
+            >
+              <div class="truncate mr-2">
+                <span class="opacity-70 mr-1.5 font-mono">#09</span>
+                <span>Sơ đồ Triển khai Hạ tầng Hệ thống</span>
+              </div>
+              <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                Deployment
+              </span>
+            </button>
+          
+            <button
+              onclick="switchTab(9)"
+              id="tab-btn-9"
+              class="w-full text-left px-3.5 py-2.5 rounded-[16px] text-xs font-semibold transition-all flex items-center justify-between text-slate-700 hover:bg-slate-100"
+            >
+              <div class="truncate mr-2">
+                <span class="opacity-70 mr-1.5 font-mono">#10</span>
+                <span>Sơ đồ Gói & Cấu trúc Mô-đun</span>
+              </div>
+              <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                Package
+              </span>
+            </button>
+          
+        </nav>
+      </div>
+
+      <!-- EXPORT ACTIONS CARD -->
+      <div class="bg-white rounded-[24px] p-4 border border-[#ebebeb] shadow-card space-y-2">
+        <h3 class="text-xs font-bold text-[#000000] px-2">Thao tác Nhanh</h3>
+        <a
+          id="download-png"
+          href="./images/01-use-case.png"
+          download="01-use-case.png"
+          class="w-full block text-center py-2.5 px-4 rounded-full bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition"
+        >
+          Tải ảnh PNG Sắc nét
+        </a>
+        <a
+          id="download-svg"
+          href="./images/01-use-case.svg"
+          download="01-use-case.svg"
+          class="w-full block text-center py-2.5 px-4 rounded-full border border-slate-300 text-slate-700 text-xs font-bold hover:bg-slate-50 transition"
+        >
+          Tải Vector SVG Gốc
+        </a>
+      </div>
+    </aside>
+
+    <!-- VIEWER CANVAS -->
+    <main class="flex-1 min-w-0">
+      <div class="bg-white rounded-[28px] p-6 sm:p-8 border border-[#ebebeb] shadow-card flex flex-col min-h-[700px]">
+        
+        <!-- HEADER OF DIAGRAM -->
+        <div class="border-b border-slate-100 pb-4 mb-6">
+          <div class="flex items-center gap-2 mb-1.5">
+            <span id="diagram-type" class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-[#5433eb]/10 text-[#5433eb]">
+              Use Case Diagram
+            </span>
+            <span id="diagram-id" class="text-xs text-slate-400 font-mono">
+              01-use-case
+            </span>
+          </div>
+          <h1 id="diagram-title" class="text-xl sm:text-2xl font-bold text-[#000000] tracking-tight">
+            Sơ đồ Ca sử dụng (Use Case Diagram)
+          </h1>
+          <p id="diagram-desc" class="text-sm text-[#787574] mt-1">
+            Mô tả tổng quan các tác nhân (Actors) và các trường hợp sử dụng (Use Cases) trong toàn bộ hệ thống shop-qr-payment.
+          </p>
+        </div>
+
+        <!-- DIAGRAM DISPLAY CONTAINER -->
+        <div class="flex-1 flex items-center justify-center bg-[#fcfcfd] rounded-[20px] p-4 border border-slate-100 overflow-auto">
+          <div id="mermaid-container" class="w-full flex justify-center">
+            <!-- Mermaid SVG Rendered Here -->
+          </div>
+        </div>
+
+        <!-- MERMAID CODE COLLAPSIBLE -->
+        <details class="mt-6 border-t border-slate-100 pt-4">
+          <summary class="text-xs font-bold text-[#5433eb] cursor-pointer hover:underline">
+            Xem và sao chép mã nguồn Mermaid
+          </summary>
+          <pre id="mermaid-code-view" class="mt-3 p-4 rounded-[16px] bg-slate-900 text-emerald-400 text-xs font-mono overflow-auto max-h-60"></pre>
+        </details>
+
+      </div>
+    </main>
+
+  </div>
+
+  <script>
+    const diagramData = [{"id":"01-use-case","title":"Sơ đồ Ca sử dụng (Use Case Diagram)","type":"Use Case","description":"Mô tả tổng quan các tác nhân (Actors) và các trường hợp sử dụng (Use Cases) trong toàn bộ hệ thống shop-qr-payment.","mermaid":"flowchart LR\n    %% Actors\n    Customer([\"👤 Khách hàng (Customer)\"])\n    Admin([\"👑 Quản trị viên (Admin)\"])\n    Staff([\"👔 Nhân viên (Staff)\"])\n    PayOS_Bank([\"🏦 PayOS & Ngân hàng\"])\n    GHN([\"🚚 GHN Logistics\"])\n    SystemCron([\"⏰ Hệ thống Quét Tự động\"])\n\n    %% Storefront Subsystem\n    subgraph Storefront [\"🛒 Phân hệ Mua sắm & Khách hàng\"]\n        UC1[1. Xem & Tìm kiếm Sản phẩm]\n        UC2[2. Chọn Biến thể Màu / Kích thước]\n        UC3[3. Quản lý Giỏ hàng & Áp Coupon]\n        UC4[4. Đặt hàng & Nhận mã VietQR]\n        UC5[5. Thanh toán bằng Ví Shop]\n        UC6[6. Hủy đơn & Hoàn tiền vào Ví]\n        UC7[7. Chat tư vấn trực tuyến]\n        UC8[8. Đánh giá Sản phẩm đã mua]\n    end\n\n    %% Admin Subsystem\n    subgraph AdminPortal [\"📊 Phân hệ Quản trị SaaS Bento\"]\n        UC9[9. Giám sát Doanh thu Realtime]\n        UC10[10. Đối soát Giao dịch VietQR]\n        UC11[11. Quản lý Đơn & Đẩy vận đơn GHN]\n        UC12[12. Quản lý Sản phẩm & Tồn kho]\n        UC13[13. Phân quyền RBAC & Khóa tài khoản]\n        UC14[14. Kiểm duyệt Đánh giá Review]\n    end\n\n    %% Background & Gateways\n    subgraph Gateways [\"⚡ Phân hệ Cổng Tích hợp Ngoài\"]\n        UC15[15. Bắn Webhook Biến động Số dư]\n        UC16[16. Cập nhật Trạng thái Vận chuyển]\n        UC17[17. Tự động Hủy đơn & Nhả kho quá hạn]\n    end\n\n    %% Customer Connections\n    Customer --> UC1\n    Customer --> UC2\n    Customer --> UC3\n    Customer --> UC4\n    Customer --> UC5\n    Customer --> UC6\n    Customer --> UC7\n    Customer --> UC8\n\n    %% Staff Connections\n    Staff --> UC11\n    Staff --> UC12\n    Staff --> UC7\n\n    %% Admin Connections\n    Admin --> UC9\n    Admin --> UC10\n    Admin --> UC11\n    Admin --> UC12\n    Admin --> UC13\n    Admin --> UC14\n\n    %% Third-party System Connections\n    PayOS_Bank --> UC15\n    UC15 -.->|Kích hoạt xác nhận tự động| UC4\n    GHN --> UC16\n    UC11 -.->|Sinh mã vận đơn tự động| GHN\n    SystemCron --> UC17\n"},{"id":"02-class-domain","title":"Sơ đồ Lớp Thực thể & Miền Nghiệp vụ (Class & Domain Model)","type":"Class / Domain","description":"Cấu trúc các thực thể dữ liệu Prisma, quan hệ thực thể (ERD) và các dịch vụ nghiệp vụ chính (Domain Services).","mermaid":"classDiagram\n    direction TB\n\n    class User {\n        +String id\n        +String email\n        +String passwordHash\n        +Role role\n        +Boolean isVerified\n        +Boolean isBlocked\n        +DateTime createdAt\n    }\n\n    class Order {\n        +String id\n        +String orderCode\n        +Int totalAmount\n        +Int subtotal\n        +Int discountAmount\n        +Int shippingFee\n        +OrderStatus status\n        +PaymentStatus paymentStatus\n        +String qrContent\n        +DateTime expiresAt\n    }\n\n    class OrderItem {\n        +String id\n        +Int quantity\n        +Int price\n        +String variantTitle\n    }\n\n    class Product {\n        +String id\n        +String name\n        +Int price\n        +Int stock\n        +Boolean isActive\n    }\n\n    class ProductVariant {\n        +String id\n        +String sku\n        +String title\n        +Int price\n        +Int stock\n        +Boolean isActive\n    }\n\n    class Transaction {\n        +String id\n        +String bankTransId\n        +Int amount\n        +String description\n        +Boolean verified\n    }\n\n    class Shipment {\n        +String id\n        +String trackingCode\n        +CarrierName carrier\n        +Int shippingFee\n        +ShipmentStatus status\n    }\n\n    class UserWallet {\n        +String id\n        +Int balance\n    }\n\n    class WalletTransaction {\n        +String id\n        +Int amount\n        +WalletTxType type\n        +String description\n    }\n\n    class Coupon {\n        +String code\n        +DiscountType discountType\n        +Int discountValue\n        +Int minOrderAmount\n        +Boolean isActive\n    }\n\n    class Review {\n        +String id\n        +Int rating\n        +String comment\n        +Boolean isApproved\n    }\n\n    class ChatRoom {\n        +String id\n        +String orderId\n        +String lastMessage\n    }\n\n    class Message {\n        +String id\n        +String content\n        +MessageType type\n        +Boolean isRead\n    }\n\n    %% Domain Service Classes\n    class WalletService {\n        +getOrCreateWallet(userId)\n        +payOrderWithWallet(userId, orderId)\n        +refundOrderToWallet(orderId)\n    }\n\n    class InventoryService {\n        +reserveOrderStock(tx, items)\n        +releaseOrderStock(tx, items)\n        +expireUnpaidOrders(prisma)\n    }\n\n    class OrderFSM {\n        +validateOrderTransition(order, nextStatus)\n    }\n\n    %% Relationships\n    User \"1\" --> \"*\" Order : creates\n    User \"1\" --> \"1\" UserWallet : owns\n    UserWallet \"1\" --> \"*\" WalletTransaction : logs\n    Order \"1\" --> \"*\" OrderItem : contains\n    Product \"1\" --> \"*\" ProductVariant : owns\n    Product \"1\" --> \"*\" OrderItem : relates\n    ProductVariant \"1\" --> \"*\" OrderItem : fulfills\n    Order \"1\" --> \"1\" Transaction : paid_via\n    Order \"1\" --> \"0..1\" Shipment : delivered_via\n    Coupon \"1\" --> \"*\" Order : discounts\n    Order \"1\" --> \"0..1\" ChatRoom : associates\n    ChatRoom \"1\" --> \"*\" Message : contains\n    User \"1\" --> \"*\" Review : writes\n    Product \"1\" --> \"*\" Review : receives\n    WalletService ..> UserWallet : operates\n    InventoryService ..> Product : manages_stock\n    OrderFSM ..> Order : guards_transitions\n"},{"id":"03-sequence-vietqr-payment","title":"Sơ đồ Tuần tự 1: Thanh toán VietQR & Đối soát Tự động","type":"Sequence","description":"Quy trình tạo đơn, quét mã VietQR ngân hàng, nhận Webhook an toàn, tự động khớp tiền và đẩy sang GHN.","mermaid":"sequenceDiagram\n    autonumber\n    actor Customer as Khách hàng\n    participant UI as Giao diện Web (Client)\n    participant API as Order Controller (Server)\n    participant Inv as Inventory Service\n    participant PayOS as Cổng VietQR (PayOS)\n    participant BankApp as App Ngân hàng (Mobile)\n    participant Webhook as Webhook Controller\n    participant DB as PostgreSQL\n    participant Pusher as Pusher Realtime\n    participant GHN as GHN Logistics\n\n    Customer->>UI: Bấm \"Thanh toán VietQR\"\n    UI->>API: POST /api/orders\n    activate API\n    API->>DB: Bắt đầu Database Transaction\n    API->>Inv: reserveOrderStock(tx, items) [Trừ kho nguyên tử]\n    Inv-->>API: Kho hợp lệ (OK)\n    API->>PayOS: createPayOSPaymentLink(orderCode, amount)\n    PayOS-->>API: Trả về qrContent & checkoutUrl\n    API->>DB: Lưu Order (status: PENDING, paymentStatus: UNPAID, expiresAt: +15m)\n    API-->>UI: Trả về qrContent\n    deactivate API\n\n    UI-->>Customer: Hiển thị mã QR ngân hàng động kèm đồng hồ đếm ngược 15:00\n    Customer->>BankApp: Mở App Ngân hàng quét QR & Xác nhận chuyển khoản\n    BankApp->>PayOS: Xử lý giao dịch liên ngân hàng NAPAS 24/7\n    PayOS->>Webhook: POST /api/webhooks/payos (Kèm chữ ký HMAC-SHA256)\n    \n    activate Webhook\n    Webhook->>Webhook: verifyPayOSWebhookSignature(timingSafeEqual)\n    Webhook->>DB: Kiểm tra chống phát lại (Replay Idempotency bankTransId)\n    Webhook->>DB: Atomic Update Order (status: CONFIRMED, paymentStatus: PAID)\n    Webhook->>DB: Lưu Transaction (bankTransId, verified: true)\n    Webhook->>GHN: createGHNShipment (Tự động sinh vận đơn giao hàng)\n    GHN-->>Webhook: Trả về mã trackingCode GHN\n    Webhook->>DB: Lưu Shipment (trackingCode, status: READY_TO_PICK)\n    Webhook->>Pusher: trigger(\"order-paid\", \"analytics-updated\")\n    Webhook-->>PayOS: HTTP 200 OK (Đã tiếp nhận thành công)\n    deactivate Webhook\n\n    Pusher-->>UI: Sự kiện \"order-paid\" đến trình duyệt\n    UI-->>Customer: Màn hình tự động chuyển sang \"Đã thanh toán thành công!\"\n"},{"id":"04-sequence-wallet-refund","title":"Sơ đồ Tuần tự 2: Hủy đơn & Hoàn tiền Ví CAS Nguyên tử","type":"Sequence","description":"Quy trình hủy đơn hàng đã thanh toán với cơ chế Atomic CAS chống Double-Refund và tự động hoàn kho.","mermaid":"sequenceDiagram\n    autonumber\n    actor User as Khách hàng / Admin\n    participant UI as Giao diện Web\n    participant OrderCtrl as OrderDetail Controller\n    participant WalletSvc as Wallet Service\n    participant DB as PostgreSQL\n    participant InvSvc as Inventory Service\n    participant Pusher as Pusher Gateway\n\n    User->>UI: Bấm Hủy đơn & Hoàn tiền vào Ví\n    UI->>OrderCtrl: PATCH /api/orders/id (status: CANCELLED)\n    activate OrderCtrl\n    OrderCtrl->>WalletSvc: refundOrderToWallet(orderId)\n    \n    activate WalletSvc\n    WalletSvc->>DB: Bắt đầu prisma transaction\n    WalletSvc->>DB: updateMany (paymentStatus: PAID to REFUNDED)\n    \n    alt updateResult.count !== 1\n        DB-->>WalletSvc: count = 0\n        WalletSvc-->>OrderCtrl: Báo lỗi Đơn không ở trạng thái PAID\n        OrderCtrl-->>UI: HTTP 400 Bad Request\n    else updateResult.count === 1\n        DB-->>WalletSvc: count = 1\n        WalletSvc->>DB: update UserWallet (balance += totalAmount)\n        WalletSvc->>DB: create WalletTransaction (type: REFUND)\n        WalletSvc->>InvSvc: releaseOrderStock(tx, order.items)\n        InvSvc->>DB: Tăng lại stock cho Product & Variant\n        WalletSvc->>Pusher: trigger private-admin-channel (analytics-updated)\n        WalletSvc-->>OrderCtrl: Hoàn tiền thành công\n        deactivate WalletSvc\n        OrderCtrl-->>UI: HTTP 200 OK (Đơn đã hủy & tiền đã về ví)\n    end\n    deactivate OrderCtrl\n\n    UI-->>User: Thông báo Đã hoàn 100% tiền vào Ví nội bộ thành công\n"},{"id":"05-activity-order-placement","title":"Sơ đồ Hoạt động 1: Quy trình Đặt hàng & Giữ kho Nguyên tử","type":"Activity","description":"Quy trình kiểm tra tính hợp lệ, trừ kho nguyên tử (Atomic Inventory Reservation) và phân luồng thanh toán.","mermaid":"flowchart TD\n    Start([Khách hàng nhấn 'Đặt hàng']) --> ValidateCart{Giỏ hàng có sản phẩm?}\n    ValidateCart -- Trống --> ErrEmpty[Báo lỗi: Giỏ hàng rỗng] --> StopErr([Dừng xử lý])\n    \n    ValidateCart -- Hợp lệ --> CheckCoupon{Có mã Coupon?}\n    CheckCoupon -- Có --> ValidateCoupon[Kiểm tra HSD, Lượt dùng & Giá trị tối thiểu]\n    ValidateCoupon --> ApplyDiscount[Tính giảm giá: FIXED / PERCENT / SHIP]\n    CheckCoupon -- Không --> CalcShipping[Tính phí ship qua GHN OpenAPI]\n    ApplyDiscount --> CalcShipping\n\n    CalcShipping --> BeginTx[Bắt đầu Database Transaction]\n    BeginTx --> CheckStock{Kiểm tra Tồn kho từng Sản phẩm & Biến thể}\n    \n    CheckStock -- Thiếu hàng / Không hoạt động --> RollbackTx[Rollback Transaction]\n    RollbackTx --> ErrStock[Báo lỗi: Sản phẩm X đã hết hàng] --> StopErr\n\n    CheckStock -- Đủ hàng --> ReserveStock[Trừ kho nguyên tử: reserveOrderStock]\n    ReserveStock --> CreateOrder[Tạo bản ghi Order: PENDING, UNPAID, TTL: 15p]\n    CreateOrder --> CommitTx[Commit Transaction thành công]\n\n    CommitTx --> ChoosePayment{Phương thức Thanh toán?}\n    \n    ChoosePayment -- VietQR / PayOS --> GenQR[Gọi API PayOS sinh chuỗi VietQR động]\n    GenQR --> ShowPaymentPage[Chuyển hướng đến trang Quét mã VietQR]\n    \n    ChoosePayment -- Ví Shop --> CheckBalance{Số dư ví >= Tổng tiền?}\n    CheckBalance -- Thiếu tiền --> ErrWallet[Báo lỗi: Số dư ví không đủ] --> ShowPaymentPage\n    CheckBalance -- Đủ tiền --> DeductWallet[Trừ ví & Xác nhận đơn PAID ngay lập tức]\n    \n    ChoosePayment -- COD --> MarkCOD[Đánh dấu đơn COD & Chuẩn bị giao hàng]\n\n    ShowPaymentPage --> EndOrder([Chờ thanh toán / Khớp tiền])\n    DeductWallet --> EndSuccess([Đặt hàng thành công])\n    MarkCOD --> EndSuccess\n"},{"id":"06-activity-webhook-security","title":"Sơ đồ Hoạt động 2: Bộ lọc An ninh & Đối soát Webhook Ngân hàng","type":"Activity","description":"Quy trình xử lý bất biến an toàn (Fail-Closed, Timing-Safe HMAC, Idempotency) khi tiếp nhận dữ liệu ngân hàng.","mermaid":"flowchart TD\n    Start([Nhận Request POST Webhook]) --> CheckEnv{Môi trường Production?}\n    \n    CheckEnv -- Có --> CheckSecretConfig{Có cấu hình Webhook Secret?}\n    CheckSecretConfig -- Thiếu --> FailClosed500[Từ chối Fail-Closed 500: Missing Gateway Key] --> StopErr([Dừng])\n    CheckSecretConfig -- Có --> VerifySignature\n    \n    CheckEnv -- Development --> DevWarning[Ghi log cảnh báo Dev Mode] --> VerifySignature\n\n    VerifySignature{Kiểm tra chữ ký HMAC-SHA256 timingSafeEqual?}\n    VerifySignature -- Sai chữ ký --> Reject401[Từ chối 401: Unauthorized / Tampered] --> StopErr\n    \n    VerifySignature -- Khớp chữ ký --> ParseDesc[Phân tích nội dung chuyển khoản bằng Regex]\n    ParseDesc --> FindOrderCode{Trích xuất được Mã Đơn DHxxxx?}\n    FindOrderCode -- Không tìm thấy --> LogUnmatched[Lưu Transaction: verified=false, UNMATCHED] --> Resp200[Trả về 200 OK để Ngân hàng không retry]\n    \n    FindOrderCode -- Tìm thấy mã --> QueryDB[Truy vấn Order trong PostgreSQL]\n    QueryDB --> OrderExists{Tìm thấy đơn hàng?}\n    OrderExists -- Không --> LogUnmatched\n    \n    OrderExists -- Có đơn hàng --> CheckIdempotency{bankTransId đã tồn tại trong DB?}\n    CheckIdempotency -- Đã tồn tại (Replay Attack) --> SkipDuplicate[Bỏ qua: Tránh ghi nhận trùng tiền] --> Resp200\n    \n    CheckIdempotency -- Giao dịch mới --> CheckOrderStatus{Trạng thái Đơn hiện tại?}\n    CheckOrderStatus -- Đã PAID / CANCELLED / EXPIRED --> LogLateTx[Lưu Transaction ghi nhận kèm cảnh báo Admin] --> Resp200\n    \n    CheckOrderStatus -- PENDING (Chờ tiền) --> CompareAmount{Số tiền nhận >= Tổng tiền đơn?}\n    CompareAmount -- Thiếu tiền --> UnderpaidAlert[Lưu Transaction: Cảnh báo Khách chuyển thiếu tiền] --> Resp200\n    \n    CompareAmount -- Đủ hoặc Thừa tiền --> AtomicUpdate[Cập nhật Order: status=CONFIRMED, paymentStatus=PAID]\n    AtomicUpdate --> PushGHN[Tự động tạo Vận đơn GHN OpenAPI]\n    PushGHN --> BroadcastRealtime[Bắn WebSocket Pusher: 'order-paid' & 'analytics-updated']\n    BroadcastRealtime --> Resp200 --> EndDone([Hoàn tất xử lý an toàn])\n"},{"id":"07-state-machine-orders","title":"Sơ đồ Máy trạng thái: Vòng đời Đơn hàng & Thanh toán (FSM)","type":"State Machine","description":"Cỗ máy hữu hạn trạng thái (Finite State Machine) quản lý tính nhất quán của Đơn hàng và Kho hàng.","mermaid":"stateDiagram-v2\n    direction TB\n\n    [*] --> PENDING: Khách đặt hàng (reserveOrderStock - Tồn kho bị giữ)\n\n    PENDING --> CONFIRMED: Thanh toán VietQR thành công / Trừ ví thành công\n    PENDING --> EXPIRED: Quá hạn 15 phút chưa thanh toán (releaseOrderStock)\n    PENDING --> CANCELLED: Khách hàng chủ động hủy đơn (releaseOrderStock)\n\n    CONFIRMED --> PROCESSING: Admin / Nhân viên kho duyệt đóng gói\n    CONFIRMED --> CANCELLED: Hủy đơn sau khi thanh toán (Atomic CAS Hoàn tiền Ví + releaseOrderStock)\n\n    PROCESSING --> SHIPPING: Xuất kho & Bàn giao Shipper GHN (Sinh trackingCode)\n    PROCESSING --> CANCELLED: Hủy tại kho (Hoàn tiền Ví + releaseOrderStock)\n\n    SHIPPING --> DELIVERED: GHN Webhook báo giao hàng thành công\n    SHIPPING --> CANCELLED: Giao thất bại / Khách từ chối nhận (Hoàn hàng về kho)\n\n    DELIVERED --> COMPLETED: Khách bấm xác nhận / Hết hạn khiếu nại 7 ngày\n\n    EXPIRED --> [*]\n    CANCELLED --> [*]\n    COMPLETED --> [*]\n\n    note right of PENDING\n        Trạng thái thanh toán: UNPAID\n        Đồng hồ đếm ngược: 15 phút\n    end note\n\n    note right of CONFIRMED\n        Trạng thái thanh toán: PAID\n        Kho hàng: Đã khóa xuất\n    end note\n\n    note right of CANCELLED\n        Trạng thái thanh toán: CANCELLED hoặc REFUNDED\n        Kho hàng: Đã giải phóng 100%\n    end note\n"},{"id":"08-component-clean-architecture","title":"Sơ đồ Thành phần Kiến trúc Phần mềm (Clean Architecture)","type":"Component","description":"Mô hình phân tầng kiến trúc nghiêm ngặt (@client, @server, @shared) bảo đảm Zero-Server-Leakage.","mermaid":"flowchart TB\n    subgraph PresentationLayer [\"🖥️ Tầng Trình diễn (Presentation Layer - @client)\"]\n        HomeView[\"HomeView (Constellation 3D)\"]\n        ProductDetailView[\"ProductDetailView\"]\n        CartView[\"CartView\"]\n        CheckoutView[\"CheckoutView\"]\n        AdminDashboard[\"AdminDashboardView (Bento Grid)\"]\n        AdminOrders[\"AdminOrdersView\"]\n        ZustandCart[\"Zustand Cart Store\"]\n        PusherClient[\"Pusher JS Client\"]\n    end\n\n    subgraph ApplicationLayer [\"⚙️ Tầng Ứng dụng & Dịch vụ (Application Layer - @server)\"]\n        OrderRoutes[\"Order & Checkout APIs\"]\n        WebhookRoutes[\"PayOS & GHN Webhook Handlers\"]\n        AdminRoutes[\"Analytics & Reconciliation APIs\"]\n        WalletService[\"WalletService (Atomic CAS Refund)\"]\n        InventoryService[\"InventoryService (Atomic Stock & Expiry)\"]\n        OrderFSM[\"OrderFSM Engine (Invariants Guard)\"]\n        PayOSService[\"PayOSService (HMAC Gateway)\"]\n        GHNService[\"GHNService (Logistics OpenAPI)\"]\n    end\n\n    subgraph SharedLayer [\"📦 Tầng Dùng chung An toàn (@shared)\"]\n        SharedTypes[\"DTO Types & Interfaces\"]\n        SharedEnums[\"Domain Enums\"]\n        SharedValidators[\"Zod Validation Schemas\"]\n        SharedErrors[\"AppError, ValidationError, AuthError\"]\n        SharedUtils[\"Formatters & Crypto Utils\"]\n    end\n\n    subgraph InfrastructureLayer [\"🗄️ Tầng Hạ tầng & Dịch vụ Đám mây\"]\n        PostgresDB[(\"PostgreSQL Database (Prisma ORM)\")]\n        RedisCache[(\"Upstash Redis Cache\")]\n        PusherCloud[\"Pusher Realtime Cloud Gateway\"]\n        PayOSGateway[\"PayOS Payment API\"]\n        GHNCloud[\"GHN OpenAPI Server\"]\n        CloudinaryCDN[\"Cloudinary Media CDN\"]\n    end\n\n    PresentationLayer --> SharedLayer\n    ApplicationLayer --> SharedLayer\n    PresentationLayer -->|Fetch REST APIs| ApplicationLayer\n    PresentationLayer -.->|NGHIÊM CẤM IMPORT TRỰC TIẾP| ApplicationLayer\n\n    ApplicationLayer --> PostgresDB\n    ApplicationLayer --> RedisCache\n    ApplicationLayer --> PusherCloud\n    ApplicationLayer --> PayOSGateway\n    ApplicationLayer --> GHNCloud\n    ApplicationLayer --> CloudinaryCDN\n"},{"id":"09-deployment-infrastructure","title":"Sơ đồ Triển khai Hạ tầng Hệ thống (Deployment Architecture)","type":"Deployment","description":"Kiến trúc triển khai phân tán trên nền tảng Serverless, Managed Database và các Micro-SaaS API.","mermaid":"flowchart TB\n    %% Client Devices\n    subgraph ClientTier [\"📱 Tầng Người dùng Cuối (End Users)\"]\n        DesktopBrowser[\"💻 Máy tính Để bàn (Admin & Customers)\"]\n        MobileBrowser[\"📱 Thiết bị Di động (Mobile Safari / Chrome)\"]\n        BankAppDevice[\"🏦 App Ngân hàng Khách hàng (Quét VietQR)\"]\n    end\n\n    %% Edge & Network\n    subgraph EdgeTier [\"🛡️ Tầng Biên Mạng (Edge & CDN)\"]\n        CloudflareEdge[\"Cloudflare Edge Network / Vercel Edge Cache\n- SSL/TLS Termination\n- DDoS Mitigation & Web Application Firewall (WAF)\n- Static Asset Caching (JS/CSS/Next.js Images)\"]\n    end\n\n    %% Compute Tier\n    subgraph ComputeTier [\"⚡ Tầng Điện toán Không máy chủ (Vercel Serverless Platform)\"]\n        NodeRuntime[\"Node.js Serverless Functions (Next.js 16 App Router)\n- Edge Middleware (Session & RBAC Guard)\n- API Handlers (/api/orders, /api/webhooks, /api/admin)\n- Server-Side Rendering (SSR) & Dynamic Streaming\"]\n    end\n\n    %% Persistence Tier\n    subgraph PersistenceTier [\"💾 Tầng Dữ liệu Cốt lõi (Persistence Tier)\"]\n        PostgresInstance[(\"🐘 Managed PostgreSQL (Neon / Supabase)\n- Connection Pooling\n- ACID Transactions\n- Prisma Engine Integration\")]\n        RedisInstance[(\"⚡ Upstash Serverless Redis\n- Catalogue Query Caching (TTL)\n- Distributed Rate Limiting\")]\n    end\n\n    %% External SaaS Ecosystem\n    subgraph ExternalSaaSTier [\"🌐 Tầng Dịch vụ Đám mây Chuyên biệt (Third-party Cloud Ecosystem)\"]\n        PayOSServer[\"🏦 Cổng PayOS / NAPAS 247 Switch (VietQR)\"]\n        GHNServer[\"🚚 Giao Hàng Nhanh API (Logistics OpenAPI)\"]\n        PusherServer[\"📡 Pusher Cloud Channels (WebSocket Gateway)\"]\n        ResendServer[\"✉️ Resend Cloud API (Transactional Emails)\"]\n        CloudinaryServer[\"🖼️ Cloudinary CDN (Image Optimization)\"]\n    end\n\n    %% Connections\n    DesktopBrowser -->|HTTPS / WSS| CloudflareEdge\n    MobileBrowser -->|HTTPS / WSS| CloudflareEdge\n    BankAppDevice -->|Quét QR chuyển tiền| PayOSServer\n\n    CloudflareEdge --> NodeRuntime\n    NodeRuntime -->|Prisma TCP / SSL| PostgresInstance\n    NodeRuntime -->|REST API over HTTPS| RedisInstance\n    NodeRuntime -->|Trigger Events| PusherServer\n    PusherServer -.->|WSS Push Notifications| DesktopBrowser\n    PusherServer -.->|WSS Push Notifications| MobileBrowser\n\n    NodeRuntime -->|Create Payment Link| PayOSServer\n    PayOSServer -->|Webhook POST with HMAC| NodeRuntime\n\n    NodeRuntime -->|Create Order & Calc Fee| GHNServer\n    GHNServer -->|Webhook Tracking Update| NodeRuntime\n\n    NodeRuntime -->|Send OTP & Reset Pass| ResendServer\n    NodeRuntime -->|Upload Media| CloudinaryServer\n"},{"id":"10-package-modularity","title":"Sơ đồ Gói & Cấu trúc Mô-đun (Package Diagram)","type":"Package","description":"Cấu trúc các gói mã nguồn, quy ước phân vùng trách nhiệm và ranh giới mô-đun trong dự án.","mermaid":"flowchart TB\n    %% Root Packages\n    subgraph RootProject [\"📁 shop-qr-payment (Root)\"]\n        \n        subgraph PkgClient [\"📦 @client (src/client)\"]\n            direction TB\n            ClientComponents[\"components/\n├── admin/ (Bento Dashboard, AppShell, Topbar)\n├── auth/ (LoginForm, Register, OtpInput)\n├── cart/ (CartItem, CartSummary)\n├── chat/ (ChatWindow, MessageBubble)\n├── home/ (HeroFloatingConstellation 3D)\n├── layout/ (Header, Footer, Notifications)\n├── payment/ (QRPayment, PaymentStatus)\n└── product/ (ProductCard, ProductGrid, Reviews)\"]\n            ClientViews[\"views/\n├── HomeView\n├── ProductDetailView\n├── CheckoutView\n├── WishlistView\n└── admin/ (7 Bento Workspaces)\"]\n            ClientStores[\"stores/\n└── useCartStore (Zustand)\"]\n        end\n\n        subgraph PkgServer [\"📦 @server (src/server)\"]\n            direction TB\n            ServerModules[\"modules/\n├── admin/ (admin.service, analytics.controller, reconcile)\n├── auth/ (auth-options, rbac-guard, password-reset)\n├── chat/ (pusher-auth, messages.controller)\n├── inventory/ (inventory.service, reservation-engine)\n├── orders/ (orders.controller, orders.fsm)\n├── payment/ (payos.service, casso, vietqr-parser)\n├── shipping/ (ghn.service, ghn-webhook.controller)\n└── wallet/ (wallet.service, wallet-pay.controller)\"]\n            ServerEmails[\"emails/\n└── React Email Templates (OTP, Order Confirmation)\"]\n        end\n\n        subgraph PkgShared [\"📦 @shared (src/shared)\"]\n            direction TB\n            SharedConst[\"constants/ (HTTP codes, Roles, Limits)\"]\n            SharedErrors[\"errors/ (AppError, ValidationError, AuthError)\"]\n            SharedTypes[\"types/ (Order, Product, DTO Contracts)\"]\n            SharedUtils[\"utils/ (formatVND, cryptoUtils, dateHelpers)\"]\n            SharedVal[\"validations/ (Zod Schemas)\"]\n        end\n\n        subgraph PkgApp [\"📦 App Router (src/app)\"]\n            AppPages[\"Routing Facade (Server Components & Route Handlers)\n├── (storefront pages: /, /products, /cart, /checkout)\n├── /admin (Admin Layout Guard & 7 Workspaces)\n└── /api (REST Handlers forwarding to @server modules)\"]\n        end\n\n        subgraph PkgPrisma [\"📦 Prisma Database (prisma)\"]\n            PrismaSchema[\"schema.prisma (PostgreSQL ORM)\"]\n            PrismaSeed[\"seed.ts (100% Thực nghiệm Data)\"]\n        end\n\n        subgraph PkgTests [\"📦 Test Suites (tests)\"]\n            TestFiles[\"240 Native Test Cases (node:test)\n├── admin-analytics.test.ts\n├── password-reset.test.ts\n├── payos.test.ts & ghn.test.ts\n├── wallet.test.ts & inventory.test.ts\n└── webhook-idempotency.test.ts\"]\n        end\n    end\n\n    %% Dependency Arrows\n    PkgApp --> PkgClient\n    PkgApp --> PkgServer\n    PkgApp --> PkgShared\n\n    PkgClient --> PkgShared\n    PkgServer --> PkgShared\n    PkgServer --> PkgPrisma\n\n    %% Zero Server Leakage Rule\n    PkgClient -.->|❌ BỊ CHẶN: KHÔNG ĐƯỢC IMPORT| PkgServer\n\n    PkgTests --> PkgServer\n    PkgTests --> PkgShared\n"}];
+    let currentIdx = 0;
+
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'default',
+      securityLevel: 'loose',
+      flowchart: { curve: 'basis' },
+      themeVariables: {
+        primaryColor: '#f2f4f5',
+        primaryTextColor: '#000000',
+        primaryBorderColor: '#5433eb',
+        lineColor: '#5433eb',
+        secondaryColor: '#ffffff',
+        tertiaryColor: '#ffffff'
+      }
+    });
+
+    async function renderCurrentDiagram() {
+      const d = diagramData[currentIdx];
+      document.getElementById('diagram-title').innerText = d.title;
+      document.getElementById('diagram-type').innerText = d.type + ' Diagram';
+      document.getElementById('diagram-id').innerText = d.id;
+      document.getElementById('diagram-desc').innerText = d.description;
+      document.getElementById('download-png').href = './images/' + d.id + '.png';
+      document.getElementById('download-png').download = d.id + '.png';
+      document.getElementById('download-svg').href = './images/' + d.id + '.svg';
+      document.getElementById('download-svg').download = d.id + '.svg';
+      document.getElementById('mermaid-code-view').innerText = d.mermaid;
+
+      const container = document.getElementById('mermaid-container');
+      container.innerHTML = '<div class="mermaid">' + d.mermaid + '</div>';
+      await mermaid.run({ nodes: container.querySelectorAll('.mermaid') });
+    }
+
+    function switchTab(idx) {
+      document.getElementById('tab-btn-' + currentIdx).className = 'w-full text-left px-3.5 py-2.5 rounded-[16px] text-xs font-semibold transition-all flex items-center justify-between text-slate-700 hover:bg-slate-100';
+      currentIdx = idx;
+      document.getElementById('tab-btn-' + currentIdx).className = 'w-full text-left px-3.5 py-2.5 rounded-[16px] text-xs font-semibold transition-all flex items-center justify-between bg-[#5433eb] text-white shadow-violet';
+      renderCurrentDiagram();
+    }
+
+    // Initial render
+    window.addEventListener('DOMContentLoaded', () => {
+      renderCurrentDiagram();
+    });
+  </script>
+
+</body>
+</html>

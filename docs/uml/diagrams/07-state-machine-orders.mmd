@@ -1,0 +1,38 @@
+stateDiagram-v2
+    direction TB
+
+    [*] --> PENDING: Khách đặt hàng (reserveOrderStock - Tồn kho bị giữ)
+
+    PENDING --> CONFIRMED: Thanh toán VietQR thành công / Trừ ví thành công
+    PENDING --> EXPIRED: Quá hạn 15 phút chưa thanh toán (releaseOrderStock)
+    PENDING --> CANCELLED: Khách hàng chủ động hủy đơn (releaseOrderStock)
+
+    CONFIRMED --> PROCESSING: Admin / Nhân viên kho duyệt đóng gói
+    CONFIRMED --> CANCELLED: Hủy đơn sau khi thanh toán (Atomic CAS Hoàn tiền Ví + releaseOrderStock)
+
+    PROCESSING --> SHIPPING: Xuất kho & Bàn giao Shipper GHN (Sinh trackingCode)
+    PROCESSING --> CANCELLED: Hủy tại kho (Hoàn tiền Ví + releaseOrderStock)
+
+    SHIPPING --> DELIVERED: GHN Webhook báo giao hàng thành công
+    SHIPPING --> CANCELLED: Giao thất bại / Khách từ chối nhận (Hoàn hàng về kho)
+
+    DELIVERED --> COMPLETED: Khách bấm xác nhận / Hết hạn khiếu nại 7 ngày
+
+    EXPIRED --> [*]
+    CANCELLED --> [*]
+    COMPLETED --> [*]
+
+    note right of PENDING
+        Trạng thái thanh toán: UNPAID
+        Đồng hồ đếm ngược: 15 phút
+    end note
+
+    note right of CONFIRMED
+        Trạng thái thanh toán: PAID
+        Kho hàng: Đã khóa xuất
+    end note
+
+    note right of CANCELLED
+        Trạng thái thanh toán: CANCELLED hoặc REFUNDED
+        Kho hàng: Đã giải phóng 100%
+    end note

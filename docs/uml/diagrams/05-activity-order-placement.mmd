@@ -1,0 +1,34 @@
+flowchart TD
+    Start([Khách hàng nhấn 'Đặt hàng']) --> ValidateCart{Giỏ hàng có sản phẩm?}
+    ValidateCart -- Trống --> ErrEmpty[Báo lỗi: Giỏ hàng rỗng] --> StopErr([Dừng xử lý])
+    
+    ValidateCart -- Hợp lệ --> CheckCoupon{Có mã Coupon?}
+    CheckCoupon -- Có --> ValidateCoupon[Kiểm tra HSD, Lượt dùng & Giá trị tối thiểu]
+    ValidateCoupon --> ApplyDiscount[Tính giảm giá: FIXED / PERCENT / SHIP]
+    CheckCoupon -- Không --> CalcShipping[Tính phí ship qua GHN OpenAPI]
+    ApplyDiscount --> CalcShipping
+
+    CalcShipping --> BeginTx[Bắt đầu Database Transaction]
+    BeginTx --> CheckStock{Kiểm tra Tồn kho từng Sản phẩm & Biến thể}
+    
+    CheckStock -- Thiếu hàng / Không hoạt động --> RollbackTx[Rollback Transaction]
+    RollbackTx --> ErrStock[Báo lỗi: Sản phẩm X đã hết hàng] --> StopErr
+
+    CheckStock -- Đủ hàng --> ReserveStock[Trừ kho nguyên tử: reserveOrderStock]
+    ReserveStock --> CreateOrder[Tạo bản ghi Order: PENDING, UNPAID, TTL: 15p]
+    CreateOrder --> CommitTx[Commit Transaction thành công]
+
+    CommitTx --> ChoosePayment{Phương thức Thanh toán?}
+    
+    ChoosePayment -- VietQR / PayOS --> GenQR[Gọi API PayOS sinh chuỗi VietQR động]
+    GenQR --> ShowPaymentPage[Chuyển hướng đến trang Quét mã VietQR]
+    
+    ChoosePayment -- Ví Shop --> CheckBalance{Số dư ví >= Tổng tiền?}
+    CheckBalance -- Thiếu tiền --> ErrWallet[Báo lỗi: Số dư ví không đủ] --> ShowPaymentPage
+    CheckBalance -- Đủ tiền --> DeductWallet[Trừ ví & Xác nhận đơn PAID ngay lập tức]
+    
+    ChoosePayment -- COD --> MarkCOD[Đánh dấu đơn COD & Chuẩn bị giao hàng]
+
+    ShowPaymentPage --> EndOrder([Chờ thanh toán / Khớp tiền])
+    DeductWallet --> EndSuccess([Đặt hàng thành công])
+    MarkCOD --> EndSuccess
