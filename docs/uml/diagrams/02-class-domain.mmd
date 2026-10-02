@@ -5,15 +5,53 @@ classDiagram
         +String id
         +String email
         +String passwordHash
+        +String name
+        +String phone
         +Role role
         +Boolean isVerified
         +Boolean isBlocked
         +DateTime createdAt
     }
 
+    class OtpCode {
+        +String id
+        +String email
+        +String code
+        +OtpType type
+        +Boolean used
+        +Int attempts
+        +DateTime expiresAt
+    }
+
+    class Product {
+        +String id
+        +String name
+        +String description
+        +Int price
+        +String category
+        +Int stock
+        +Boolean isActive
+        +DateTime createdAt
+    }
+
+    class ProductVariant {
+        +String id
+        +String productId
+        +String sku
+        +String title
+        +String color
+        +String size
+        +Int price
+        +Int stock
+        +Boolean isActive
+    }
+
     class Order {
         +String id
         +String orderCode
+        +String customerName
+        +String customerPhone
+        +String customerAddress
         +Int totalAmount
         +Int subtotal
         +Int discountAmount
@@ -26,54 +64,12 @@ classDiagram
 
     class OrderItem {
         +String id
+        +String orderId
+        +String productId
+        +String variantId
+        +String variantTitle
         +Int quantity
         +Int price
-        +String variantTitle
-    }
-
-    class Product {
-        +String id
-        +String name
-        +Int price
-        +Int stock
-        +Boolean isActive
-    }
-
-    class ProductVariant {
-        +String id
-        +String sku
-        +String title
-        +Int price
-        +Int stock
-        +Boolean isActive
-    }
-
-    class Transaction {
-        +String id
-        +String bankTransId
-        +Int amount
-        +String description
-        +Boolean verified
-    }
-
-    class Shipment {
-        +String id
-        +String trackingCode
-        +CarrierName carrier
-        +Int shippingFee
-        +ShipmentStatus status
-    }
-
-    class UserWallet {
-        +String id
-        +Int balance
-    }
-
-    class WalletTransaction {
-        +String id
-        +Int amount
-        +WalletTxType type
-        +String description
     }
 
     class Coupon {
@@ -81,34 +77,97 @@ classDiagram
         +DiscountType discountType
         +Int discountValue
         +Int minOrderAmount
+        +Int usageLimit
+        +Int usedCount
         +Boolean isActive
     }
 
-    class Review {
+    class CouponUsage {
         +String id
-        +Int rating
-        +String comment
-        +Boolean isApproved
+        +String couponId
+        +String userId
+        +String orderId
+    }
+
+    class Transaction {
+        +String id
+        +String orderId
+        +String bankTransId
+        +Int amount
+        +String description
+        +Boolean verified
+        +DateTime receivedAt
+    }
+
+    class Shipment {
+        +String id
+        +String orderId
+        +CarrierName carrier
+        +String trackingCode
+        +Int shippingFee
+        +ShipmentStatus status
+    }
+
+    class UserWallet {
+        +String id
+        +String userId
+        +Int balance
+        +DateTime updatedAt
+    }
+
+    class WalletTransaction {
+        +String id
+        +String walletId
+        +Int amount
+        +WalletTxType type
+        +String description
+        +DateTime createdAt
     }
 
     class ChatRoom {
         +String id
         +String orderId
         +String lastMessage
+        +DateTime lastActiveAt
     }
 
     class Message {
         +String id
+        +String roomId
+        +String senderId
         +String content
         +MessageType type
         +Boolean isRead
+        +DateTime createdAt
     }
 
-    %% Domain Service Classes
+    class Review {
+        +String id
+        +String productId
+        +String userId
+        +Int rating
+        +String comment
+        +String reply
+        +Boolean isApproved
+    }
+
+    class Wishlist {
+        +String id
+        +String userId
+        +String productId
+        +DateTime createdAt
+    }
+
+    %% Domain Service Layer
     class WalletService {
         +getOrCreateWallet(userId)
         +payOrderWithWallet(userId, orderId)
         +refundOrderToWallet(orderId)
+    }
+
+    class WalletTopupService {
+        +createTopupPaymentLink(userId, amount)
+        +processTopupWebhook(payload)
     }
 
     class InventoryService {
@@ -119,23 +178,52 @@ classDiagram
 
     class OrderFSM {
         +validateOrderTransition(order, nextStatus)
+        +canCancel(order)
+        +canShip(order)
+    }
+
+    class PayOSService {
+        +createPaymentLink(data)
+        +verifyWebhookSignature(data)
+    }
+
+    class GHNService {
+        +calculateFee(data)
+        +createShipment(order)
+    }
+
+    class ChatService {
+        +getOrCreateRoom(userId, orderId)
+        +sendMessage(roomId, senderId, content)
+        +markAsRead(roomId, userId)
     }
 
     %% Relationships
-    User "1" --> "*" Order : creates
+    User "1" --> "*" Order : places
     User "1" --> "1" UserWallet : owns
+    User "1" --> "*" Review : writes
+    User "1" --> "*" Wishlist : saves
+    User "1" --> "*" OtpCode : requests
     UserWallet "1" --> "*" WalletTransaction : logs
     Order "1" --> "*" OrderItem : contains
     Product "1" --> "*" ProductVariant : owns
-    Product "1" --> "*" OrderItem : relates
+    Product "1" --> "*" OrderItem : references
     ProductVariant "1" --> "*" OrderItem : fulfills
-    Order "1" --> "1" Transaction : paid_via
-    Order "1" --> "0..1" Shipment : delivered_via
-    Coupon "1" --> "*" Order : discounts
-    Order "1" --> "0..1" ChatRoom : associates
+    Order "1" --> "0..1" Transaction : paid_by
+    Order "1" --> "0..1" Shipment : shipped_via
+    Order "1" --> "0..1" ChatRoom : links
+    Coupon "1" --> "*" Order : applies
+    Coupon "1" --> "*" CouponUsage : records
     ChatRoom "1" --> "*" Message : contains
-    User "1" --> "*" Review : writes
     Product "1" --> "*" Review : receives
-    WalletService ..> UserWallet : operates
-    InventoryService ..> Product : manages_stock
+    Product "1" --> "*" Wishlist : favorited_in
+
+    %% Service Associations
+    WalletService ..> UserWallet : mutates_cas
+    WalletTopupService ..> UserWallet : credits_cas
+    InventoryService ..> Product : locks_and_updates
+    InventoryService ..> ProductVariant : locks_and_updates
     OrderFSM ..> Order : guards_transitions
+    PayOSService ..> Transaction : reconciles
+    GHNService ..> Shipment : syncs_status
+    ChatService ..> ChatRoom : orchestrates

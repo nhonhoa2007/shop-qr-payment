@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@server/database/prisma';
 import { mapGHNStatusToShipmentStatus, verifyGHNWebhookAuth } from '@server/modules/shipping/ghn.service';
+import { releaseOrderStock } from '@server/modules/inventory/inventory.service';
 import { createNotification } from '@server/modules/notifications/notifications.service';
 import { pusherServer } from '@server/infrastructure/pusher';
 import type { Prisma } from '@prisma/client';
@@ -54,7 +55,9 @@ export async function POST(req: Request) {
         ],
       },
       include: {
-        order: true,
+        order: {
+          include: { items: true },
+        },
       },
     });
 
@@ -87,8 +90,44 @@ export async function POST(req: Request) {
         },
       });
 
-      // Nếu đơn hàng chuyển sang SHIPPING hoặc COMPLETED
-      if (mapping.orderStatus && shipment.order.status !== 'COMPLETED' && shipment.order.status !== 'CANCELLED') {
+      // 1. Nếu giao hàng thành công (DELIVERED)
+      if (mapping.shipmentStatus === 'DELIVERED') {
+        const updateData: { status: 'COMPLETED'; paymentStatus?: 'PAID' } = {
+          status: 'COMPLETED',
+        };
+        // Với đơn COD, khi bưu tá báo DELIVERED (đã nhận hàng và nộp tiền COD), cập nhật paymentStatus = PAID
+        if (shipment.order.paymentStatus === 'UNPAID') {
+          updateData.paymentStatus = 'PAID';
+        }
+
+        await tx.order.update({
+          where: { id: shipment.orderId },
+          data: updateData,
+        });
+      }
+      // 2. Nếu đơn vận chuyển bị hủy hoặc hoàn trả hàng (CANCELLED / RETURN)
+      else if (
+        (mapping.shipmentStatus === 'CANCELLED' || mapping.shipmentStatus === 'RETURNED') &&
+        shipment.order.status !== 'CANCELLED'
+      ) {
+        await tx.order.update({
+          where: { id: shipment.orderId },
+          data: {
+            status: 'CANCELLED',
+          },
+        });
+
+        // Hoàn trả lại tồn kho về lại hệ thống
+        if (shipment.order.items && shipment.order.items.length > 0) {
+          await releaseOrderStock(tx, shipment.order.items);
+        }
+      }
+      // 3. Các trạng thái chuyển tiếp bình thường (SHIPPING, PROCESSING, ...)
+      else if (
+        mapping.orderStatus &&
+        shipment.order.status !== 'COMPLETED' &&
+        shipment.order.status !== 'CANCELLED'
+      ) {
         await tx.order.update({
           where: { id: shipment.orderId },
           data: {

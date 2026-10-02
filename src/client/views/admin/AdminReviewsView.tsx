@@ -171,7 +171,7 @@ export function AdminReviewsView({ initialReviews }: { initialReviews: AdminRevi
         </div>
         <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Đã phản hồi từ Shop</p>
-          <h3 className="text-2xl font-bold text-blue-600 mt-1">
+          <h3 className="text-2xl font-bold text-[#5433eb] mt-1">
             {reviews.filter((r) => !!r.reply).length}
           </h3>
         </div>
@@ -186,7 +186,7 @@ export function AdminReviewsView({ initialReviews }: { initialReviews: AdminRevi
             placeholder="Tìm bình luận, sản phẩm, khách hàng..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+            className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-[#5433eb]/30 focus:border-[#5433eb] outline-none"
           />
         </div>
 
@@ -194,7 +194,7 @@ export function AdminReviewsView({ initialReviews }: { initialReviews: AdminRevi
           <select
             value={filterRating}
             onChange={(e) => setFilterRating(e.target.value)}
-            className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+            className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-[#5433eb]/30 focus:border-[#5433eb] outline-none"
           >
             <option value="ALL">Tất cả đánh giá</option>
             <option value="5">5 Sao (Xuất sắc)</option>
@@ -207,7 +207,7 @@ export function AdminReviewsView({ initialReviews }: { initialReviews: AdminRevi
           <select
             value={filterApproved}
             onChange={(e) => setFilterApproved(e.target.value as 'ALL' | 'APPROVED' | 'HIDDEN')}
-            className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+            className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-[#5433eb]/30 focus:border-[#5433eb] outline-none"
           >
             <option value="ALL">Tất cả trạng thái</option>
             <option value="APPROVED">Đang hiển thị</option>
@@ -235,7 +235,7 @@ export function AdminReviewsView({ initialReviews }: { initialReviews: AdminRevi
                 <div className="space-y-2">
                   {/* User & Rating */}
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-sm">
+                    <div className="w-9 h-9 rounded-full bg-[#f0edfe] text-[#5433eb] font-bold flex items-center justify-center text-sm">
                       {review.user.name?.[0]?.toUpperCase() || review.user.email[0]?.toUpperCase()}
                     </div>
                     <div>
@@ -269,7 +269,7 @@ export function AdminReviewsView({ initialReviews }: { initialReviews: AdminRevi
                     <Link
                       href={`/products/${review.product.id}`}
                       target="_blank"
-                      className="font-semibold text-blue-600 hover:underline"
+                      className="font-semibold text-[#5433eb] hover:text-[#4628cb] hover:underline"
                     >
                       {review.product.name}
                     </Link>
@@ -300,8 +300,8 @@ export function AdminReviewsView({ initialReviews }: { initialReviews: AdminRevi
 
                   {/* Shop Reply Section */}
                   {review.reply && replyingId !== review.id && (
-                    <div className="mt-3 pl-4 border-l-2 border-blue-500 bg-blue-50/40 p-3 rounded-r-xl">
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-blue-800 mb-1">
+                    <div className="mt-3 pl-4 border-l-2 border-[#5433eb] bg-[#f0edfe]/50 p-3 rounded-r-xl">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-[#5433eb] mb-1">
                         <CornerDownRight className="w-3.5 h-3.5" />
                         Phản hồi từ Shop:
                       </div>
@@ -321,12 +321,12 @@ export function AdminReviewsView({ initialReviews }: { initialReviews: AdminRevi
                           value={replyText}
                           onChange={(e) => setReplyText(e.target.value)}
                           placeholder="Nhập lời cảm ơn hoặc giải đáp thắc mắc..."
-                          className="flex-1 px-3 py-2 text-xs border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                          className="flex-1 px-3 py-2 text-xs border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#5433eb]/30 focus:border-[#5433eb] outline-none"
                         />
                         <button
                           onClick={() => handleSaveReply(review.id)}
                           disabled={actionLoading === review.id}
-                          className="flex items-center gap-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition"
+                          className="flex items-center gap-1 px-3 py-2 bg-[#5433eb] hover:bg-[#4628cb] text-white rounded-xl text-xs font-semibold transition"
                         >
                           {actionLoading === review.id ? (
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -385,7 +385,7 @@ export function AdminReviewsView({ initialReviews }: { initialReviews: AdminRevi
                   {replyingId !== review.id && (
                     <button
                       onClick={() => handleOpenReply(review)}
-                      className="flex items-center gap-1 px-2.5 py-1.5 border border-gray-200 rounded-xl text-xs font-medium text-blue-600 hover:bg-blue-50 transition"
+                      className="flex items-center gap-1 px-2.5 py-1.5 border border-gray-200 rounded-xl text-xs font-medium text-[#5433eb] hover:bg-[#f0edfe] transition"
                     >
                       <MessageSquare className="w-3.5 h-3.5" />
                       {review.reply ? 'Sửa phản hồi' : 'Trả lời'}

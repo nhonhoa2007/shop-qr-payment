@@ -4,12 +4,15 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@server/database/prisma';
 import { createNotification } from '@server/modules/notifications/notifications.service';
 import { pusherServer } from '@server/infrastructure/pusher';
+import { invalidateAnalyticsCache } from '@server/infrastructure/redis';
 import {
   type BankTransactionPayload,
   getTransactionId,
   parseOrderCodeFromDescription,
+  parseTopupCodeFromDescription,
   evaluateWebhookDecision,
 } from '@server/modules/payment/vietqr-parser.service';
+import { processWalletTopup } from '@server/modules/wallet/wallet-topup.service';
 
 interface CassoWebhookBody {
   data?: BankTransactionPayload[];
@@ -40,6 +43,53 @@ export async function POST(req: Request) {
             where: { bankTransId: transactionId },
           }))
         : false;
+
+      // 1. Kiểm tra và Xử lý Giao dịch Nạp tiền Ví điện tử (cú pháp NAPxxxxx)
+      const topupCode = parseTopupCodeFromDescription(txn.description);
+      if (topupCode) {
+        const topupAmount = Number(txn.amount);
+        if (Number.isFinite(topupAmount) && topupAmount > 0) {
+          try {
+            const topupResult = await prisma.$transaction(async (tx) => {
+              return await processWalletTopup(tx, {
+                topupCode,
+                amount: Math.round(topupAmount),
+                bankTransId: transactionId || `CASSO_${Date.now()}`,
+                description: txn.description || `Nạp ví qua chuyển khoản ngân hàng ${topupCode}`,
+              });
+            });
+
+            if (topupResult.success && topupResult.userId) {
+              await pusherServer.trigger(`private-user-${topupResult.userId}`, 'wallet-updated', {
+                balance: topupResult.newBalance,
+                topupAmount: Math.round(topupAmount),
+                topupCode,
+              });
+
+              await pusherServer.trigger(`private-user-${topupResult.userId}`, 'payment-success', {
+                topupCode,
+                amount: Math.round(topupAmount),
+                type: 'TOPUP',
+              });
+
+              await createNotification({
+                userId: topupResult.userId,
+                type: 'PAYMENT_RECEIVED',
+                title: 'Nạp tiền ví thành công',
+                message: `Bạn đã nạp thành công ${Math.round(topupAmount).toLocaleString('vi-VN')}đ vào Ví Shop qua ngân hàng (Mã GD: ${topupCode}).`,
+                data: {
+                  topupCode,
+                  amount: Math.round(topupAmount),
+                  balance: topupResult.newBalance,
+                },
+              });
+            }
+          } catch (topupErr) {
+            console.error('[Casso Webhook] Lỗi xử lý nạp tiền ví:', topupErr);
+          }
+        }
+        continue;
+      }
 
       const matchedCode = parseOrderCodeFromDescription(txn.description);
       const order = matchedCode
@@ -141,6 +191,7 @@ export async function POST(req: Request) {
       }
 
       try {
+        await invalidateAnalyticsCache();
         await pusherServer.trigger('private-admin-channel', 'analytics-updated', {
           type: 'CASSO_PAYMENT',
           timestamp: Date.now(),

@@ -24,7 +24,8 @@ export async function POST(req: Request) {
       const participant = await prisma.chatRoomParticipant.findUnique({
         where: { roomId_userId: { roomId, userId: session.user.id } },
       });
-      if (!participant) return new Response('Forbidden', { status: 403 });
+      const isAdminOrStaff = session.user.role === 'ADMIN' || session.user.role === 'STAFF';
+      if (!participant && !isAdminOrStaff) return new Response('Forbidden', { status: 403 });
     }
 
     if (channelName.startsWith('private-user-')) {

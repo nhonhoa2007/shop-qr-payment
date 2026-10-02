@@ -92,3 +92,32 @@ export const STATUS_NOTIFICATION_MAP: Partial<
     type: 'ORDER_CONFIRMED',
   },
 };
+
+/**
+ * Kiểm tra quyền hủy đơn hàng an toàn của khách hàng
+ *
+ * @param order - Thông tin đơn hàng (trạng thái và userId người tạo)
+ * @param userId - ID của khách hàng đang thực hiện yêu cầu
+ * @returns Object chứa `allowed` boolean và `reason` giải thích nếu bị từ chối
+ */
+export function canCustomerCancelOrder(
+  order: { status: OrderStatus; userId?: string | null },
+  userId: string
+): { allowed: boolean; reason?: string } {
+  if (order.userId !== userId) {
+    return {
+      allowed: false,
+      reason: 'Không có quyền truy cập đơn hàng này',
+    };
+  }
+
+  if (order.status !== 'PENDING') {
+    return {
+      allowed: false,
+      reason: 'Chỉ có thể hủy đơn hàng khi đơn ở trạng thái chờ xử lý (PENDING)',
+    };
+  }
+
+  return { allowed: true };
+}
+

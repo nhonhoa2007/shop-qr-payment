@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@server/database/prisma';
 import { verifyPayOSWebhookSignature, PAYOS_CHECKSUM_KEY, type PayOSWebhookPayload } from '@server/modules/payment/payos.service';
-import { parseOrderCodeFromDescription } from '@server/modules/payment/vietqr-parser.service';
+import { parseOrderCodeFromDescription, parseTopupCodeFromDescription } from '@server/modules/payment/vietqr-parser.service';
+import { getWalletTopupSession, processWalletTopup } from '@server/modules/wallet/wallet-topup.service';
 import { pusherServer } from '@server/infrastructure/pusher';
 import { createNotification } from '@server/modules/notifications/notifications.service';
+import { invalidateAnalyticsCache } from '@server/infrastructure/redis';
 
 export async function POST(req: Request) {
   try {
@@ -42,7 +44,109 @@ export async function POST(req: Request) {
 
     const { amount, description, reference, paymentLinkId } = body.data;
 
-    // 2. Định danh đơn hàng qua Description hoặc OrderCode
+    // 2. Nhận diện và Xử lý Giao dịch Nạp tiền Ví điện tử (TOPUP Engine)
+    const parsedTopupCode = parseTopupCodeFromDescription(description || '');
+    const parsedOrderCode = parseOrderCodeFromDescription(description || '');
+    let topupSession = parsedTopupCode
+      ? await getWalletTopupSession(parsedTopupCode)
+      : null;
+
+    // Fallback tìm kiếm qua orderCode CHỈ KHI description không chứa mã đơn hàng DH...
+    if (!topupSession && !parsedOrderCode && body.data.orderCode) {
+      topupSession = await getWalletTopupSession(body.data.orderCode);
+    }
+
+    if (parsedTopupCode || topupSession) {
+      if (!topupSession) {
+        console.warn(`[PayOS Webhook] Không tìm thấy phiên nạp tiền cho code="${parsedTopupCode || body.data.orderCode}"`);
+        return NextResponse.json({
+          success: true,
+          message: 'Không tìm thấy thông tin phiên nạp ví hoặc phiên đã hết hạn',
+        });
+      }
+
+      if (topupSession.status === 'COMPLETED') {
+        return NextResponse.json({
+          success: true,
+          message: 'Giao dịch nạp tiền ví đã được xử lý thành công trước đó (Idempotent)',
+          topupCode: topupSession.topupCode,
+        });
+      }
+
+      if (amount < topupSession.amount) {
+        console.warn(`[PayOS Webhook] Số tiền nạp (${amount}) nhỏ hơn yêu cầu (${topupSession.amount})`);
+        return NextResponse.json({
+          success: true,
+          message: 'Số tiền nạp không đủ so với yêu cầu phiên nạp ví',
+        });
+      }
+
+      const bankTransId = reference || paymentLinkId || `PAYOS_TOPUP_${Date.now()}`;
+
+      const topupResult = await prisma.$transaction(async (tx) => {
+        return await processWalletTopup(tx, {
+          topupCode: topupSession.topupCode,
+          amount,
+          userId: topupSession.userId,
+          bankTransId,
+          description: description || `Nạp ví qua VietQR PayOS ${topupSession.topupCode}`,
+        });
+      });
+
+      if (!topupResult.success) {
+        return NextResponse.json(
+          { error: topupResult.error || 'Lỗi hạch toán nạp tiền ví' },
+          { status: 500 }
+        );
+      }
+
+      // Realtime Pusher cho User
+      await pusherServer.trigger(`private-user-${topupSession.userId}`, 'wallet-updated', {
+        balance: topupResult.newBalance,
+        topupAmount: amount,
+        topupCode: topupSession.topupCode,
+      });
+
+      await pusherServer.trigger(`private-user-${topupSession.userId}`, 'payment-success', {
+        topupCode: topupSession.topupCode,
+        amount,
+        type: 'TOPUP',
+      });
+
+      // Tạo thông báo trong ứng dụng
+      await createNotification({
+        userId: topupSession.userId,
+        type: 'PAYMENT_RECEIVED',
+        title: 'Nạp tiền ví thành công',
+        message: `Bạn đã nạp thành công ${amount.toLocaleString('vi-VN')}đ vào Ví Shop qua VietQR PayOS (Mã GD: ${topupSession.topupCode}).`,
+        data: {
+          topupCode: topupSession.topupCode,
+          amount,
+          balance: topupResult.newBalance,
+        },
+      });
+
+      // Realtime Analytics cho Admin
+      try {
+        await invalidateAnalyticsCache();
+        await pusherServer.trigger('private-admin-channel', 'analytics-updated', {
+          type: 'WALLET_TOPUP',
+          timestamp: Date.now(),
+        });
+      } catch (pusherErr) {
+        console.error('[PayOS Webhook] Pusher admin trigger error:', pusherErr);
+      }
+
+      return NextResponse.json({
+        success: true,
+        type: 'TOPUP',
+        topupCode: topupSession.topupCode,
+        newBalance: topupResult.newBalance,
+        message: 'Ghi nhận giao dịch nạp tiền ví thành công',
+      });
+    }
+
+    // 3. Định danh đơn hàng qua Description hoặc OrderCode
     let parsedCode = parseOrderCodeFromDescription(description || '');
     let order = null;
 
@@ -145,6 +249,7 @@ export async function POST(req: Request) {
     }
 
     try {
+      await invalidateAnalyticsCache();
       await pusherServer.trigger('private-admin-channel', 'analytics-updated', {
         type: 'PAYOS_PAYMENT',
         timestamp: Date.now(),

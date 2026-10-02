@@ -1,20 +1,43 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useCartStore } from '@client/stores/cart-store';
+import { useWishlistStore } from '@client/stores/wishlist-store';
+import { useHydrated } from '@/lib/hydration';
 import { formatVND } from '@shared/utils';
-import { Star, Plus, SlidersHorizontal } from 'lucide-react';
+import { Star, Plus, SlidersHorizontal, Heart } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Product } from '@shared/types';
 
 export function ProductCard({ product }: { product: Product }) {
   const router = useRouter();
   const addItem = useCartStore((s) => s.addItem);
+  const hydrated = useHydrated();
+  const isWishlistedRaw = useWishlistStore((s) => s.wishlistIds.includes(product.id));
+  const isWishlisted = hydrated && isWishlistedRaw;
+  const isPending = useWishlistStore((s) => s.pendingId === product.id);
+  const toggleWishlist = useWishlistStore((s) => s.toggleWishlist);
+  const fetchWishlist = useWishlistStore((s) => s.fetchWishlist);
+
+  useEffect(() => {
+    fetchWishlist();
+  }, [fetchWishlist]);
 
   const activeVariants = product.variants?.filter((v) => v.isActive) || [];
   const hasVariants = activeVariants.length > 0;
+
+  const handleToggleWishlist = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    await toggleWishlist({
+      id: product.id,
+      name: product.name,
+    });
+  };
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -81,6 +104,28 @@ export function ProductCard({ product }: { product: Product }) {
               {product.category}
             </span>
           )}
+
+          {/* Quick Wishlist Button */}
+          <button
+            type="button"
+            onClick={handleToggleWishlist}
+            disabled={isPending}
+            className={`absolute top-2.5 right-2.5 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 shadow-soft-sm-custom ${
+              isWishlisted
+                ? 'bg-white text-rose-500 hover:bg-rose-50 hover:scale-110 active:scale-90 shadow-sm'
+                : 'bg-white/90 hover:bg-white text-[#787574] hover:text-rose-500 hover:scale-110 active:scale-90 backdrop-blur-sm'
+            } disabled:opacity-50 disabled:cursor-not-allowed`}
+            title={isWishlisted ? 'Xóa khỏi yêu thích' : 'Thêm vào yêu thích'}
+            aria-label={isWishlisted ? `Xóa ${product.name} khỏi yêu thích` : `Thêm ${product.name} vào yêu thích`}
+          >
+            <Heart
+              className={`w-4 h-4 transition-all duration-200 ${
+                isWishlisted
+                  ? 'fill-rose-500 text-rose-500 scale-105'
+                  : 'text-[#787574] hover:text-rose-500'
+              } ${isPending ? 'animate-pulse' : ''}`}
+            />
+          </button>
 
           {/* Has variants chip */}
           {hasVariants && (

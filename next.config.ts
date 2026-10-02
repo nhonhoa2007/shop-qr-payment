@@ -24,8 +24,13 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  compress: true,
+  compiler: {
+    removeConsole: process.env.NODE_ENV === "production",
+  },
   allowedDevOrigins: ['192.168.1.12'],
   images: {
+    formats: ['image/avif', 'image/webp'],
     remotePatterns: [
       {
         protocol: "https",

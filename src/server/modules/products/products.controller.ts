@@ -8,6 +8,14 @@ import {
   setCachedProductList,
   invalidateProductCache,
 } from '@server/infrastructure/redis';
+import {
+  normalizeText,
+  normalizeNonNegativeInt,
+  validateVariantsArray,
+  createProductWithVariants,
+  updateProductWithVariants,
+  deleteProductOrVariant,
+} from './product.service';
 
 interface ProductBody {
   id?: unknown;
@@ -18,26 +26,35 @@ interface ProductBody {
   category?: unknown;
   stock?: unknown;
   isActive?: unknown;
-}
-
-function normalizeText(value: unknown): string | null {
-  if (typeof value !== 'string') return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-function normalizeNonNegativeInt(value: unknown): number | null {
-  const numberValue = Number(value);
-  if (!Number.isFinite(numberValue) || numberValue < 0) return null;
-  return Math.round(numberValue);
+  variants?: unknown;
 }
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
     const category = searchParams.get('category');
     const search = searchParams.get('search');
     const all = searchParams.get('all') === 'true';
+
+    // Hỗ trợ lấy chi tiết một sản phẩm theo ID kèm toàn bộ biến thể
+    if (id) {
+      const product = await prisma.product.findUnique({
+        where: { id },
+        include: {
+          variants: {
+            where: all ? {} : { isActive: true },
+            orderBy: { createdAt: 'asc' },
+          },
+        },
+      });
+
+      if (!product) {
+        return NextResponse.json({ error: 'Không tìm thấy sản phẩm' }, { status: 404 });
+      }
+
+      return NextResponse.json({ product });
+    }
 
     // Query Cache: Chỉ cache danh mục sản phẩm công khai cho khách mua
     const cacheKey = !all ? buildProductCacheKey(category, search) : null;
@@ -95,8 +112,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Dữ liệu không hợp lệ' }, { status: 400 });
     }
 
-    const product = await prisma.product.create({
-      data: {
+    let parsedVariants: ReturnType<typeof validateVariantsArray>['variants'];
+    if (body.variants !== undefined) {
+      const vValidation = validateVariantsArray(body.variants);
+      if (!vValidation.valid) {
+        return NextResponse.json({ error: vValidation.error || 'Dữ liệu biến thể không hợp lệ' }, { status: 400 });
+      }
+      parsedVariants = vValidation.variants;
+    }
+
+    // Thực thi trong Prisma Transaction lồng nhau để đảm bảo toàn vẹn dữ liệu
+    const product = await prisma.$transaction(async (tx) => {
+      return await createProductWithVariants(tx, {
         name,
         description: normalizeText(body.description),
         price,
@@ -104,15 +131,23 @@ export async function POST(req: Request) {
         category: normalizeText(body.category),
         stock,
         isActive: body.isActive !== false,
-      },
+        variants: parsedVariants,
+      });
     });
 
     // Invalidate product cache
     await invalidateProductCache();
 
     return NextResponse.json({ product }, { status: 201 });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Create product error:', error);
+    const errObj = error as { code?: string; message?: string };
+    if (errObj.code === 'P2002') {
+      return NextResponse.json(
+        { error: 'Mã SKU đã tồn tại trên hệ thống. Vui lòng nhập SKU khác.' },
+        { status: 400 }
+      );
+    }
     return NextResponse.json({ error: 'Lỗi tạo sản phẩm' }, { status: 500 });
   }
 }
@@ -141,25 +176,46 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: 'Tên sản phẩm không hợp lệ' }, { status: 400 });
     }
 
-    const product = await prisma.product.update({
-      where: { id },
-      data: {
-        ...(name ? { name } : {}),
-        ...(body.description !== undefined && { description: normalizeText(body.description) }),
-        ...(price !== undefined && { price }),
-        ...(body.image !== undefined && { image: normalizeText(body.image) }),
-        ...(body.category !== undefined && { category: normalizeText(body.category) }),
-        ...(stock !== undefined && { stock }),
-        ...(typeof body.isActive === 'boolean' && { isActive: body.isActive }),
-      },
+    let parsedVariants: ReturnType<typeof validateVariantsArray>['variants'];
+    if (body.variants !== undefined) {
+      const vValidation = validateVariantsArray(body.variants);
+      if (!vValidation.valid) {
+        return NextResponse.json({ error: vValidation.error || 'Dữ liệu biến thể không hợp lệ' }, { status: 400 });
+      }
+      parsedVariants = vValidation.variants;
+    }
+
+    // Thực thi cập nhật lồng nhau trong Prisma Transaction
+    const product = await prisma.$transaction(async (tx) => {
+      return await updateProductWithVariants(tx, {
+        id,
+        name: name ?? undefined,
+        description: body.description !== undefined ? normalizeText(body.description) : undefined,
+        price,
+        image: body.image !== undefined ? normalizeText(body.image) : undefined,
+        category: body.category !== undefined ? normalizeText(body.category) : undefined,
+        stock,
+        isActive: typeof body.isActive === 'boolean' ? body.isActive : undefined,
+        variants: parsedVariants,
+      });
     });
 
     // Invalidate product cache
     await invalidateProductCache();
 
     return NextResponse.json({ product });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Update product error:', error);
+    if (error instanceof Error && error.message === 'NOT_FOUND') {
+      return NextResponse.json({ error: 'Không tìm thấy sản phẩm' }, { status: 404 });
+    }
+    const errObj = error as { code?: string; message?: string };
+    if (errObj.code === 'P2002') {
+      return NextResponse.json(
+        { error: 'Mã SKU đã tồn tại trên hệ thống. Vui lòng nhập SKU khác.' },
+        { status: 400 }
+      );
+    }
     return NextResponse.json({ error: 'Lỗi cập nhật sản phẩm' }, { status: 500 });
   }
 }
@@ -173,21 +229,33 @@ export async function DELETE(req: Request) {
 
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
-    if (!id) {
-      return NextResponse.json({ error: 'Thiếu ID sản phẩm' }, { status: 400 });
+    const variantId = searchParams.get('variantId');
+
+    if (!id && !variantId) {
+      return NextResponse.json({ error: 'Thiếu ID sản phẩm hoặc ID biến thể' }, { status: 400 });
     }
 
-    const product = await prisma.product.update({
-      where: { id },
-      data: { isActive: false },
+    const result = await prisma.$transaction(async (tx) => {
+      return await deleteProductOrVariant(tx, {
+        productId: id || undefined,
+        variantId: variantId || undefined,
+      });
     });
 
     // Invalidate product cache
     await invalidateProductCache();
 
-    return NextResponse.json({ success: true, product });
-  } catch (error) {
-    console.error('Delete product error:', error);
-    return NextResponse.json({ error: 'Lỗi xóa sản phẩm' }, { status: 500 });
+    return NextResponse.json({ success: true, ...result });
+  } catch (error: unknown) {
+    console.error('Delete product/variant error:', error);
+    if (error instanceof Error) {
+      if (error.message === 'VARIANT_NOT_FOUND') {
+        return NextResponse.json({ error: 'Không tìm thấy biến thể' }, { status: 404 });
+      }
+      if (error.message === 'PRODUCT_NOT_FOUND') {
+        return NextResponse.json({ error: 'Không tìm thấy sản phẩm' }, { status: 404 });
+      }
+    }
+    return NextResponse.json({ error: 'Lỗi xóa sản phẩm hoặc biến thể' }, { status: 500 });
   }
 }

@@ -1,5 +1,13 @@
 import { MAX_QUANTITY_PER_ITEM } from '../constants/index.ts';
-import type { OrderRequestItem } from '../types/index.ts';
+import type { OrderRequestItem, ValidatedOrderItem, Product, ProductVariant } from '../types/index.ts';
+import { calculateCheckoutTotals } from '../utils/checkout.ts';
+
+export { MAX_QUANTITY_PER_ITEM };
+export type { OrderRequestItem, ValidatedOrderItem };
+
+export type ProductWithVariants = Product & {
+  variants?: ProductVariant[];
+};
 
 export function isValidPhoneNumber(phone: string): boolean {
   if (!phone) return false;
@@ -60,4 +68,65 @@ export function parseOrderItems(value: unknown): { items?: OrderRequestItem[]; e
   }
 
   return { items };
+}
+
+export function buildValidatedOrderItems(
+  requestedItems: OrderRequestItem[],
+  products: ProductWithVariants[]
+): {
+  orderItems?: ValidatedOrderItem[];
+  subtotal?: number;
+  totalAmount?: number;
+  shippingFee?: number;
+  error?: string;
+} {
+  const productsById = new Map(products.map((product) => [product.id, product]));
+  let subtotal = 0;
+  const orderItems: ValidatedOrderItem[] = [];
+
+  for (const item of requestedItems) {
+    const product = productsById.get(item.productId);
+    if (!product || !product.isActive) {
+      return { error: 'Sản phẩm không tồn tại hoặc đã ngừng bán' };
+    }
+
+    if (item.variantId) {
+      const variant = product.variants?.find((v) => v.id === item.variantId);
+      if (!variant || !variant.isActive) {
+        return { error: 'Biến thể sản phẩm không tồn tại hoặc đã ngừng bán' };
+      }
+      if (variant.stock < item.quantity) {
+        return { error: `Biến thể "${variant.title}" chỉ còn ${variant.stock} món` };
+      }
+
+      const itemPrice = variant.price;
+      subtotal += itemPrice * item.quantity;
+      orderItems.push({
+        productId: product.id,
+        variantId: variant.id,
+        variantTitle: variant.title,
+        quantity: item.quantity,
+        price: itemPrice,
+      });
+    } else {
+      const activeVariants = product.variants?.filter((v) => v.isActive) || [];
+      if (activeVariants.length > 0) {
+        return { error: `Vui lòng chọn phân loại hàng cho sản phẩm "${product.name}"` };
+      }
+
+      if (product.stock < item.quantity) {
+        return { error: `Sản phẩm "${product.name}" chỉ còn ${product.stock} món` };
+      }
+
+      subtotal += product.price * item.quantity;
+      orderItems.push({
+        productId: product.id,
+        quantity: item.quantity,
+        price: product.price,
+      });
+    }
+  }
+
+  const totals = calculateCheckoutTotals(subtotal);
+  return { orderItems, ...totals };
 }

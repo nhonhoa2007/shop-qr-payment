@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCartStore } from '@client/stores/cart-store';
+import { useWishlistStore } from '@client/stores/wishlist-store';
+import { useHydrated } from '@/lib/hydration';
 import { formatVND } from '@shared/utils';
 import { ProductReviews } from '@client/components/product/ProductReviews';
 import { ShoppingBag, Zap, Heart, ArrowLeft, ShieldCheck, Truck, RotateCcw, Check } from 'lucide-react';
@@ -14,9 +16,17 @@ import type { Product } from '@shared/types';
 export function ProductDetailView({ product }: { product: Product }) {
   const router = useRouter();
   const addItem = useCartStore((s) => s.addItem);
+  const hydrated = useHydrated();
+  const isWishlistedRaw = useWishlistStore((s) => s.wishlistIds.includes(product.id));
+  const isWishlisted = hydrated && isWishlistedRaw;
+  const togglingWishlist = useWishlistStore((s) => s.pendingId === product.id);
+  const toggleWishlist = useWishlistStore((s) => s.toggleWishlist);
+  const fetchWishlist = useWishlistStore((s) => s.fetchWishlist);
   const [quantity, setQuantity] = useState(1);
-  const [isWishlisted, setIsWishlisted] = useState(false);
-  const [togglingWishlist, setTogglingWishlist] = useState(false);
+
+  useEffect(() => {
+    fetchWishlist();
+  }, [fetchWishlist]);
 
   // Active variants
   const activeVariants = useMemo(() => {
@@ -165,32 +175,10 @@ export function ProductDetailView({ product }: { product: Product }) {
   };
 
   const handleToggleWishlist = async () => {
-    setTogglingWishlist(true);
-    try {
-      if (isWishlisted) {
-        const res = await fetch(`/api/wishlist?productId=${product.id}`, { method: 'DELETE' });
-        if (res.ok) {
-          setIsWishlisted(false);
-          toast.info('Đã xóa khỏi danh sách yêu thích');
-        }
-      } else {
-        const res = await fetch('/api/wishlist', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ productId: product.id }),
-        });
-        if (res.ok) {
-          setIsWishlisted(true);
-          toast.success('Đã thêm vào danh sách yêu thích');
-        } else if (res.status === 401) {
-          toast.error('Vui lòng đăng nhập để lưu sản phẩm yêu thích');
-        }
-      }
-    } catch {
-      toast.error('Có lỗi xảy ra');
-    } finally {
-      setTogglingWishlist(false);
-    }
+    await toggleWishlist({
+      id: product.id,
+      name: product.name,
+    });
   };
 
   return (
@@ -230,14 +218,16 @@ export function ProductDetailView({ product }: { product: Product }) {
             )}
 
             <button
+              type="button"
               onClick={handleToggleWishlist}
               disabled={togglingWishlist}
-              className="absolute top-4 right-4 p-3 bg-white/90 backdrop-blur-sm rounded-full shadow-soft-sm-custom hover:scale-105 active:scale-95 transition"
-              title="Thêm vào danh sách yêu thích"
+              className="absolute top-4 right-4 p-3 bg-white/90 backdrop-blur-sm rounded-full shadow-soft-sm-custom hover:scale-105 active:scale-95 transition disabled:opacity-50"
+              title={isWishlisted ? 'Xóa khỏi danh sách yêu thích' : 'Thêm vào danh sách yêu thích'}
+              aria-label={isWishlisted ? `Xóa ${product.name} khỏi danh sách yêu thích` : `Thêm ${product.name} vào danh sách yêu thích`}
             >
               <Heart
                 className={`w-5 h-5 transition-colors ${
-                  isWishlisted ? 'fill-[#5433eb] text-[#5433eb]' : 'text-[#787574] hover:text-[#000000]'
+                  isWishlisted ? 'fill-rose-500 text-rose-500' : 'text-[#787574] hover:text-rose-500'
                 }`}
               />
             </button>

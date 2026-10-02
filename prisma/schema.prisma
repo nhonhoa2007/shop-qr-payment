@@ -69,6 +69,9 @@ model Product {
   wishlists   Wishlist[]
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
+
+  @@index([isActive, category])
+  @@index([createdAt])
 }
 
 model ProductVariant {
@@ -86,6 +89,8 @@ model ProductVariant {
   orderItems OrderItem[]
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
+
+  @@index([productId])
 }
 
 model Order {
@@ -115,6 +120,10 @@ model Order {
   expiresAt       DateTime
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([status, paymentStatus, expiresAt])
+  @@index([createdAt])
 }
 
 enum OrderStatus {
@@ -144,6 +153,9 @@ model OrderItem {
   variant      ProductVariant? @relation(fields: [variantId], references: [id])
   quantity     Int
   price        Int
+
+  @@index([orderId])
+  @@index([productId])
 }
 
 model Coupon {
@@ -199,6 +211,7 @@ model Review {
   createdAt  DateTime @default(now())
 
   @@unique([productId, userId, orderId])
+  @@index([productId, isApproved, createdAt])
 }
 
 model Wishlist {
@@ -236,6 +249,8 @@ model ChatRoom {
   lastMessage  String?
   lastActiveAt DateTime              @default(now())
   createdAt    DateTime              @default(now())
+
+  @@index([lastActiveAt])
 }
 
 model ChatRoomParticipant {

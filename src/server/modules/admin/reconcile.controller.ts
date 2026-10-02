@@ -3,8 +3,10 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from '@server/database/prisma';
 import { validateReconcileInput, canReconcileOrder } from '@/lib/reconciliation';
+import { reserveOrderStock } from '@server/modules/inventory/inventory.service';
 import { createNotification } from '@server/modules/notifications/notifications.service';
 import { pusherServer } from '@server/infrastructure/pusher';
+import { invalidateAnalyticsCache } from '@server/infrastructure/redis';
 
 export async function POST(req: Request) {
   try {
@@ -27,7 +29,7 @@ export async function POST(req: Request) {
         ...(orderId ? { id: orderId } : {}),
         ...(orderCode ? { orderCode: { equals: orderCode, mode: 'insensitive' } } : {}),
       },
-      include: { chatRoom: true },
+      include: { items: true, chatRoom: true },
     });
 
     if (!order) {
@@ -40,6 +42,17 @@ export async function POST(req: Request) {
     }
 
     const result = await prisma.$transaction(async (tx) => {
+      // 0. Chống bán âm kho: Nếu đơn đã hủy trước đó (tồn kho đã được nhả về kho),
+      // bắt buộc phải giữ lại hàng thành công mới được phục hồi sang CONFIRMED.
+      if (order.status === 'CANCELLED' && order.items && order.items.length > 0) {
+        const failedStockId = await reserveOrderStock(tx, order.items);
+        if (failedStockId) {
+          throw new Error(
+            `Không thể phục hồi đơn hàng đã hủy: Sản phẩm/Biến thể (ID: ${failedStockId}) hiện tại không đủ tồn kho.`
+          );
+        }
+      }
+
       // 1. Update order status
       const updatedOrder = await tx.order.update({
         where: { id: order.id },
@@ -109,6 +122,7 @@ export async function POST(req: Request) {
     }
 
     try {
+      await invalidateAnalyticsCache();
       await pusherServer.trigger('private-admin-channel', 'analytics-updated', {
         type: 'MANUAL_RECONCILE',
         timestamp: Date.now(),
@@ -125,6 +139,7 @@ export async function POST(req: Request) {
     });
   } catch (error: unknown) {
     console.error('Manual reconciliation error:', error);
-    return NextResponse.json({ error: 'Lỗi thực hiện đối soát' }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : 'Lỗi thực hiện đối soát';
+    return NextResponse.json({ error: errorMessage }, { status: 400 });
   }
 }

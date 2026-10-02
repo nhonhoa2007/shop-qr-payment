@@ -1,6 +1,7 @@
 import { prisma } from '@server/database/prisma';
 import { Role } from '@prisma/client';
 import { updateUserRbac } from '@/lib/admin-rbac';
+import { getCachedAnalytics, setCachedAnalytics } from '@server/infrastructure/redis';
 import {
   type AdminAnalyticsResponse,
   type AnalyticsRange,
@@ -143,6 +144,11 @@ export class AdminService {
 
   static async getAdminProducts() {
     return prisma.product.findMany({
+      include: {
+        variants: {
+          orderBy: { createdAt: 'asc' },
+        },
+      },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -243,20 +249,13 @@ export class AdminService {
     return JSON.parse(JSON.stringify(transactions));
   }
 
-  /**
-   * Tính toán và tổng hợp toàn bộ số liệu thống kê thời gian thực cho Bảng điều khiển Quản trị (Admin Analytics Engine)
-   *
-   * @param range - Khoảng thời gian phân tích biểu đồ doanh thu: `'today'` (24 giờ), `'7days'` (7 ngày), hoặc `'month'` (30 ngày)
-   * @returns `AdminAnalyticsResponse` chứa toàn bộ KPI tổng hợp, tỷ lệ khớp VietQR, phân bổ kênh thanh toán, việc cần làm ngay và danh sách đơn mới nhất
-   *
-   * @performance Architecture
-   * - Tối ưu hóa truy vấn song song (Parallel Aggregation):
-   *   Thực hiện đồng thời 20 truy vấn Prisma độc lập qua `Promise.all` trong 1 network round-trip duy nhất,
-   *   đạt tốc độ phản hồi cực nhanh (< 50ms) ngay cả khi có lượng lớn bản ghi trong cơ sở dữ liệu.
-   * - 100% Dữ liệu thực tế: Không sử dụng bất kỳ giá trị mockup nào; tự động tính toán tăng trưởng doanh thu so với hôm qua,
-   *   tỷ lệ thanh toán VietQR / Ví / COD, và cảnh báo tồn kho thấp.
-   */
   static async getAdminAnalytics(range: AnalyticsRange = '7days'): Promise<AdminAnalyticsResponse> {
+    // 0. Kiểm tra Redis Cache để giảm tải 20+ query đồng thời vào Database
+    const cachedData = await getCachedAnalytics<AdminAnalyticsResponse>(range);
+    if (cachedData) {
+      return cachedData;
+    }
+
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
     const startOfYesterday = new Date(startOfToday);
@@ -362,13 +361,15 @@ export class AdminService {
       prisma.transaction.count({
         where: { verified: false },
       }),
-      // 17. Paid orders for payment distribution
+      // 17. Paid orders for payment distribution (giới hạn 500 đơn gần nhất thay vì load toàn bộ DB)
       prisma.order.findMany({
         where: { paymentStatus: 'PAID' },
         select: {
           transaction: { select: { bankName: true } },
           shipment: { select: { codAmount: true } },
         },
+        orderBy: { createdAt: 'desc' },
+        take: 500,
       }),
       // 18. Paid orders for revenue trend in range
       prisma.order.findMany({
@@ -473,7 +474,7 @@ export class AdminService {
       };
     });
 
-    return {
+    const analyticsResponse: AdminAnalyticsResponse = {
       summary: {
         totalRevenue,
         todayRevenue,
@@ -502,6 +503,11 @@ export class AdminService {
       topProducts,
       range,
     };
+
+    // Cache kết quả vào Redis trong 60 giây để tối ưu lượt tải trang kế tiếp
+    await setCachedAnalytics(range, analyticsResponse, 60);
+
+    return analyticsResponse;
   }
 }
 

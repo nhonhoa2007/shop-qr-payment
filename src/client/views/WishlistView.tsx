@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useCartStore } from '@client/stores/cart-store';
+import { useWishlistStore } from '@client/stores/wishlist-store';
 import { formatVND } from '@shared/utils';
 import { Heart, Trash2, ArrowLeft, Plus } from 'lucide-react';
 import { toast } from 'sonner';
@@ -34,8 +35,16 @@ export function WishlistView() {
     fetch('/api/wishlist')
       .then((res) => res.json())
       .then((data) => {
-        if (!ignore && data.wishlist) {
-          setItems(data.wishlist);
+        const raw = data.wishlist || data.items;
+        if (!ignore && raw) {
+          setItems(raw);
+          const ids: string[] = raw
+            .map((i: Record<string, unknown>) => {
+              const product = i.product as Record<string, unknown> | undefined;
+              return i.productId || product?.id || i.id;
+            })
+            .filter((id: unknown): id is string => typeof id === 'string' && id.length > 0);
+          useWishlistStore.getState().setWishlistIds(ids);
         }
       })
       .catch(() => {
@@ -58,6 +67,7 @@ export function WishlistView() {
       if (res.ok) {
         toast.info(`Đã bỏ "${name}" khỏi yêu thích`);
         setItems((prev) => prev.filter((item) => item.productId !== productId));
+        useWishlistStore.getState().removeFromWishlist(productId);
       }
     } catch {
       toast.error('Lỗi khi xóa sản phẩm');

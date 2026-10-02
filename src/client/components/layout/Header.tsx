@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
 import { useCartStore } from '@client/stores/cart-store';
+import { useWishlistStore } from '@client/stores/wishlist-store';
 import { NotificationBell } from './NotificationBell';
 import { useNotifications } from '@client/hooks/useNotifications';
 import { useHydrated } from '@/lib/hydration';
@@ -27,17 +28,15 @@ export function Header() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const getTotalItems = useCartStore((s) => s.getTotalItems);
+  const rawWishlistCount = useWishlistStore((s) => s.wishlistIds.length);
   const hydrated = useHydrated();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const router = useRouter();
   useNotifications(session?.user?.id);
 
-  if (pathname?.startsWith('/admin')) {
-    return null;
-  }
-
   const cartCount = hydrated ? getTotalItems() : 0;
+  const wishlistCount = hydrated ? rawWishlistCount : 0;
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,6 +45,10 @@ export function Header() {
       setSearchQuery('');
     }
   };
+
+  if (pathname?.startsWith('/admin')) {
+    return null;
+  }
 
   return (
     <header className="bg-white sticky top-0 z-50 border-b border-[#ebebeb]/60">
@@ -139,10 +142,15 @@ export function Header() {
             {session && (
               <Link
                 href="/wishlist"
-                className="p-2.5 rounded-full hover:bg-[#f2f4f5] transition text-[#000000]"
+                className="relative p-2.5 rounded-full hover:bg-[#f2f4f5] transition text-[#000000]"
                 aria-label="Yêu thích"
               >
                 <Heart className="w-5 h-5" />
+                {wishlistCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-semibold text-white bg-rose-500 rounded-full px-1">
+                    {wishlistCount}
+                  </span>
+                )}
               </Link>
             )}
 
@@ -239,10 +247,17 @@ export function Header() {
               <Link
                 href="/wishlist"
                 onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-[20px] text-[#000000] hover:bg-[#f2f4f5] text-sm tracking-tight-body"
+                className="flex items-center justify-between px-3 py-2.5 rounded-[20px] text-[#000000] hover:bg-[#f2f4f5] text-sm tracking-tight-body"
               >
-                <Heart className="w-4 h-4 text-[#787574]" />
-                <span>Yêu thích</span>
+                <div className="flex items-center gap-3">
+                  <Heart className="w-4 h-4 text-[#787574]" />
+                  <span>Yêu thích</span>
+                </div>
+                {wishlistCount > 0 && (
+                  <span className="text-xs font-semibold text-white bg-rose-500 rounded-full px-2 py-0.5">
+                    {wishlistCount}
+                  </span>
+                )}
               </Link>
               <Link
                 href="/wallet"

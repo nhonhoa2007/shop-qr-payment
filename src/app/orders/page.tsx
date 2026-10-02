@@ -12,5 +12,5 @@ export default async function OrdersPage() {
 
   const orders = await CustomerOrderService.getCustomerOrders(session.user.id, session.user.role);
 
-  return <OrdersView orders={orders} />;
+  return <OrdersView orders={orders} currentUserId={session.user.id} />;
 }

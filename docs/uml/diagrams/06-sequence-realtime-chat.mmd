@@ -1,0 +1,49 @@
+sequenceDiagram
+    autonumber
+    actor Customer as 👤 Khách hàng (Client A)
+    participant UI_Cust as 🖥️ Chat Window (Storefront)
+    participant API as ⚙️ Chat API Controller
+    participant Auth as 🛡️ Pusher Auth Controller
+    participant DB as 🐘 PostgreSQL (Prisma)
+    participant Pusher as 📡 Pusher Realtime Cloud
+    participant UI_Admin as 📊 Admin Chat Workspace
+    actor Admin as 👑 Nhân viên / Admin (Client B)
+
+    Note over Customer,Admin: 1. Xác thực & Đăng ký kênh WebSocket riêng tư (Pusher Private Channel)
+    Customer->>API: GET /api/chat/rooms (Lấy hoặc tạo phòng chat)
+    API->>DB: Query/Create ChatRoom & ChatRoomParticipant
+    API-->>Customer: Trả về roomId
+    Customer->>Auth: POST /api/chat/pusher-auth (channel: private-chat-{roomId})
+    Auth->>Auth: Kiểm tra Session User có thuộc phòng chat
+    Auth-->>Customer: Trả về Pusher Auth Signature (HMAC)
+    Customer->>Pusher: Subscribe channel private-chat-{roomId}
+
+    Admin->>Auth: POST /api/chat/pusher-auth (channel: private-chat-{roomId})
+    Auth->>Auth: Kiểm tra Session Admin Role
+    Auth-->>Admin: Trả về Pusher Auth Signature
+    Admin->>Pusher: Subscribe channel private-chat-{roomId}
+
+    Note over Customer,Admin: 2. Luồng gửi tin nhắn thời gian thực
+    Customer->>UI_Cust: Nhập tin nhắn & Nhấn "Gửi"
+    UI_Cust->>API: POST /api/chat/messages (roomId, content, type: TEXT)
+    activate API
+    API->>DB: Kiểm tra quyền tham gia phòng
+    API->>DB: INSERT INTO Message (roomId, senderId, content, type)
+    API->>DB: UPDATE ChatRoom (lastMessage, lastActiveAt: NOW)
+    API->>Pusher: trigger(private-chat-{roomId}, 'new-message', data)
+    API->>DB: Tạo Notification (NEW_MESSAGE) cho Admin
+    API-->>UI_Cust: HTTP 200 OK (Message Object)
+    deactivate API
+
+    Pusher-->>UI_Cust: WebSocket Event 'new-message' (Xác nhận hiển thị)
+    Pusher-->>UI_Admin: WebSocket Event 'new-message' tức thì (<100ms)
+    UI_Admin-->>Admin: Hiển thị bóng chat & Chuông thông báo tin nhắn mới
+
+    Note over Customer,Admin: 3. Admin phản hồi & Đánh dấu đã đọc
+    Admin->>UI_Admin: Mở phòng chat & Trả lời tư vấn
+    UI_Admin->>API: POST /api/chat/read (roomId)
+    API->>DB: UPDATE ChatRoomParticipant (lastReadAt: NOW)
+    UI_Admin->>API: POST /api/chat/messages (roomId, replyContent)
+    API->>DB: INSERT Message từ Admin
+    API->>Pusher: trigger(private-chat-{roomId}, 'new-message', replyData)
+    Pusher-->>UI_Cust: Hiển thị phản hồi của Admin trên màn hình Khách hàng

@@ -1,9 +1,11 @@
+import { cache } from 'react';
 import { prisma } from '@server/database/prisma';
+import { redis } from '@server/infrastructure/redis';
 import type { Product } from '@/types';
 
 export class CatalogService {
   /**
-   * Lấy danh sách sản phẩm và danh mục cho trang chủ
+   * Lấy danh sách sản phẩm và danh mục cho trang chủ (có Redis Caching)
    */
   static async getHomeCatalog(params?: {
     category?: string | null;
@@ -13,14 +15,19 @@ export class CatalogService {
     const searchQuery = params?.search?.trim() || null;
 
     try {
-      const rawCategories = await prisma.product.findMany({
-        where: { isActive: true },
-        select: { category: true },
-        distinct: ['category'],
-      });
-      const allCategories = rawCategories
-        .map((c) => c.category)
-        .filter((c): c is string => Boolean(c));
+      // 1. Tối ưu hóa Categories bằng Redis Cache (TTL 10 phút)
+      let allCategories: string[] | null = await redis.get<string[]>('cache:categories');
+      if (!allCategories || !Array.isArray(allCategories)) {
+        const rawCategories = await prisma.product.findMany({
+          where: { isActive: true },
+          select: { category: true },
+          distinct: ['category'],
+        });
+        allCategories = rawCategories
+          .map((c) => c.category)
+          .filter((c): c is string => Boolean(c));
+        await redis.set('cache:categories', allCategories, { ex: 600 });
+      }
 
       const rawProducts = await prisma.product.findMany({
         where: {
@@ -92,9 +99,17 @@ export class CatalogService {
 
   /**
    * Lấy chi tiết sản phẩm kèm biến thể (variants)
+   * Tối ưu hóa: React.cache() chống duplicate query trong Server Components
+   * kết hợp Redis Cache (TTL 120s)
    */
-  static async getProductDetail(id: string): Promise<Product | null> {
+  static getProductDetail = cache(async (id: string): Promise<Product | null> => {
     try {
+      const cacheKey = `cache:product:${id}`;
+      const cached = await redis.get<Product>(cacheKey);
+      if (cached) {
+        return cached;
+      }
+
       const product = await prisma.product.findUnique({
         where: { id },
         include: {
@@ -109,7 +124,7 @@ export class CatalogService {
         return null;
       }
 
-      return {
+      const result: Product = {
         id: product.id,
         name: product.name,
         description: product.description,
@@ -135,9 +150,12 @@ export class CatalogService {
           updatedAt: v.updatedAt.toISOString(),
         })),
       };
+
+      await redis.set(cacheKey, result, { ex: 120 });
+      return result;
     } catch (error) {
       console.error('CatalogService.getProductDetail error:', error);
       return null;
     }
-  }
+  });
 }

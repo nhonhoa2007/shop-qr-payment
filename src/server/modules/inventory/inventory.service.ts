@@ -44,6 +44,12 @@ export async function reserveOrderStock(
       if (result.count !== 1) {
         return item.variantId;
       }
+
+      // Đồng bộ giảm tồn kho ở sản phẩm gốc
+      await tx.product.update({
+        where: { id: item.productId },
+        data: { stock: { decrement: item.quantity } },
+      });
     } else {
       const result = await tx.product.updateMany({
         where: {
@@ -81,6 +87,11 @@ export async function releaseOrderStock(
     if (item.variantId) {
       await tx.productVariant.update({
         where: { id: item.variantId },
+        data: { stock: { increment: item.quantity } },
+      });
+      // Đồng bộ hoàn tồn kho ở sản phẩm gốc
+      await tx.product.update({
+        where: { id: item.productId },
         data: { stock: { increment: item.quantity } },
       });
     } else {

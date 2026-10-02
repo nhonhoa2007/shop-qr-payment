@@ -22,7 +22,7 @@ export async function GET() {
       }
     });
 
-    return NextResponse.json({ items });
+    return NextResponse.json({ items, wishlist: items });
   } catch (error) {
     console.error('Get wishlist error:', error);
     return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
@@ -37,7 +37,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { productId } = body;
+    const { productId, action, toggle } = body;
 
     if (!productId || typeof productId !== 'string') {
       return NextResponse.json({ error: 'productId không hợp lệ' }, { status: 400 });
@@ -49,6 +49,37 @@ export async function POST(req: Request) {
 
     if (!product) {
       return NextResponse.json({ error: 'Không tìm thấy sản phẩm' }, { status: 404 });
+    }
+
+    if (action === 'toggle' || toggle === true) {
+      const existing = await prisma.wishlist.findUnique({
+        where: {
+          userId_productId: {
+            userId: session.user.id,
+            productId,
+          },
+        },
+      });
+
+      if (existing) {
+        await prisma.wishlist.delete({
+          where: {
+            userId_productId: {
+              userId: session.user.id,
+              productId,
+            },
+          },
+        });
+        return NextResponse.json({ success: true, wishlisted: false, action: 'removed' });
+      } else {
+        await prisma.wishlist.create({
+          data: {
+            userId: session.user.id,
+            productId,
+          },
+        });
+        return NextResponse.json({ success: true, wishlisted: true, action: 'added' });
+      }
     }
 
     await prisma.wishlist.upsert({
@@ -65,7 +96,7 @@ export async function POST(req: Request) {
       update: {}
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, wishlisted: true, action: 'added' });
   } catch (error) {
     console.error('Add to wishlist error:', error);
     return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
@@ -102,7 +133,7 @@ export async function DELETE(req: Request) {
       }
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, wishlisted: false, action: 'removed' });
   } catch (error) {
     console.error('Remove from wishlist error:', error);
     return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });

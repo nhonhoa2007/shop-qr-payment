@@ -169,6 +169,61 @@ export class RedisClient {
     }
     return true;
   }
+
+  /**
+   * INCR key (Tăng số đếm nguyên tử)
+   */
+  async incr(key: string): Promise<number> {
+    if (this.isRemoteConfigured()) {
+      const res = await this.executeCommand<number>(['INCR', key]);
+      return Number(res || 0);
+    }
+
+    // In-memory fallback
+    const entry = inMemoryCache.get(key);
+    let val = 0;
+    if (entry && (!entry.expiresAt || Date.now() <= entry.expiresAt)) {
+      val = Number(entry.value) || 0;
+    }
+    val += 1;
+    inMemoryCache.set(key, { value: val, expiresAt: entry?.expiresAt || null });
+    return val;
+  }
+
+  /**
+   * EXPIRE key seconds (Thiết lập thời gian sống)
+   */
+  async expire(key: string, seconds: number): Promise<boolean> {
+    if (this.isRemoteConfigured()) {
+      const res = await this.executeCommand<number>(['EXPIRE', key, seconds]);
+      return res === 1;
+    }
+
+    const entry = inMemoryCache.get(key);
+    if (!entry) return false;
+    entry.expiresAt = Date.now() + seconds * 1000;
+    return true;
+  }
+
+  /**
+   * SET key value EX seconds NX (Khóa phân tán Distributed Lock)
+   */
+  async setNx(key: string, value: unknown, ttlSeconds: number): Promise<boolean> {
+    const serialized = typeof value === 'string' ? value : JSON.stringify(value);
+
+    if (this.isRemoteConfigured()) {
+      const res = await this.executeCommand<string>(['SET', key, serialized, 'EX', ttlSeconds, 'NX']);
+      return res === 'OK';
+    }
+
+    // In-memory fallback
+    const entry = inMemoryCache.get(key);
+    if (entry && (!entry.expiresAt || Date.now() <= entry.expiresAt)) {
+      return false; // Key đang tồn tại
+    }
+    inMemoryCache.set(key, { value: serialized, expiresAt: Date.now() + ttlSeconds * 1000 });
+    return true;
+  }
 }
 
 export const redis = new RedisClient();
@@ -180,10 +235,22 @@ export const redis = new RedisClient();
 export const PRODUCT_CACHE_PREFIX = 'cache:products:';
 export const PRODUCT_CACHE_TTL_SECONDS = 60; // 60s TTL
 
-export function buildProductCacheKey(category?: string | null, search?: string | null): string {
+export function buildProductCacheKey(
+  category?: string | null,
+  search?: string | null,
+  pagination?: { page?: number; limit?: number; sort?: string | null }
+): string {
   const cat = category?.trim() || 'all';
   const q = search?.trim().toLowerCase() || 'none';
-  return `${PRODUCT_CACHE_PREFIX}${cat}:${q}`;
+  const base = `${PRODUCT_CACHE_PREFIX}${cat}:${q}`;
+  // Giữ format key cũ ở tham số mặc định để không vô hiệu cache đang tồn tại
+  const page = pagination?.page ?? 1;
+  const limit = pagination?.limit ?? 0;
+  const sort = pagination?.sort?.trim() || 'newest';
+  if (page === 1 && limit === 0 && sort === 'newest') {
+    return base;
+  }
+  return `${base}:p${page}:l${limit}:s${sort}`;
 }
 
 export async function getCachedProductList<T>(cacheKey: string): Promise<T | null> {
@@ -198,6 +265,33 @@ export async function setCachedProductList(
   await redis.set(cacheKey, data, { ex: ttlSeconds });
 }
 
-export async function invalidateProductCache(): Promise<number> {
-  return await redis.delPattern(`${PRODUCT_CACHE_PREFIX}*`);
+export async function invalidateProductCache(productId?: string): Promise<number> {
+  const count1 = await redis.delPattern(`${PRODUCT_CACHE_PREFIX}*`);
+  const count2 = await redis.del('cache:categories');
+  let count3 = 0;
+  if (productId) {
+    count3 = await redis.del(`cache:product:${productId}`);
+  } else {
+    count3 = await redis.delPattern('cache:product:*');
+  }
+  return count1 + count2 + count3;
+}
+
+// ============================================
+// ADMIN ANALYTICS CACHING HELPERS
+// ============================================
+
+export const ANALYTICS_CACHE_PREFIX = 'cache:analytics:';
+export const ANALYTICS_CACHE_TTL_SECONDS = 60; // 60s TTL
+
+export async function getCachedAnalytics<T>(range: string): Promise<T | null> {
+  return await redis.get<T>(`${ANALYTICS_CACHE_PREFIX}${range}`);
+}
+
+export async function setCachedAnalytics(range: string, data: unknown, ttl = ANALYTICS_CACHE_TTL_SECONDS): Promise<void> {
+  await redis.set(`${ANALYTICS_CACHE_PREFIX}${range}`, data, { ex: ttl });
+}
+
+export async function invalidateAnalyticsCache(): Promise<number> {
+  return await redis.delPattern(`${ANALYTICS_CACHE_PREFIX}*`);
 }

@@ -1,7 +1,7 @@
 import { CatalogService } from '@/server/modules/catalog/catalog.service';
 import { HomeView } from '@client/views/HomeView';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 60;
 
 interface HomePageProps {
   searchParams?: Promise<{ category?: string; search?: string }>;

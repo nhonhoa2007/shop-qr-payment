@@ -1,0 +1,62 @@
+flowchart TB
+    subgraph PresentationLayer ["🖥️ Tầng Trình diễn (Presentation Layer - @client)"]
+        HomeView["HomeView (Hero 3D Parallax & Liquid Flow)"]
+        ProductDetailView["ProductDetailView (Variant Selector & Reviews)"]
+        CartView["CartView & CheckoutView (VietQR Modal)"]
+        WalletView["WalletView (Top-up & Balance Tracker)"]
+        WishlistView["WishlistView (Instant Sync)"]
+        ChatWindow["ChatWindow & MessageBubble"]
+        AdminDashboard["AdminDashboardView (Bento Grid KPIs)"]
+        AdminOrders["AdminOrders & Reconcile Views"]
+        AdminChat["AdminChatView (Realtime Support)"]
+        ZustandStores["Zustand Client Stores (Cart, Wishlist)"]
+        PusherClient["Pusher JS WebSocket Client"]
+    end
+
+    subgraph ApplicationLayer ["⚙️ Tầng Ứng dụng & Dịch vụ (Application Layer - @server)"]
+        OrderRoutes["Order & Checkout Route Handlers"]
+        WebhookRoutes["PayOS & GHN Webhook Handlers"]
+        WalletRoutes["Wallet Topup & Payment Controllers"]
+        ChatRoutes["Chat Messages & Pusher Auth Handlers"]
+        AdminRoutes["Analytics, Reconcile & Products Handlers"]
+
+        WalletService["WalletService (Atomic CAS Refund & Pay)"]
+        WalletTopupService["WalletTopupService (VietQR Idempotency)"]
+        InventoryService["InventoryService (Atomic Reservation & Release)"]
+        OrderFSM["OrderFSM Engine (State Invariant Guard)"]
+        PayOSService["PayOSService (HMAC Gateway & Parsing)"]
+        GHNService["GHNService (Logistics OpenAPI & Fee Calc)"]
+        ChatService["ChatService (Pusher Realtime Orchestration)"]
+    end
+
+    subgraph SharedLayer ["📦 Tầng Dùng chung An toàn (Shared Kernel - @shared)"]
+        SharedTypes["DTO Types & API Contract Interfaces"]
+        SharedEnums["Domain Enums (OrderStatus, Role, etc.)"]
+        SharedValidators["Zod Validation Schemas"]
+        SharedErrors["AppError, ValidationError, AuthError"]
+        SharedUtils["Formatters, Crypto Utils & Date Helpers"]
+    end
+
+    subgraph InfrastructureLayer ["🗄️ Tầng Hạ tầng & Dịch vụ Đám mây (Infrastructure Tier)"]
+        PostgresDB[("🐘 PostgreSQL (Prisma ORM with Connection Pool)")]
+        RedisCache[("⚡ Upstash Serverless Redis (Cache & Rate Limiting)")]
+        PusherCloud["📡 Pusher Channels (WebSocket Realtime Cloud)"]
+        PayOSGateway["🏦 PayOS Gateway (VietQR & NAPAS 247)"]
+        GHNCloud["🚚 GHN Logistics OpenAPI Server"]
+        ResendEmail["✉️ Resend Cloud API (OTP & Password Reset)"]
+        CloudinaryCDN["🖼️ Cloudinary CDN (Image Optimization)"]
+    end
+
+    %% Dependencies
+    PresentationLayer --> SharedLayer
+    ApplicationLayer --> SharedLayer
+    PresentationLayer -->|Fetch JSON REST APIs| ApplicationLayer
+    PresentationLayer -.->|❌ NGHIÊM CẤM IMPORT TRỰC TIẾP (Zero-Leakage)| ApplicationLayer
+
+    ApplicationLayer --> PostgresDB
+    ApplicationLayer --> RedisCache
+    ApplicationLayer --> PusherCloud
+    ApplicationLayer --> PayOSGateway
+    ApplicationLayer --> GHNCloud
+    ApplicationLayer --> ResendEmail
+    ApplicationLayer --> CloudinaryCDN

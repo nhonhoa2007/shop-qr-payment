@@ -19,5 +19,5 @@ export default async function AdminChatPage() {
 
   const rooms = await ChatService.getAdminChatRooms(session.user.id);
 
-  return <AdminChatView rooms={rooms} />;
+  return <AdminChatView rooms={rooms} currentUserId={session.user.id} />;
 }

@@ -106,10 +106,11 @@ export function AdminTopbar({ onToggleMobileMenu }: AdminTopbarProps) {
       ];
     }
     if (pathname.startsWith('/admin/chat')) {
+      const isDetail = pathname !== '/admin/chat';
       return [
         { label: 'Admin', href: '/admin' },
         { label: 'Khách hàng & CSKH', href: '/admin/chat' },
-        { label: 'Tin nhắn trực tuyến', current: true },
+        { label: isDetail ? 'Chi tiết hội thoại' : 'Tin nhắn trực tuyến', current: true },
       ];
     }
     return [

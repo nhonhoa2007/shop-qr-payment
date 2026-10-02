@@ -1,0 +1,44 @@
+flowchart TD
+    Start([Nhận Request POST Webhook từ PayOS]) --> CheckEnv{Môi trường Production?}
+
+    CheckEnv -- Có --> CheckSecretConfig{Có cấu hình Webhook Secret?}
+    CheckSecretConfig -- Thiếu --> FailClosed500[Từ chối Fail-Closed 500: Missing Secret Key] --> StopErr([Dừng])
+    CheckSecretConfig -- Có --> VerifySignature
+
+    CheckEnv -- Development --> DevWarning[Ghi log cảnh báo Dev Mode] --> VerifySignature
+
+    VerifySignature{Kiểm tra chữ ký HMAC-SHA256 timingSafeEqual?}
+    VerifySignature -- Chữ ký không khớp --> Reject401[Từ chối 401: Unauthorized / Tampered Request] --> StopErr
+
+    VerifySignature -- Chữ ký hợp lệ --> ParseCode[Phân tích mã nội dung chuyển khoản bằng Regex]
+
+    ParseCode --> CheckType{Loại giao dịch?}
+
+    %% Nhánh 1: Nạp tiền Ví
+    CheckType -- Khớp NAPVIxxxx --> QueryTopup[Truy vấn Phiên Nạp tiền Ví]
+    QueryTopup --> CheckTopupExists{Tìm thấy phiên nạp ví?}
+    CheckTopupExists -- Không --> LogUnmatched[Lưu Transaction: verified=false, UNMATCHED] --> Resp200[Trả về 200 OK để Ngân hàng không retry]
+
+    CheckTopupExists -- Có --> CheckTopupIdempotency{bankTransId đã xử lý trước đó?}
+    CheckTopupIdempotency -- Đã xử lý (Replay) --> SkipDupTopup[Bỏ qua nạp trùng: Trả về thành công Idempotent] --> Resp200
+    CheckTopupIdempotency -- Giao dịch mới --> AtomicTopup[Atomic CAS: Tăng UserWallet.balance & Tạo WalletTx TOPUP]
+    AtomicTopup --> PushPusherWallet[Bắn WebSocket Pusher 'wallet-updated'] --> Resp200
+
+    %% Nhánh 2: Thanh toán Đơn hàng
+    CheckType -- Khớp DHxxxx / OrderCode --> QueryOrder[Truy vấn Order trong PostgreSQL]
+    QueryOrder --> OrderExists{Tìm thấy đơn hàng?}
+    OrderExists -- Không --> LogUnmatched
+
+    OrderExists -- Tìm thấy đơn --> CheckOrderDuplicate{bankTransId đã tồn tại trong DB?}
+    CheckOrderDuplicate -- Đã tồn tại (Replay Attack) --> SkipDupOrder[Bỏ qua: Tránh ghi nhận đơn trùng lặp] --> Resp200
+
+    CheckOrderDuplicate -- Giao dịch mới --> CheckOrderStatus{Trạng thái Đơn hiện tại?}
+    CheckOrderStatus -- Đã PAID / CANCELLED / EXPIRED --> LogLateTx[Ghi nhận giao dịch kèm cảnh báo Admin xử lý thủ công] --> Resp200
+
+    CheckOrderStatus -- PENDING (Chờ tiền) --> CompareAmount{Số tiền nhận >= Tổng tiền đơn?}
+    CompareAmount -- Thiếu tiền --> UnderpaidAlert[Lưu Transaction: Cảnh báo Khách chuyển thiếu tiền] --> Resp200
+
+    CompareAmount -- Đủ hoặc Thừa tiền --> AtomicUpdateOrder[Cập nhật Order: status=CONFIRMED, paymentStatus=PAID]
+    AtomicUpdateOrder --> PushGHN[Tự động gọi GHN OpenAPI sinh Vận đơn Giao hàng]
+    PushGHN --> BroadcastRealtime[Bắn WebSocket Pusher: 'order-paid' & 'analytics-updated']
+    BroadcastRealtime --> Resp200 --> EndDone([Hoàn tất xử lý an toàn])

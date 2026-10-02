@@ -1,1 +1,1 @@
-export * from '@/shared/utils';
+export * from '../shared/utils/index.ts';

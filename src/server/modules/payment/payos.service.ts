@@ -1,9 +1,10 @@
-import crypto from 'node:crypto';
+import crypto from "node:crypto";
 
-export const PAYOS_CLIENT_ID = process.env.PAYOS_CLIENT_ID || '';
-export const PAYOS_API_KEY = process.env.PAYOS_API_KEY || '';
-export const PAYOS_CHECKSUM_KEY = process.env.PAYOS_CHECKSUM_KEY || '';
-export const PAYOS_API_URL = process.env.PAYOS_API_URL || 'https://api-merchant.payos.vn/v2';
+export const PAYOS_CLIENT_ID = process.env.PAYOS_CLIENT_ID || "";
+export const PAYOS_API_KEY = process.env.PAYOS_API_KEY || "";
+export const PAYOS_CHECKSUM_KEY = process.env.PAYOS_CHECKSUM_KEY || "";
+export const PAYOS_API_URL =
+  process.env.PAYOS_API_URL || "https://api-merchant.payos.vn/v2";
 
 export interface PayOSCreatePaymentParams {
   orderCode: number; // PayOS yêu cầu orderCode dạng số nguyên dương an toàn <= 9007199254740991
@@ -24,7 +25,7 @@ export interface PayOSCreatePaymentResult {
   paymentLinkId?: string;
   orderCode?: number;
   qrCode?: string;
-  source?: 'PAYOS_API' | 'MOCK';
+  source?: "PAYOS_API" | "MOCK";
   rawResponse?: unknown;
   error?: string;
 }
@@ -67,10 +68,10 @@ export function generatePayOSRequestSignature(
     orderCode: number;
     returnUrl: string;
   },
-  checksumKey: string
+  checksumKey: string,
 ): string {
   const dataStr = `amount=${params.amount}&cancelUrl=${params.cancelUrl}&description=${params.description}&orderCode=${params.orderCode}&returnUrl=${params.returnUrl}`;
-  return crypto.createHmac('sha256', checksumKey).update(dataStr).digest('hex');
+  return crypto.createHmac("sha256", checksumKey).update(dataStr).digest("hex");
 }
 
 /**
@@ -92,9 +93,9 @@ export function generatePayOSRequestSignature(
 export function verifyPayOSWebhookSignature(
   data: Record<string, unknown>,
   signature: string,
-  checksumKey: string
+  checksumKey: string,
 ): boolean {
-  if (!signature || !checksumKey || typeof signature !== 'string') {
+  if (!signature || !checksumKey || typeof signature !== "string") {
     return false;
   }
 
@@ -102,15 +103,15 @@ export function verifyPayOSWebhookSignature(
   const queryString = sortedKeys
     .map((key) => {
       const val = data[key];
-      const stringVal = val !== null && val !== undefined ? String(val) : '';
+      const stringVal = val !== null && val !== undefined ? String(val) : "";
       return `${key}=${stringVal}`;
     })
-    .join('&');
+    .join("&");
 
   const computedSignature = crypto
-    .createHmac('sha256', checksumKey)
+    .createHmac("sha256", checksumKey)
     .update(queryString)
-    .digest('hex');
+    .digest("hex");
 
   const sigBuf = Buffer.from(signature);
   const compBuf = Buffer.from(computedSignature);
@@ -126,7 +127,7 @@ export function verifyPayOSWebhookSignature(
  * Chuyển đổi mã đơn hàng string dạng DH123456 sang số nguyên dương để tương thích với PayOS orderCode
  */
 export function parsePayOSOrderCode(orderCodeStr: string): number {
-  const numericOnly = orderCodeStr.replace(/\D/g, '');
+  const numericOnly = orderCodeStr.replace(/\D/g, "");
   if (numericOnly.length > 0) {
     const num = Number(numericOnly.slice(-9)); // Giới hạn 9 chữ số tránh tràn số
     if (num > 0) return num;
@@ -149,13 +150,17 @@ export function parsePayOSOrderCode(orderCodeStr: string): number {
  *    - Cho phép tự động fallback sang Mock Checkout (`/payment/payos-checkout`) giúp lập trình viên kiểm thử luồng thanh toán ngoại tuyến.
  */
 export async function createPayOSPaymentLink(
-  params: PayOSCreatePaymentParams
+  params: PayOSCreatePaymentParams,
 ): Promise<PayOSCreatePaymentResult> {
-  const isProduction = process.env.NODE_ENV === 'production';
-  const clientId = PAYOS_CLIENT_ID || process.env.PAYOS_CLIENT_ID || '';
-  const apiKey = PAYOS_API_KEY || process.env.PAYOS_API_KEY || '';
-  const checksumKey = PAYOS_CHECKSUM_KEY || process.env.PAYOS_CHECKSUM_KEY || '';
-  const apiUrl = PAYOS_API_URL || process.env.PAYOS_API_URL || 'https://api-merchant.payos.vn/v2';
+  const isProduction = process.env.NODE_ENV === "production";
+  const clientId = PAYOS_CLIENT_ID || process.env.PAYOS_CLIENT_ID || "";
+  const apiKey = PAYOS_API_KEY || process.env.PAYOS_API_KEY || "";
+  const checksumKey =
+    PAYOS_CHECKSUM_KEY || process.env.PAYOS_CHECKSUM_KEY || "";
+  const apiUrl =
+    PAYOS_API_URL ||
+    process.env.PAYOS_API_URL ||
+    "https://api-merchant.payos.vn/v2";
 
   const cleanDescription = params.description.slice(0, 25);
 
@@ -169,7 +174,7 @@ export async function createPayOSPaymentLink(
           orderCode: params.orderCode,
           returnUrl: params.returnUrl,
         },
-        checksumKey
+        checksumKey,
       );
 
       const requestBody = {
@@ -183,40 +188,45 @@ export async function createPayOSPaymentLink(
       };
 
       const res = await fetch(`${apiUrl}/payment-requests`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'x-client-id': clientId,
-          'x-api-key': apiKey,
+          "Content-Type": "application/json",
+          "x-client-id": clientId,
+          "x-api-key": apiKey,
         },
         body: JSON.stringify(requestBody),
       });
 
       if (res.ok) {
         const json = await res.json();
-        if (json.code === '00' && json.data) {
+        if (json.code === "00" && json.data) {
           return {
             success: true,
             checkoutUrl: json.data.checkoutUrl,
             paymentLinkId: json.data.paymentLinkId,
             orderCode: params.orderCode,
             qrCode: json.data.qrCode,
-            source: 'PAYOS_API',
+            source: "PAYOS_API",
             rawResponse: json.data,
           };
         }
       }
     } catch (error) {
-      console.warn('PayOS API call failed, falling back to mock checkout:', error);
+      console.warn(
+        "PayOS API call failed, falling back to mock checkout:",
+        error,
+      );
     }
   }
 
   // Môi trường production tuyệt đối KHÔNG fallback sang mock checkout
   if (isProduction) {
-    console.error('[PayOS] Cổng thanh toán PayOS tạm thời không khả dụng trong môi trường production');
+    console.error(
+      "[PayOS] Cổng thanh toán PayOS tạm thời không khả dụng trong môi trường production",
+    );
     return {
       success: false,
-      error: 'Cổng thanh toán PayOS tạm thời không khả dụng',
+      error: "Cổng thanh toán PayOS tạm thời không khả dụng",
     };
   }
 
@@ -229,6 +239,6 @@ export async function createPayOSPaymentLink(
     checkoutUrl: mockCheckoutUrl,
     paymentLinkId: mockPaymentId,
     orderCode: params.orderCode,
-    source: 'MOCK',
+    source: "MOCK",
   };
 }

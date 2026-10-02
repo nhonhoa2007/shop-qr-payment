@@ -1,9 +1,1 @@
-import PusherClient from 'pusher-js';
-
-export const pusherClient = new PusherClient(
-  process.env.NEXT_PUBLIC_PUSHER_KEY || '',
-  {
-    cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER || 'ap1',
-    authEndpoint: '/api/pusher/auth',
-  }
-);
+export { pusherClient } from '../client/infrastructure/pusher-client.ts';
