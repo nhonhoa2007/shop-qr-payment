@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useCartStore } from '@client/stores/cart-store';
 import { formatVND } from '@shared/utils';
-import { getErrorMessage } from '@/lib/errors';
+import { getErrorMessage } from '@shared/errors';
 import {
   Tag,
   Check,
@@ -18,9 +18,10 @@ import {
   CreditCard,
   Wallet,
   CheckCircle2,
+  Navigation,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { VIETNAM_LOCATIONS } from '@/lib/vietnam-locations';
+import { VIETNAM_LOCATIONS } from '@shared/constants/vietnam-locations';
 
 interface CheckoutFormProps {
   initialName?: string;
@@ -57,12 +58,17 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
   // Payment method state
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>('VIETQR');
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [walletFetchFailed, setWalletFetchFailed] = useState(false);
 
   // Address location state
   const [selectedProvinceId, setSelectedProvinceId] = useState('hcm');
   const [selectedDistrictId, setSelectedDistrictId] = useState(1442);
   const [selectedWardCode, setSelectedWardCode] = useState('20101');
   const [specificAddress, setSpecificAddress] = useState('');
+
+  // Geolocation quick autofill state
+  const [locating, setLocating] = useState(false);
+  const [detectedAddressText, setDetectedAddressText] = useState<string | null>(null);
 
   // Shipping fee calculation state
   const [shippingFee, setShippingFee] = useState(30_000);
@@ -89,7 +95,9 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
             setWalletBalance(data.data.balance);
           }
         })
-        .catch(() => {});
+        .catch(() => {
+          if (!ignore) setWalletFetchFailed(true);
+        });
 
       return () => {
         ignore = true;
@@ -178,6 +186,186 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
   const handleWardChange = (wardCode: string) => {
     setCalculatingShipping(true);
     setSelectedWardCode(wardCode);
+  };
+
+  // Áp dụng thông tin vị trí đã giải mã vào form và kích hoạt tính phí ship GHN
+  const applyDetectedLocation = (data: {
+    provinceId?: string;
+    districtId?: number;
+    wardCode?: string;
+    specificAddress?: string;
+    fullDisplayName?: string;
+  }) => {
+    const { provinceId, districtId, wardCode, specificAddress: detectedSpecific, fullDisplayName } = data;
+
+    setCalculatingShipping(true);
+
+    let targetProv = VIETNAM_LOCATIONS[0];
+    if (provinceId) {
+      const p = VIETNAM_LOCATIONS.find((item) => item.id === provinceId);
+      if (p) {
+        targetProv = p;
+        setSelectedProvinceId(p.id);
+      }
+    }
+
+    let targetDist = targetProv.districts[0];
+    if (districtId) {
+      const d = targetProv.districts.find((item) => item.id === districtId);
+      if (d) {
+        targetDist = d;
+        setSelectedDistrictId(d.id);
+      } else if (targetProv.districts[0]) {
+        setSelectedDistrictId(targetProv.districts[0].id);
+      }
+    }
+
+    if (wardCode) {
+      const w = targetDist?.wards?.find((item) => item.code === wardCode);
+      if (w) {
+        setSelectedWardCode(w.code);
+      } else if (targetDist?.wards?.[0]) {
+        setSelectedWardCode(targetDist.wards[0].code);
+      }
+    }
+
+    if (detectedSpecific && detectedSpecific.trim().length > 0) {
+      setSpecificAddress(detectedSpecific.trim());
+    } else if (fullDisplayName) {
+      const firstSegment = fullDisplayName.split(',')[0]?.trim();
+      if (firstSegment && !firstSegment.toLowerCase().includes('việt nam')) {
+        setSpecificAddress(firstSegment);
+      }
+    }
+
+    const label = fullDisplayName || detectedSpecific || 'Đã định vị thành công';
+    setDetectedAddressText(label);
+    toast.success('Đã tự động xác định địa chỉ và tính phí GHN!', {
+      description: label,
+      duration: 5000,
+    });
+  };
+
+  // Chuẩn W3C Geolocation API (https://www.w3.org/TR/geolocation-API/)
+  const handleLocateCurrentPosition = () => {
+    if (typeof window === 'undefined' || !('geolocation' in navigator)) {
+      toast.error('Trình duyệt của bạn không hỗ trợ W3C Geolocation API.');
+      return;
+    }
+
+    setLocating(true);
+    toast.info('Đang yêu cầu vị trí qua W3C Geolocation API...');
+
+    // Cờ chống chạy trùng: một số nền tảng (vd. Chromium trên Linux thiếu geoclue)
+    // treo request vĩnh viễn không gọi callback, cần watchdog để thoát.
+    let settled = false;
+
+    const finishWithIpFallback = async (originalError?: GeolocationPositionError) => {
+      if (settled) return;
+      settled = true;
+      try {
+        toast.info('GPS thiết bị không khả dụng, đang tự động định vị qua mạng...');
+        const res = await fetch('/api/shipping/geocode/reverse', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ useIp: true }),
+        });
+        const result = await res.json();
+        if (result.success && result.data) {
+          applyDetectedLocation(result.data);
+          return;
+        }
+      } catch (fallbackErr) {
+        console.warn('[Geolocation] IP fallback failed:', fallbackErr);
+      } finally {
+        setLocating(false);
+      }
+
+      // Nếu cả IP fallback cũng thất bại thì mới thông báo cho người dùng
+      // (hằng số theo đặc tả W3C: 1 = PERMISSION_DENIED, 2 = POSITION_UNAVAILABLE, 3 = TIMEOUT)
+      switch (originalError?.code) {
+        case 1:
+          toast.error('Dịch vụ vị trí trên hệ điều hành từ chối truy cập. Vui lòng chọn địa chỉ thủ công.');
+          break;
+        case 2:
+          toast.error('Dịch vụ vị trí của hệ điều hành không phản hồi. Vui lòng chọn địa chỉ thủ công.');
+          break;
+        case 3:
+          toast.error('Quá thời gian yêu cầu vị trí. Vui lòng thử lại.');
+          break;
+        default:
+          toast.error('Không xác định được vị trí. Vui lòng chọn địa chỉ thủ công.');
+          break;
+      }
+    };
+
+    const handleSuccess = async (position: GeolocationPosition) => {
+      if (settled) return;
+      settled = true;
+      try {
+        const { latitude, longitude, accuracy } = position.coords;
+        console.log(
+          `[W3C Geolocation] Đã nhận tọa độ: lat=${latitude}, lon=${longitude}, độ chính xác=${accuracy}m`
+        );
+
+        const res = await fetch('/api/shipping/geocode/reverse', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ latitude, longitude }),
+        });
+
+        const result = await res.json();
+        if (result.success && result.data) {
+          applyDetectedLocation(result.data);
+        } else {
+          toast.error(result.error || 'Không thể giải mã địa chỉ từ tọa độ GPS');
+        }
+      } catch (err) {
+        console.error('[W3C Geolocation] Lỗi khi gửi tọa độ lên máy chủ:', err);
+        toast.error('Lỗi kết nối khi phân tích tọa độ địa chỉ');
+      } finally {
+        setLocating(false);
+      }
+    };
+
+    const handleError = (error: GeolocationPositionError, isHighAccuracyAttempt: boolean) => {
+      if (settled) return;
+      // Khuyến nghị W3C: Nếu thử High Accuracy thất bại do không có chip GPS (phổ biến trên máy tính), tự động thử lại với Low Accuracy
+      if (isHighAccuracyAttempt && (error.code === error.POSITION_UNAVAILABLE || error.code === error.TIMEOUT)) {
+        console.log('[W3C Geolocation] High accuracy không khả dụng, chuyển sang Low Accuracy...');
+        requestPosition(false);
+        return;
+      }
+
+      console.warn(`[W3C Geolocation] OS location service error (Code ${error.code}): ${error.message}. Chuyển sang định vị dự phòng qua IP...`);
+      void finishWithIpFallback(error);
+    };
+
+    const requestPosition = (highAccuracy: boolean) => {
+      navigator.geolocation.getCurrentPosition(handleSuccess, (err) => handleError(err, highAccuracy), {
+        enableHighAccuracy: highAccuracy,
+        timeout: highAccuracy ? 5000 : 8000,
+        maximumAge: 0,
+      });
+    };
+
+    // Bắt đầu yêu cầu định vị theo đặc tả W3C
+    requestPosition(true);
+
+    // Watchdog: theo spec, callback PHẢI được gọi trong `timeout`, nhưng một số nền
+    // tảng vi phạm (request treo vĩnh viễn) — sau 20s (5s high + 8s low + dự phòng)
+    // nếu chưa settle thì ép chạy IP fallback thay vì quay spinner mãi mãi.
+    const watchdog = setTimeout(() => {
+      if (!settled) {
+        console.warn('[W3C Geolocation] Watchdog: request bị treo, ép chạy IP fallback.');
+        void finishWithIpFallback(undefined);
+      }
+    }, 20000);
+
+    // Dọn watchdog nếu component unmount giữa chừng
+    // (setTimeout vẫn chạy nhưng finishWithIpFallback sẽ tự no-op qua cờ settled;
+    // không giữ tham chiếu thêm vì getCurrentPosition không có hàm hủy đồng bộ)
+    void watchdog;
   };
 
   // Calculate discount & totals
@@ -343,50 +531,69 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
       )}
 
       {/* Thông tin người nhận — 28px card */}
-      <div className="bg-white rounded-[28px] p-6 sm:p-8 shadow-card-custom">
-        <h2 className="font-semibold text-base text-[#000000] tracking-[-0.031em] mb-6">
+      <div className="bg-white rounded-[28px] p-6 sm:p-8 shadow-card">
+        <h2 className="font-semibold text-base text-ink-black tracking-[-0.031em] mb-6">
           Thông tin người nhận
         </h2>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-[#787574] mb-1 tracking-[-0.014em]">
+            <label
+              htmlFor="checkout-name"
+              className="block text-xs font-medium text-muted-gray mb-1 tracking-[-0.014em]"
+            >
               Họ và tên người nhận *
             </label>
             <input
+              id="checkout-name"
+              name="customerName"
               type="text"
               required
+              autoComplete="name"
               value={form.customerName}
               onChange={(e) => setForm({ ...form, customerName: e.target.value })}
-              className="w-full px-4 py-2.5 rounded-full border border-[#000000]/10 bg-white text-sm text-[#000000] placeholder:text-[#787574] focus:outline-none focus:border-[#5433eb]/40 transition tracking-[-0.014em]"
+              className="w-full px-4 py-2.5 rounded-full border border-ink-black/10 bg-white text-sm text-ink-black placeholder:text-muted-gray focus:outline-none focus:border-shop-violet/40 transition tracking-[-0.014em]"
               placeholder="Nguyễn Văn A"
             />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-[#787574] mb-1 tracking-[-0.014em]">
+              <label
+                htmlFor="checkout-phone"
+                className="block text-xs font-medium text-muted-gray mb-1 tracking-[-0.014em]"
+              >
                 Số điện thoại *
               </label>
               <input
+                id="checkout-phone"
+                name="customerPhone"
                 type="tel"
                 required
+                inputMode="tel"
+                autoComplete="tel"
                 value={form.customerPhone}
                 onChange={(e) => setForm({ ...form, customerPhone: e.target.value })}
-                className="w-full px-4 py-2.5 rounded-full border border-[#000000]/10 bg-white text-sm text-[#000000] placeholder:text-[#787574] focus:outline-none focus:border-[#5433eb]/40 transition tracking-[-0.014em]"
+                className="w-full px-4 py-2.5 rounded-full border border-ink-black/10 bg-white text-sm text-ink-black placeholder:text-muted-gray focus:outline-none focus:border-shop-violet/40 transition tracking-[-0.014em]"
                 placeholder="0912345678"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-[#787574] mb-1 tracking-[-0.014em]">
+              <label
+                htmlFor="checkout-email"
+                className="block text-xs font-medium text-muted-gray mb-1 tracking-[-0.014em]"
+              >
                 Email nhận hóa đơn & mã vận đơn
               </label>
               <input
+                id="checkout-email"
+                name="customerEmail"
                 type="email"
+                autoComplete="email"
                 value={form.customerEmail}
                 onChange={(e) => setForm({ ...form, customerEmail: e.target.value })}
-                className="w-full px-4 py-2.5 rounded-full border border-[#000000]/10 bg-white text-sm text-[#000000] placeholder:text-[#787574] focus:outline-none focus:border-[#5433eb]/40 transition tracking-[-0.014em]"
+                className="w-full px-4 py-2.5 rounded-full border border-ink-black/10 bg-white text-sm text-ink-black placeholder:text-muted-gray focus:outline-none focus:border-shop-violet/40 transition tracking-[-0.014em]"
                 placeholder="email@example.com"
               />
             </div>
@@ -395,23 +602,67 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
       </div>
 
       {/* Địa chỉ giao hàng & Cước phí GHN — 28px card */}
-      <div className="bg-white rounded-[28px] p-6 sm:p-8 shadow-card-custom">
-        <h2 className="font-semibold text-base text-[#000000] tracking-[-0.031em] mb-4 flex items-center gap-2">
-          <MapPin className="w-4 h-4 text-[#5433eb]" />
-          <span>Địa chỉ giao hàng & Cước phí GHN</span>
-        </h2>
+      <div className="bg-white rounded-[28px] p-6 sm:p-8 shadow-card">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <h2 className="font-semibold text-base text-ink-black tracking-[-0.031em] flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-shop-violet" />
+            <span>Địa chỉ giao hàng & Cước phí GHN</span>
+          </h2>
+
+          <button
+            type="button"
+            onClick={handleLocateCurrentPosition}
+            disabled={locating}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-medium bg-shop-violet/10 text-shop-violet hover:bg-shop-violet/15 active:scale-95 transition disabled:opacity-50 self-start sm:self-auto cursor-pointer shadow-soft-sm"
+            title="Lấy tọa độ vị trí hiện tại và tự động điền địa chỉ"
+          >
+            {locating ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Đang định vị GPS...</span>
+              </>
+            ) : (
+              <>
+                <Navigation className="w-3.5 h-3.5 fill-shop-violet/20" />
+                <span>Lấy vị trí hiện tại (1 chạm)</span>
+              </>
+            )}
+          </button>
+        </div>
+
+        {detectedAddressText && (
+          <div className="mb-4 bg-emerald-50 border border-emerald-200/70 rounded-[18px] p-3 flex items-start gap-2.5 text-xs text-emerald-800 animate-fadeIn">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <span className="font-semibold block text-emerald-900 mb-0.5">Vị trí đã định vị:</span>
+              <span className="text-emerald-700 leading-relaxed block">{detectedAddressText}</span>
+            </div>
+            <button
+              type="button"
+              onClick={handleLocateCurrentPosition}
+              disabled={locating}
+              className="text-[11px] font-medium text-emerald-800 hover:text-emerald-950 underline flex-shrink-0 cursor-pointer"
+            >
+              Làm mới
+            </button>
+          </div>
+        )}
 
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {/* Tỉnh / Thành */}
             <div>
-              <label className="block text-xs font-medium text-[#787574] mb-1 tracking-[-0.014em]">
+              <label
+                htmlFor="checkout-province"
+                className="block text-xs font-medium text-muted-gray mb-1 tracking-[-0.014em]"
+              >
                 Tỉnh / Thành phố *
               </label>
               <select
+                id="checkout-province"
                 value={selectedProvinceId}
                 onChange={(e) => handleProvinceChange(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-full border border-[#000000]/10 bg-white text-xs font-medium text-[#000000] focus:outline-none focus:border-[#5433eb]/40 transition"
+                className="w-full px-3.5 py-2.5 rounded-full border border-ink-black/10 bg-white text-xs font-medium text-ink-black focus:outline-none focus:border-shop-violet/40 transition"
               >
                 {VIETNAM_LOCATIONS.map((prov) => (
                   <option key={prov.id} value={prov.id}>
@@ -423,13 +674,17 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
 
             {/* Quận / Huyện */}
             <div>
-              <label className="block text-xs font-medium text-[#787574] mb-1 tracking-[-0.014em]">
+              <label
+                htmlFor="checkout-district"
+                className="block text-xs font-medium text-muted-gray mb-1 tracking-[-0.014em]"
+              >
                 Quận / Huyện *
               </label>
               <select
+                id="checkout-district"
                 value={selectedDistrictId}
                 onChange={(e) => handleDistrictChange(Number(e.target.value))}
-                className="w-full px-3.5 py-2.5 rounded-full border border-[#000000]/10 bg-white text-xs font-medium text-[#000000] focus:outline-none focus:border-[#5433eb]/40 transition"
+                className="w-full px-3.5 py-2.5 rounded-full border border-ink-black/10 bg-white text-xs font-medium text-ink-black focus:outline-none focus:border-shop-violet/40 transition"
               >
                 {districts.map((dist) => (
                   <option key={dist.id} value={dist.id}>
@@ -441,13 +696,17 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
 
             {/* Phường / Xã */}
             <div>
-              <label className="block text-xs font-medium text-[#787574] mb-1 tracking-[-0.014em]">
+              <label
+                htmlFor="checkout-ward"
+                className="block text-xs font-medium text-muted-gray mb-1 tracking-[-0.014em]"
+              >
                 Phường / Xã *
               </label>
               <select
+                id="checkout-ward"
                 value={selectedWardCode}
                 onChange={(e) => handleWardChange(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-full border border-[#000000]/10 bg-white text-xs font-medium text-[#000000] focus:outline-none focus:border-[#5433eb]/40 transition"
+                className="w-full px-3.5 py-2.5 rounded-full border border-ink-black/10 bg-white text-xs font-medium text-ink-black focus:outline-none focus:border-shop-violet/40 transition"
               >
                 {wards.map((ward) => (
                   <option key={ward.code} value={ward.code}>
@@ -459,40 +718,46 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-[#787574] mb-1 tracking-[-0.014em]">
+            <label
+              htmlFor="checkout-address"
+              className="block text-xs font-medium text-muted-gray mb-1 tracking-[-0.014em]"
+            >
               Số nhà, tên đường cụ thể *
             </label>
             <input
+              id="checkout-address"
+              name="specificAddress"
               type="text"
               required
+              autoComplete="street-address"
               value={specificAddress}
               onChange={(e) => setSpecificAddress(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-full border border-[#000000]/10 bg-white text-sm text-[#000000] placeholder:text-[#787574] focus:outline-none focus:border-[#5433eb]/40 transition tracking-[-0.014em]"
+              className="w-full px-4 py-2.5 rounded-full border border-ink-black/10 bg-white text-sm text-ink-black placeholder:text-muted-gray focus:outline-none focus:border-shop-violet/40 transition tracking-[-0.014em]"
               placeholder="Ví dụ: 123 Lê Lợi, Tòa nhà Bitexco..."
             />
           </div>
 
           {/* GHN Shipping Live Status Box */}
-          <div className="bg-[#f8f9fa] border border-[#ebebeb] rounded-[20px] p-4 flex items-center justify-between">
+          <div className="bg-canvas-mist border border-faint-border rounded-[20px] p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-[#ff6b00]/10 text-[#ff6b00] flex items-center justify-center font-bold text-xs">
                 GHN
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold text-xs text-[#000000]">Giao Hàng Nhanh (GHN Express)</span>
-                  <span className="bg-[#5433eb]/10 text-[#5433eb] text-[10px] font-semibold px-2 py-0.5 rounded-full">
+                  <span className="font-semibold text-xs text-ink-black">Giao Hàng Nhanh (GHN Express)</span>
+                  <span className="bg-shop-violet/10 text-shop-violet text-[10px] font-semibold px-2 py-0.5 rounded-full">
                     Tự động tạo vận đơn
                   </span>
                 </div>
-                <p className="text-[11px] text-[#787574] mt-0.5">Dự kiến giao: 1 - 3 ngày làm việc</p>
+                <p className="text-[11px] text-muted-gray mt-0.5">Dự kiến giao: 1 - 3 ngày làm việc</p>
               </div>
             </div>
 
             <div className="text-right">
               {calculatingShipping ? (
-                <div className="flex items-center gap-1.5 text-xs text-[#787574]">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-[#5433eb]" />
+                <div className="flex items-center gap-1.5 text-xs text-muted-gray">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-shop-violet" />
                   <span>Đang tính cước...</span>
                 </div>
               ) : effectiveShippingFee === 0 ? (
@@ -503,21 +768,26 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
                 </div>
               ) : (
                 <div>
-                  <span className="text-sm font-semibold text-[#000000]">{formatVND(effectiveShippingFee)}</span>
+                  <span className="text-sm font-semibold text-ink-black">{formatVND(effectiveShippingFee)}</span>
                 </div>
               )}
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-[#787574] mb-1 tracking-[-0.014em]">
+            <label
+              htmlFor="checkout-note"
+              className="block text-xs font-medium text-muted-gray mb-1 tracking-[-0.014em]"
+            >
               Ghi chú cho Shipper
             </label>
             <input
+              id="checkout-note"
+              name="note"
               type="text"
               value={form.note}
               onChange={(e) => setForm({ ...form, note: e.target.value })}
-              className="w-full px-4 py-2.5 rounded-full border border-[#000000]/10 bg-white text-sm text-[#000000] placeholder:text-[#787574] focus:outline-none focus:border-[#5433eb]/40 transition tracking-[-0.014em]"
+              className="w-full px-4 py-2.5 rounded-full border border-ink-black/10 bg-white text-sm text-ink-black placeholder:text-muted-gray focus:outline-none focus:border-shop-violet/40 transition tracking-[-0.014em]"
               placeholder="Ví dụ: Giao giờ hành chính, gọi trước khi giao..."
             />
           </div>
@@ -525,10 +795,10 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
       </div>
 
       {/* Phương thức thanh toán — 28px card */}
-      <div className="bg-white rounded-[28px] p-6 sm:p-8 shadow-card-custom space-y-4">
-        <h2 className="font-semibold text-base text-[#000000] tracking-[-0.031em] flex items-center justify-between">
+      <div className="bg-white rounded-[28px] p-6 sm:p-8 shadow-card space-y-4">
+        <h2 className="font-semibold text-base text-ink-black tracking-[-0.031em] flex items-center justify-between">
           <span>Phương thức thanh toán</span>
-          <span className="text-xs font-normal text-[#787574]">Chọn 1 trong 3 kênh</span>
+          <span className="text-xs font-normal text-muted-gray">Chọn 1 trong 3 kênh</span>
         </h2>
 
         <div className="grid grid-cols-1 gap-3">
@@ -537,8 +807,8 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
             onClick={() => setPaymentMethod('VIETQR')}
             className={`flex items-start gap-4 p-4 rounded-[20px] border-2 cursor-pointer transition ${
               paymentMethod === 'VIETQR'
-                ? 'border-[#5433eb] bg-[#5433eb]/5 ring-2 ring-[#5433eb]/10'
-                : 'border-gray-100 bg-[#f8f9fa] hover:border-gray-200'
+                ? 'border-shop-violet bg-shop-violet/5 ring-2 ring-shop-violet/10'
+                : 'border-gray-100 bg-canvas-mist hover:border-gray-200'
             }`}
           >
             <input
@@ -546,23 +816,23 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
               name="paymentMethod"
               checked={paymentMethod === 'VIETQR'}
               onChange={() => setPaymentMethod('VIETQR')}
-              className="mt-1 accent-[#5433eb]"
+              className="mt-1 accent-shop-violet"
             />
-            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-shop-violet/10 text-shop-violet flex items-center justify-center shrink-0">
               <QrCode className="w-5 h-5" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-xs text-gray-900">Chuyển khoản VietQR (Casso)</span>
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-shop-violet/10 text-shop-violet">
                   Phổ biến nhất
                 </span>
               </div>
-              <p className="text-[11px] text-[#787574] mt-0.5 leading-relaxed">
+              <p className="text-[11px] text-muted-gray mt-0.5 leading-relaxed">
                 Quét mã QR động qua ứng dụng mọi ngân hàng hoặc ví điện tử (MoMo, ZaloPay, Vietcombank, Techcombank...)
               </p>
             </div>
-            {paymentMethod === 'VIETQR' && <CheckCircle2 className="w-5 h-5 text-[#5433eb] shrink-0" />}
+            {paymentMethod === 'VIETQR' && <CheckCircle2 className="w-5 h-5 text-shop-violet shrink-0" />}
           </label>
 
           {/* Option 2: PayOS */}
@@ -570,8 +840,8 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
             onClick={() => setPaymentMethod('PAYOS')}
             className={`flex items-start gap-4 p-4 rounded-[20px] border-2 cursor-pointer transition ${
               paymentMethod === 'PAYOS'
-                ? 'border-[#5433eb] bg-[#5433eb]/5 ring-2 ring-[#5433eb]/10'
-                : 'border-gray-100 bg-[#f8f9fa] hover:border-gray-200'
+                ? 'border-shop-violet bg-shop-violet/5 ring-2 ring-shop-violet/10'
+                : 'border-gray-100 bg-canvas-mist hover:border-gray-200'
             }`}
           >
             <input
@@ -579,7 +849,7 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
               name="paymentMethod"
               checked={paymentMethod === 'PAYOS'}
               onChange={() => setPaymentMethod('PAYOS')}
-              className="mt-1 accent-[#5433eb]"
+              className="mt-1 accent-shop-violet"
             />
             <div className="w-10 h-10 rounded-xl bg-[#003B95]/10 text-[#003B95] flex items-center justify-center shrink-0">
               <CreditCard className="w-5 h-5" />
@@ -591,11 +861,11 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
                   Napas 247 & Thẻ ATM
                 </span>
               </div>
-              <p className="text-[11px] text-[#787574] mt-0.5 leading-relaxed">
+              <p className="text-[11px] text-muted-gray mt-0.5 leading-relaxed">
                 Cổng thanh toán chính thức bảo mật HMAC-SHA256, tự sinh liên kết thanh toán và kiểm tra chữ ký tự động
               </p>
             </div>
-            {paymentMethod === 'PAYOS' && <CheckCircle2 className="w-5 h-5 text-[#5433eb] shrink-0" />}
+            {paymentMethod === 'PAYOS' && <CheckCircle2 className="w-5 h-5 text-shop-violet shrink-0" />}
           </label>
 
           {/* Option 3: Ví nội bộ Shop Wallet */}
@@ -605,10 +875,10 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
             }}
             className={`flex items-start gap-4 p-4 rounded-[20px] border-2 transition ${
               !session?.user?.id || !isWalletEligible
-                ? 'opacity-60 cursor-not-allowed border-gray-100 bg-[#f8f9fa]'
+                ? 'opacity-60 cursor-not-allowed border-gray-100 bg-canvas-mist'
                 : paymentMethod === 'WALLET'
-                ? 'border-[#5433eb] bg-[#5433eb]/5 ring-2 ring-[#5433eb]/10 cursor-pointer'
-                : 'border-gray-100 bg-[#f8f9fa] hover:border-gray-200 cursor-pointer'
+                ? 'border-shop-violet bg-shop-violet/5 ring-2 ring-shop-violet/10 cursor-pointer'
+                : 'border-gray-100 bg-canvas-mist hover:border-gray-200 cursor-pointer'
             }`}
           >
             <input
@@ -619,15 +889,19 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
               onChange={() => {
                 if (isWalletEligible) setPaymentMethod('WALLET');
               }}
-              className="mt-1 accent-[#5433eb]"
+              className="mt-1 accent-shop-violet"
             />
-            <div className="w-10 h-10 rounded-xl bg-purple-50 text-[#5433eb] flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-purple-50 text-shop-violet flex items-center justify-center shrink-0">
               <Wallet className="w-5 h-5" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-xs text-gray-900">Ví Shop nội bộ (Shop Wallet)</span>
-                {session?.user?.id ? (
+                {walletFetchFailed ? (
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                    Không kiểm tra được số dư
+                  </span>
+                ) : session?.user?.id ? (
                   isWalletEligible ? (
                     <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
                       Khả dụng ({formatVND(walletBalance || 0)})
@@ -643,33 +917,35 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-[#787574] mt-0.5 leading-relaxed">
-                {session?.user?.id
+              <p className="text-[11px] text-muted-gray mt-0.5 leading-relaxed">
+                {walletFetchFailed
+                  ? 'Không tải được số dư ví lúc này. Bạn vẫn có thể thanh toán bằng VietQR hoặc thử tải lại trang.'
+                  : session?.user?.id
                   ? isWalletEligible
                     ? 'Thanh toán trừ tiền tức thì 1-chạm mà không cần quét mã QR'
                     : `Số dư ví hiện có ${formatVND(walletBalance || 0)}, cần ${formatVND(finalTotalAmount)} để thanh toán.`
                   : 'Vui lòng đăng nhập tài khoản để thanh toán hoặc nhận tiền hoàn từ ví Shop.'}
               </p>
             </div>
-            {paymentMethod === 'WALLET' && <CheckCircle2 className="w-5 h-5 text-[#5433eb] shrink-0" />}
+            {paymentMethod === 'WALLET' && <CheckCircle2 className="w-5 h-5 text-shop-violet shrink-0" />}
           </label>
         </div>
       </div>
 
       {/* Áp dụng Mã giảm giá — 28px card */}
-      <div className="bg-white rounded-[28px] p-6 shadow-card-custom">
-        <h2 className="font-semibold text-sm text-[#000000] tracking-[-0.031em] mb-4 flex items-center gap-2">
-          <Tag className="w-4 h-4 text-[#787574]" />
+      <div className="bg-white rounded-[28px] p-6 shadow-card">
+        <h2 className="font-semibold text-sm text-ink-black tracking-[-0.031em] mb-4 flex items-center gap-2">
+          <Tag className="w-4 h-4 text-muted-gray" />
           <span>Mã giảm giá / Voucher</span>
         </h2>
 
         {appliedCoupon ? (
-          <div className="flex items-center justify-between p-3 bg-[#f2f4f5] rounded-full">
+          <div className="flex items-center justify-between p-3 bg-canvas-mist rounded-full">
             <div className="flex items-center gap-2 pl-2">
-              <Check className="w-4 h-4 text-[#000000]" />
+              <Check className="w-4 h-4 text-ink-black" />
               <div>
-                <span className="font-semibold text-xs tracking-[-0.014em] text-[#000000]">{appliedCoupon.code}</span>
-                <span className="text-xs text-[#787574] ml-2 tracking-[-0.017em]">
+                <span className="font-semibold text-xs tracking-[-0.014em] text-ink-black">{appliedCoupon.code}</span>
+                <span className="text-xs text-muted-gray ml-2 tracking-[-0.017em]">
                   (Giảm {formatVND(discountAmount)})
                 </span>
               </div>
@@ -677,7 +953,7 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
             <button
               type="button"
               onClick={handleRemoveCoupon}
-              className="p-1.5 text-[#787574] hover:text-red-500 rounded-full hover:bg-white transition"
+              className="p-1.5 text-muted-gray hover:text-red-500 rounded-full hover:bg-white transition"
               title="Hủy mã"
             >
               <X className="w-4 h-4" />
@@ -690,13 +966,13 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
               placeholder="Nhập mã ưu đãi..."
               value={couponCodeInput}
               onChange={(e) => setCouponCodeInput(e.target.value.toUpperCase())}
-              className="flex-1 px-4 py-2 rounded-full border border-[#000000]/10 bg-white uppercase text-xs font-medium text-[#000000] placeholder:text-[#787574] focus:outline-none focus:border-[#5433eb]/40 tracking-wider"
+              className="flex-1 px-4 py-2 rounded-full border border-ink-black/10 bg-white uppercase text-xs font-medium text-ink-black placeholder:text-muted-gray focus:outline-none focus:border-shop-violet/40 tracking-wider"
             />
             <button
               type="button"
               disabled={applyingCoupon || !couponCodeInput.trim()}
               onClick={handleApplyCoupon}
-              className="bg-[#000000] text-white px-5 py-2 rounded-full text-xs font-medium hover:bg-[#332f2d] disabled:opacity-40 transition tracking-[-0.014em]"
+              className="bg-ink-black text-white px-5 py-2 rounded-full text-xs font-medium hover:bg-slate-ink disabled:opacity-40 transition tracking-[-0.014em]"
             >
               {applyingCoupon ? 'Đang kiểm tra...' : 'Áp dụng'}
             </button>
@@ -705,24 +981,24 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
       </div>
 
       {/* Chi tiết thanh toán */}
-      <div className="bg-white rounded-[28px] p-6 space-y-2.5 shadow-card-custom">
-        <div className="flex justify-between text-xs text-[#787574] tracking-[-0.014em]">
+      <div className="bg-white rounded-[28px] p-6 space-y-2.5 shadow-card">
+        <div className="flex justify-between text-xs text-muted-gray tracking-[-0.014em]">
           <span>Tiền hàng:</span>
-          <span className="font-medium text-[#000000]">{formatVND(subtotal)}</span>
+          <span className="font-medium text-ink-black">{formatVND(subtotal)}</span>
         </div>
-        <div className="flex justify-between text-xs text-[#787574] tracking-[-0.014em]">
+        <div className="flex justify-between text-xs text-muted-gray tracking-[-0.014em]">
           <span>Phí vận chuyển GHN:</span>
-          <span className="font-medium text-[#000000]">
+          <span className="font-medium text-ink-black">
             {effectiveShippingFee === 0 ? 'Miễn phí' : formatVND(effectiveShippingFee)}
           </span>
         </div>
         {discountAmount > 0 && (
-          <div className="flex justify-between text-xs text-[#000000] font-medium tracking-[-0.014em]">
+          <div className="flex justify-between text-xs text-ink-black font-medium tracking-[-0.014em]">
             <span>Giảm giá:</span>
             <span>-{formatVND(discountAmount)}</span>
           </div>
         )}
-        <div className="flex justify-between text-sm font-semibold text-[#000000] pt-2.5 border-t border-[#ebebeb] tracking-[-0.05em]">
+        <div className="flex justify-between text-sm font-semibold text-ink-black pt-2.5 border-t border-faint-border tracking-[-0.05em]">
           <span>Tổng thanh toán:</span>
           <span className="text-lg">{formatVND(finalTotalAmount)}</span>
         </div>
@@ -731,7 +1007,7 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
       <button
         type="submit"
         disabled={loading}
-        className="w-full bg-[#5433eb] hover:bg-[#4428d4] text-white font-medium py-3.5 px-6 rounded-full transition shadow-violet-custom disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm tracking-[-0.014em]"
+        className="w-full bg-shop-violet hover:bg-shop-violet-deep text-white font-medium py-3.5 px-6 rounded-full transition shadow-violet disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm tracking-[-0.014em]"
       >
         {loading ? (
           <>
