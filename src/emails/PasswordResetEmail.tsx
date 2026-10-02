@@ -1,1 +1,1 @@
-export { PasswordResetEmail } from '@server/emails/PasswordResetEmail';
+export { PasswordResetEmail } from '../server/emails/PasswordResetEmail.tsx';

@@ -1,1 +1,1 @@
-export { OtpVerificationEmail } from '@server/emails/OtpVerification';
+export { OtpVerificationEmail } from '../server/emails/OtpVerification.tsx';

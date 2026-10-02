@@ -1,6 +1,6 @@
 import { prisma } from '@server/database/prisma';
 import { Role } from '@prisma/client';
-import { updateUserRbac } from '@/lib/admin-rbac';
+import { updateUserRbac } from './admin-rbac.service';
 import { getCachedAnalytics, setCachedAnalytics } from '@server/infrastructure/redis';
 import {
   type AdminAnalyticsResponse,
@@ -13,7 +13,7 @@ import {
   buildRevenueTrend,
   buildHourlyRevenueTrend,
   buildMonthlyRevenueTrend,
-} from '@/lib/admin-analytics';
+} from './admin-analytics.service';
 
 export interface GetAdminCustomersOptions {
   search?: string;

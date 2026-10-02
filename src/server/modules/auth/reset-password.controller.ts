@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@server/database/prisma';
-import { normalizeEmail, verifyOtp } from '@/lib/otp';
+import { normalizeEmail, verifyOtp } from './otp.service';
 import { checkDistributedRateLimit, getClientIp } from '@server/infrastructure/rate-limit';
 import { createNotification } from '@server/modules/notifications/notifications.service';
 

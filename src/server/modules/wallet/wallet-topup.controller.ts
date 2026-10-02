@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@server/modules/auth/auth-options';
 import { checkDistributedRateLimit, getClientIp } from '@server/infrastructure/rate-limit';
 import { createWalletTopupPaymentLink } from './wallet-topup.service.ts';
 

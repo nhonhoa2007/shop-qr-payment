@@ -155,6 +155,7 @@ describe('Order Cancellation - Atomic Inventory Restitution (Pillar 2 & 3)', () 
 
   it('releaseOrderStock should atomically increment variant stock when item HAS variantId', async () => {
     const variantIncrements: Array<{ id: string; quantity: number }> = [];
+    const productIncrements: Array<{ id: string; quantity: number }> = [];
 
     const mockTx = {
       productVariant: {
@@ -164,8 +165,9 @@ describe('Order Cancellation - Atomic Inventory Restitution (Pillar 2 & 3)', () 
         },
       },
       product: {
-        update: async () => {
-          assert.fail('Should not update base product directly when variant is specified');
+        update: async ({ where, data }: { where: { id: string }; data: { stock: { increment: number } } }) => {
+          productIncrements.push({ id: where.id, quantity: data.stock.increment });
+          return {};
         },
       },
     } as unknown as TxClient;
@@ -180,6 +182,11 @@ describe('Order Cancellation - Atomic Inventory Restitution (Pillar 2 & 3)', () 
     assert.equal(variantIncrements.length, 2);
     assert.deepEqual(variantIncrements[0], { id: 'var_shirt_red_m', quantity: 3 });
     assert.deepEqual(variantIncrements[1], { id: 'var_shirt_blue_l', quantity: 5 });
+    // Stock sản phẩm gốc được đồng bộ hoàn đúng tổng số lượng biến thể đã hoàn
+    assert.deepEqual(productIncrements, [
+      { id: 'prod_shirt', quantity: 3 },
+      { id: 'prod_shirt', quantity: 5 },
+    ]);
   });
 
   it('releaseOrderStock should handle mixed batch of base products and variants accurately', async () => {
@@ -209,11 +216,14 @@ describe('Order Cancellation - Atomic Inventory Restitution (Pillar 2 & 3)', () 
 
     await releaseOrderStock(mockTx, mixedItems);
 
+    // Item có biến thể hoàn cả kho ProductVariant lẫn stock Product gốc (đồng bộ)
     assert.deepEqual(logs, [
       'PROD:p1:+1',
       'VAR:v20:+4',
+      'PROD:p2:+4',
       'PROD:p3:+2',
       'VAR:v40:+10',
+      'PROD:p4:+10',
     ]);
   });
 });
@@ -264,7 +274,8 @@ describe('Order Cancellation - Wallet Refund & Double-Refund Protection (Pillar 
   });
 
   it('refundOrderToWallet should refund 100% to member wallet, release inventory, and record REFUND transaction', async () => {
-    let releasedItemsCount = 0;
+    let variantReleased = 0;
+    let productReleased = 0;
     let walletCredited = 0;
     let txRecorded: Record<string, unknown> | null = null;
     let orderStatusUpdated: Record<string, unknown> | null = null;
@@ -292,13 +303,13 @@ describe('Order Cancellation - Wallet Refund & Double-Refund Protection (Pillar 
       },
       productVariant: {
         update: async () => {
-          releasedItemsCount++;
+          variantReleased++;
           return {};
         },
       },
       product: {
         update: async () => {
-          releasedItemsCount++;
+          productReleased++;
           return {};
         },
       },
@@ -324,7 +335,9 @@ describe('Order Cancellation - Wallet Refund & Double-Refund Protection (Pillar 
     assert.equal(result.refundedAmount, 350000);
     assert.equal(result.newBalance, 450000);
     assert.equal(walletCredited, 350000);
-    assert.equal(releasedItemsCount, 2); // Both items released
+    // 1 item có biến thể (var_1) + đồng bộ stock gốc prod_1 + 1 item gốc prod_2
+    assert.equal(variantReleased, 1);
+    assert.equal(productReleased, 2);
     assert.ok(atomicWhereCaptured);
     assert.deepEqual(orderStatusUpdated, {
       paymentStatus: 'REFUNDED',

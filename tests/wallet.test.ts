@@ -246,8 +246,13 @@ describe('Shop Wallet - refundOrderToWallet (Refund Engine)', () => {
       where: { id: 'v1' },
       data: { stock: { increment: 3 } },
     });
-    assert.equal(productUpdated.length, 1);
+    // Hoàn cả stock variant v1 (đồng bộ product p1) lẫn stock product p2 không biến thể
+    assert.equal(productUpdated.length, 2);
     assert.deepEqual(productUpdated[0], {
+      where: { id: 'p1' },
+      data: { stock: { increment: 3 } },
+    });
+    assert.deepEqual(productUpdated[1], {
       where: { id: 'p2' },
       data: { stock: { increment: 1 } },
     });

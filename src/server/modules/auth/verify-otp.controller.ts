@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@server/database/prisma';
-import { verifyOtp } from '@/lib/otp';
+import { verifyOtp } from './otp.service';
 import { createNotification } from '@server/modules/notifications/notifications.service';
 
 interface VerifyOtpBody {

@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { prisma } from '@server/database/prisma';
 import { pusherServer } from '@server/infrastructure/pusher';
 import { createNotification } from '@server/modules/notifications/notifications.service';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@server/modules/auth/auth-options';
 
 export async function POST(req: Request) {
   try {

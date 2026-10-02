@@ -44,10 +44,17 @@ describe('Inventory Reservation Logic - reserveOrderStock', () => {
 
   it('should reserve variant stock atomically when variantId is present and stock is sufficient', async () => {
     let variantUpdateArgs: unknown = null;
+    let productSyncArgs: unknown = null;
     const fakeTx = {
       product: {
+        // updateMany (chốt điều kiện kho) chỉ dành cho item không có biến thể
         updateMany: async () => {
-          throw new Error('Should not update product when variantId is provided');
+          throw new Error('Should not use product.updateMany when variantId is provided');
+        },
+        // Stock sản phẩm gốc được đồng bộ giảm tương ứng
+        update: async (args: unknown) => {
+          productSyncArgs = args;
+          return {};
         },
       },
       productVariant: {
@@ -72,6 +79,10 @@ describe('Inventory Reservation Logic - reserveOrderStock', () => {
       },
       data: { stock: { decrement: 3 } },
     });
+    assert.deepEqual(productSyncArgs, {
+      where: { id: 'prod_1' },
+      data: { stock: { decrement: 3 } },
+    });
   });
 
   it('should fail and return variantId if variant stock is insufficient or inactive', async () => {
@@ -93,13 +104,17 @@ describe('Inventory Reservation Logic - reserveOrderStock', () => {
     const fakeTx = {
       product: {
         updateMany: async () => {
-          executedUpdates.push('product');
+          executedUpdates.push('product:updateMany');
           return { count: 1 };
+        },
+        update: async () => {
+          executedUpdates.push('product:update');
+          return {};
         },
       },
       productVariant: {
         updateMany: async () => {
-          executedUpdates.push('variant');
+          executedUpdates.push('variant:updateMany');
           return { count: 1 };
         },
       },
@@ -111,7 +126,13 @@ describe('Inventory Reservation Logic - reserveOrderStock', () => {
     ]);
 
     assert.equal(result, null);
-    assert.deepEqual(executedUpdates, ['product', 'variant']);
+    // prod_1 (không biến thể): trừ kho Product trực tiếp.
+    // prod_2 (biến thể): trừ kho ProductVariant rồi đồng bộ giảm stock Product gốc.
+    assert.deepEqual(executedUpdates, [
+      'product:updateMany',
+      'variant:updateMany',
+      'product:update',
+    ]);
   });
 });
 
@@ -140,12 +161,14 @@ describe('Inventory Release Logic - releaseOrderStock', () => {
     });
   });
 
-  it('should release variant stock when variantId is present', async () => {
+  it('should release variant stock and sync base product stock when variantId is present', async () => {
     let releasedVariant: unknown = null;
+    let productSyncArgs: unknown = null;
     const fakeTx = {
       product: {
-        update: async () => {
-          throw new Error('Should not update product');
+        update: async (args: unknown) => {
+          productSyncArgs = args;
+          return {};
         },
       },
       productVariant: {
@@ -162,6 +185,11 @@ describe('Inventory Release Logic - releaseOrderStock', () => {
 
     assert.deepEqual(releasedVariant, {
       where: { id: 'var_xl' },
+      data: { stock: { increment: 2 } },
+    });
+    // Hoàn kho biến thể phải đồng thời hoàn cả stock sản phẩm gốc
+    assert.deepEqual(productSyncArgs, {
+      where: { id: 'prod_1' },
       data: { stock: { increment: 2 } },
     });
   });

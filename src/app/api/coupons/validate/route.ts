@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { validateCoupon } from '@/lib/coupon';
+import { authOptions } from '@server/modules/auth/auth-options';
+import { validateCoupon } from '@server/modules/admin/coupon.service';
 
 export async function POST(req: Request) {
   try {

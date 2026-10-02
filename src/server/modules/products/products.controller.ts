@@ -36,6 +36,13 @@ export async function GET(req: Request) {
     const category = searchParams.get('category');
     const search = searchParams.get('search');
     const all = searchParams.get('all') === 'true';
+    // Phân trang + sắp xếp (mặc định: trang 1, không giới hạn — giữ tương thích ngược)
+    const page = Math.max(normalizeNonNegativeInt(searchParams.get('page')) ?? 1, 1);
+    const rawLimit = normalizeNonNegativeInt(searchParams.get('limit'));
+    const limit = rawLimit === null ? null : Math.min(rawLimit, 48);
+    const sortParam = searchParams.get('sort');
+    const sort =
+      sortParam === 'price-asc' || sortParam === 'price-desc' ? sortParam : 'newest';
 
     // Hỗ trợ lấy chi tiết một sản phẩm theo ID kèm toàn bộ biến thể
     if (id) {
@@ -57,13 +64,22 @@ export async function GET(req: Request) {
     }
 
     // Query Cache: Chỉ cache danh mục sản phẩm công khai cho khách mua
-    const cacheKey = !all ? buildProductCacheKey(category, search) : null;
+    const cacheKey = !all
+      ? buildProductCacheKey(category, search, { page, limit: limit ?? 0, sort })
+      : null;
     if (cacheKey) {
       const cached = await getCachedProductList(cacheKey);
       if (cached) {
         return NextResponse.json({ products: cached }, { headers: { 'X-Cache': 'HIT' } });
       }
     }
+
+    const orderBy: Record<string, 'asc' | 'desc'> =
+      sort === 'price-asc'
+        ? { price: 'asc' }
+        : sort === 'price-desc'
+          ? { price: 'desc' }
+          : { createdAt: 'desc' };
 
     const products = await prisma.product.findMany({
       where: {
@@ -82,7 +98,8 @@ export async function GET(req: Request) {
           orderBy: { createdAt: 'asc' },
         },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy,
+      ...(limit !== null && { skip: (page - 1) * limit, take: limit }),
     });
 
     if (cacheKey) {
