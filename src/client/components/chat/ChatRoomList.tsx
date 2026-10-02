@@ -42,21 +42,21 @@ export function ChatRoomList({
             href={`${basePath}/${room.id}`}
             className={`flex items-center gap-3.5 p-3 rounded-xl transition-all duration-150 ${
               isActive
-                ? 'bg-indigo-50/90 border border-indigo-200 text-indigo-950 shadow-sm ring-1 ring-indigo-200'
+                ? 'bg-violet-wash/30 border border-violet-wash text-violet-ink shadow-sm ring-1 ring-[#c0b5f3]'
                 : 'hover:bg-slate-50 border border-transparent text-slate-800 hover:border-slate-200/60'
             }`}
           >
             <div className={`w-10 h-10 rounded-full font-semibold flex items-center justify-center text-sm shadow-sm flex-shrink-0 ${
               isActive
-                ? 'bg-gradient-to-br from-indigo-600 to-indigo-800 text-white shadow-indigo-200'
-                : 'bg-gradient-to-br from-indigo-500 to-indigo-700 text-white'
+                ? 'bg-gradient-to-br from-shop-violet to-shop-violet-deep text-white'
+                : 'bg-gradient-to-br from-shop-violet to-shop-violet-deep text-white'
             }`}>
               {otherUser?.name?.[0]?.toUpperCase() || '?'}
             </div>
 
             <div className="flex-1 min-w-0">
               <div className="flex justify-between items-baseline mb-0.5">
-                <p className={`font-semibold text-sm truncate ${isActive ? 'text-indigo-950 font-bold' : 'text-slate-900'}`}>
+                <p className={`font-semibold text-sm truncate ${isActive ? 'text-violet-ink font-bold' : 'text-slate-900'}`}>
                   {otherUser?.name || 'Khách hàng'}
                 </p>
                 <span className="text-xs text-slate-400 flex-shrink-0 ml-2">
@@ -66,7 +66,7 @@ export function ChatRoomList({
 
               <div className="flex items-center gap-1.5 text-xs text-slate-500 truncate">
                 {room.order?.orderCode && (
-                  <span className="inline-flex items-center gap-1 text-indigo-600 font-medium bg-indigo-50 px-1.5 py-0.5 rounded text-[11px] shrink-0">
+                  <span className="inline-flex items-center gap-1 text-shop-violet font-medium bg-shop-violet/10 px-1.5 py-0.5 rounded text-[11px] shrink-0">
                     <ShoppingBag className="w-3 h-3" />
                     {room.order.orderCode}
                   </span>

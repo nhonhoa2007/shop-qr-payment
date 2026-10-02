@@ -15,7 +15,9 @@ const securityHeaders = [
   },
   {
     key: "Permissions-Policy",
-    value: "camera=(), microphone=(), geolocation=()",
+    // geolocation=(self): cho phép trang tự dùng Geolocation API (tính năng "Lấy vị trí hiện tại"
+    // ở checkout) nhưng vẫn chặn iframe/quảng cáo bên thứ ba. camera/microphone vẫn cấm hoàn toàn.
+    value: "camera=(), microphone=(), geolocation=(self)",
   },
   {
     key: "X-XSS-Protection",

@@ -80,12 +80,12 @@ function VerifyOtpContent() {
             </>
           ) : (
             <>
-              <div className="w-16 h-16 bg-blue-50 border border-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-600">
+              <div className="w-16 h-16 bg-shop-violet/10 border border-violet-wash/50 rounded-full flex items-center justify-center mx-auto mb-4 text-shop-violet">
                 <Mail className="w-7 h-7 stroke-[1.75]" />
               </div>
               <h1 className="text-2xl font-bold mb-2 text-slate-900">Nhập mã xác thực</h1>
               <p className="text-gray-500 mb-1">Chúng tôi đã gửi mã OTP 6 số đến</p>
-              <p className="text-blue-600 font-medium mb-6">{email}</p>
+              <p className="text-shop-violet font-medium mb-6">{email}</p>
 
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
@@ -111,7 +111,7 @@ function VerifyOtpContent() {
                 <button
                   type="submit"
                   disabled={loading || otpValue.length !== 6}
-                  className="w-full mt-6 bg-[#5433eb] text-white py-3.5 rounded-full font-medium hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-[0_4px_24px_rgba(69,36,219,0.34)] active:scale-[0.98]"
+                  className="w-full mt-6 bg-shop-violet text-white py-3.5 rounded-full font-medium hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-[0_4px_24px_rgba(69,36,219,0.34)] active:scale-[0.98]"
                 >
                   {loading ? 'Đang xác thực...' : 'Xác nhận mã OTP'}
                 </button>
@@ -122,7 +122,7 @@ function VerifyOtpContent() {
                 <button
                   onClick={handleResend}
                   disabled={resendCooldown > 0}
-                  className="text-blue-600 hover:underline text-sm font-medium disabled:text-gray-400 disabled:no-underline"
+                  className="text-shop-violet hover:underline text-sm font-medium disabled:text-gray-400 disabled:no-underline"
                 >
                   {resendCooldown > 0 ? `Gửi lại sau ${resendCooldown}s` : 'Gửi lại mã OTP'}
                 </button>

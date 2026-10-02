@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { formatVND } from '@shared/utils';
+import { ConfirmDialog } from '@client/components/ui/ConfirmDialog';
 import { Tag, Plus, Trash2, Calendar, Percent, DollarSign, Truck, ChevronLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -46,6 +47,7 @@ export function AdminCouponsView() {
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<CouponItem | null>(null);
   const [formData, setFormData] = useState(getDefaultFormData);
 
   useEffect(() => {
@@ -127,8 +129,6 @@ export function AdminCouponsView() {
   };
 
   const handleDelete = async (id: string, code: string) => {
-    if (!confirm(`Bạn có chắc chắn muốn xóa mã "${code}"?`)) return;
-
     try {
       const res = await fetch(`/api/admin/coupons?id=${id}`, {
         method: 'DELETE',
@@ -271,9 +271,10 @@ export function AdminCouponsView() {
                       </td>
                       <td className="py-4 px-4 text-right">
                         <button
-                          onClick={() => handleDelete(c.id, c.code)}
+                          onClick={() => setDeleteTarget(c)}
                           className="text-gray-400 hover:text-red-600 p-2 rounded-lg hover:bg-red-50 transition"
                           title="Xóa voucher"
+                          aria-label={`Xóa voucher ${c.code}`}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -423,6 +424,26 @@ export function AdminCouponsView() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (deleteTarget) {
+            handleDelete(deleteTarget.id, deleteTarget.code);
+          }
+          setDeleteTarget(null);
+        }}
+        title={`Xóa mã "${deleteTarget?.code ?? ''}"?`}
+        description={
+          deleteTarget && deleteTarget.usedCount > 0
+            ? 'Mã đã có lượt sử dụng nên hệ thống sẽ chỉ tạm dừng thay vì xóa hẳn để bảo toàn dữ liệu lịch sử.'
+            : 'Mã giảm giá sẽ bị gỡ khỏi hệ thống và không thể áp dụng nữa.'
+        }
+        confirmLabel="Xóa mã"
+        cancelLabel="Giữ lại"
+        variant="danger"
+      />
     </div>
   );
 }

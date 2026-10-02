@@ -11,7 +11,8 @@
     "seed": "node --experimental-strip-types prisma/seed.ts",
     "docs:uml": "node scripts/generate-uml.js",
     "db:backup": "node scripts/db-backup.js",
-    "db:restore": "node scripts/db-restore.js"
+    "db:restore": "node scripts/db-restore.js",
+    "ghn:import": "node scripts/fetch-ghn-locations.js"
   },
   "prisma": {
     "seed": "node --experimental-strip-types prisma/seed.ts"

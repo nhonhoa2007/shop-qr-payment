@@ -130,7 +130,7 @@ export function WalletView({ initialWallet, userName, userId }: WalletViewProps)
   return (
     <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-8 space-y-8">
       {/* Hero Wallet Balance Card */}
-      <div className="relative overflow-hidden rounded-[32px] bg-gradient-to-br from-[#5433eb] via-[#3b1cb8] to-[#120630] text-white p-8 sm:p-10 shadow-2xl">
+      <div className="relative overflow-hidden rounded-[32px] bg-gradient-to-br from-shop-violet via-[#3b1cb8] to-[#120630] text-white p-8 sm:p-10 shadow-2xl">
         {/* Background decorative circles */}
         <div className="absolute -right-12 -top-12 w-64 h-64 rounded-full bg-white/5 blur-2xl pointer-events-none" />
         <div className="absolute right-32 -bottom-20 w-80 h-80 rounded-full bg-[#ff6b00]/10 blur-3xl pointer-events-none" />
@@ -165,7 +165,7 @@ export function WalletView({ initialWallet, userName, userId }: WalletViewProps)
               onClick={() => setIsTopupModalOpen(true)}
               className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-white text-[#120630] font-bold text-xs hover:bg-white/95 active:scale-[0.98] transition-all shadow-xl cursor-pointer"
             >
-              <PlusCircle className="w-4 h-4 text-[#5433eb]" />
+              <PlusCircle className="w-4 h-4 text-shop-violet" />
               <span>Nạp tiền vào ví</span>
             </button>
 
@@ -190,7 +190,7 @@ export function WalletView({ initialWallet, userName, userId }: WalletViewProps)
 
       {/* 3 Value Proposition Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-[24px] p-6 shadow-card-custom border border-gray-100 flex items-start gap-4">
+        <div className="bg-white rounded-[24px] p-6 shadow-card border border-gray-100 flex items-start gap-4">
           <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
             <ShieldCheck className="w-6 h-6" />
           </div>
@@ -203,8 +203,8 @@ export function WalletView({ initialWallet, userName, userId }: WalletViewProps)
           </div>
         </div>
 
-        <div className="bg-white rounded-[24px] p-6 shadow-card-custom border border-gray-100 flex items-start gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-purple-50 text-[#5433eb] flex items-center justify-center shrink-0">
+        <div className="bg-white rounded-[24px] p-6 shadow-card border border-gray-100 flex items-start gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-purple-50 text-shop-violet flex items-center justify-center shrink-0">
             <Zap className="w-6 h-6" />
           </div>
           <div>
@@ -216,8 +216,8 @@ export function WalletView({ initialWallet, userName, userId }: WalletViewProps)
           </div>
         </div>
 
-        <div className="bg-white rounded-[24px] p-6 shadow-card-custom border border-gray-100 flex items-start gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+        <div className="bg-white rounded-[24px] p-6 shadow-card border border-gray-100 flex items-start gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-shop-violet/10 text-shop-violet flex items-center justify-center shrink-0">
             <Lock className="w-6 h-6" />
           </div>
           <div>
@@ -231,10 +231,10 @@ export function WalletView({ initialWallet, userName, userId }: WalletViewProps)
       </div>
 
       {/* Transaction History Section */}
-      <div className="bg-white rounded-[28px] p-6 sm:p-8 shadow-card-custom border border-gray-100 space-y-6">
+      <div className="bg-white rounded-[28px] p-6 sm:p-8 shadow-card border border-gray-100 space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 pb-4">
           <div className="flex items-center gap-2">
-            <History className="w-5 h-5 text-[#5433eb]" />
+            <History className="w-5 h-5 text-shop-violet" />
             <h2 className="font-bold text-base text-gray-900 tracking-tight">
               Lịch sử biến động số dư
             </h2>
@@ -248,7 +248,7 @@ export function WalletView({ initialWallet, userName, userId }: WalletViewProps)
                 placeholder="Tìm nội dung, mã đơn..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-8 pr-3 py-1.5 text-xs rounded-full border border-gray-200 focus:outline-hidden focus:border-[#5433eb] transition w-48 sm:w-60"
+                className="pl-8 pr-3 py-1.5 text-xs rounded-full border border-gray-200 focus:outline-hidden focus:border-shop-violet transition w-48 sm:w-60"
               />
             </div>
           </div>
@@ -272,8 +272,8 @@ export function WalletView({ initialWallet, userName, userId }: WalletViewProps)
             onClick={() => setFilterType('TOPUP')}
             className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition flex items-center gap-1.5 cursor-pointer ${
               filterType === 'TOPUP'
-                ? 'bg-[#5433eb] text-white shadow-xs'
-                : 'bg-purple-50 text-[#5433eb] hover:bg-purple-100'
+                ? 'bg-shop-violet text-white shadow-xs'
+                : 'bg-purple-50 text-shop-violet hover:bg-purple-100'
             }`}
           >
             <PlusCircle className="w-3.5 h-3.5" />
@@ -334,14 +334,14 @@ export function WalletView({ initialWallet, userName, userId }: WalletViewProps)
                     <div
                       className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
                         isTopup
-                          ? 'bg-blue-50 text-blue-600'
+                          ? 'bg-shop-violet/10 text-shop-violet'
                           : isRefund
                           ? 'bg-emerald-50 text-emerald-600'
                           : 'bg-rose-50 text-rose-600'
                       }`}
                     >
                       {isTopup ? (
-                        <PlusCircle className="w-5 h-5 text-blue-600" />
+                        <PlusCircle className="w-5 h-5 text-shop-violet" />
                       ) : isPositive ? (
                         <ArrowDownLeft className="w-5 h-5 text-emerald-600" />
                       ) : (
@@ -357,7 +357,7 @@ export function WalletView({ initialWallet, userName, userId }: WalletViewProps)
                         <span
                           className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
                             isTopup
-                              ? 'bg-blue-50 text-blue-700'
+                              ? 'bg-shop-violet/10 text-shop-violet'
                               : isRefund
                               ? 'bg-emerald-50 text-emerald-700'
                               : 'bg-rose-50 text-rose-700'

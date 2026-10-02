@@ -2,14 +2,15 @@
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { useHydrated } from '@/lib/hydration';
-import { pusherClient } from '@/lib/pusher-client';
+import { useHydrated } from '@client/hooks/useHydrated';
+import { pusherClient } from '@client/infrastructure/pusher-client';
 import { AdminKpiStrip, KpiSummaryData } from '@client/components/admin/dashboard/AdminKpiStrip';
 import { AdminRevenueChart, RevenueTrendPoint } from '@client/components/admin/dashboard/AdminRevenueChart';
 import { AdminPaymentBreakdown, PaymentMethodDistribution } from '@client/components/admin/dashboard/AdminPaymentBreakdown';
 import { AdminActionCenter, UrgentActionItem } from '@client/components/admin/dashboard/AdminActionCenter';
 import { AdminRecentOrdersTable, RecentOrderItem } from '@client/components/admin/dashboard/AdminRecentOrdersTable';
 import {
+  AlertTriangle,
   Package,
   Truck,
   CreditCard,
@@ -23,6 +24,7 @@ import {
 } from 'lucide-react';
 
 interface AnalyticsPayload {
+  error?: boolean;
   summary?: KpiSummaryData;
   ordersByStatus?: Record<string, number>;
   revenueTrend?: RevenueTrendPoint[];
@@ -43,6 +45,7 @@ export function AdminDashboardView() {
   const [data, setData] = useState<AnalyticsPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [fetchError, setFetchError] = useState(false);
   const [timeRange, setTimeRange] = useState<'today' | '7days' | 'month'>('today');
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const isHydrated = useHydrated();
@@ -70,7 +73,18 @@ export function AdminDashboardView() {
         })
       : null;
 
-  // Dynamic Fetching
+  // Xử lý response analytics dùng chung cho mọi đường fetch (mount, đổi range, realtime, polling)
+  const applyAnalytics = useCallback((resData: AnalyticsPayload) => {
+    if (resData.error) {
+      setFetchError(true);
+      return;
+    }
+    setData(resData);
+    setLastUpdated(new Date());
+    setFetchError(false);
+  }, []);
+
+  // Fetch khi người dùng chủ động (đổi range, bấm refresh, realtime, polling) — được set state đồng bộ
   const fetchAnalytics = useCallback(
     (range: 'today' | '7days' | 'month', isInitial = false) => {
       if (isInitial) {
@@ -87,47 +101,46 @@ export function AdminDashboardView() {
           return res.json();
         })
         .then((resData) => {
-          if (!resData.error) {
-            setData(resData);
-            setLastUpdated(new Date());
-          }
+          applyAnalytics(resData);
         })
         .catch((err) => {
           console.error('Failed to fetch analytics:', err);
+          setFetchError(true);
         })
         .finally(() => {
           setLoading(false);
           setRefreshing(false);
         });
     },
-    []
+    [applyAnalytics]
   );
 
-  // Initial load
+  // Initial load — state khởi tạo đã ở loading=true, chỉ cập nhật bất đồng bộ
   useEffect(() => {
-    let ignore = false;
+    let cancelled = false;
 
     fetch('/api/admin/analytics?range=today')
-      .then((res) => res.json())
-      .then((resData) => {
-        if (!ignore && !resData.error) {
-          setData(resData);
-          setLastUpdated(new Date());
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`Analytics fetch failed with status ${res.status}`);
         }
+        return res.json();
+      })
+      .then((resData) => {
+        if (!cancelled) applyAnalytics(resData);
       })
       .catch((err) => {
         console.error('Failed to fetch analytics:', err);
+        if (!cancelled) setFetchError(true);
       })
       .finally(() => {
-        if (!ignore) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       });
 
     return () => {
-      ignore = true;
+      cancelled = true;
     };
-  }, []);
+  }, [applyAnalytics]);
 
   // Real-time Pusher Subscription
   useEffect(() => {
@@ -261,6 +274,24 @@ export function AdminDashboardView() {
           </button>
         </div>
       </div>
+
+      {/* Lỗi tải dữ liệu — hiển thị rõ ràng kèm nút thử lại thay vì dashboard trống im lặng */}
+      {fetchError && !loading && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-amber-50 border border-amber-200">
+          <div className="flex items-center gap-2 text-sm font-medium text-amber-800">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            Không tải được dữ liệu phân tích. Vui lòng thử lại.
+          </div>
+          <button
+            type="button"
+            onClick={handleRefresh}
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-800 text-white text-xs font-semibold hover:bg-amber-900 transition cursor-pointer"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Thử lại
+          </button>
+        </div>
+      )}
 
       {/* BENTO ROW 1: KPI CARDS */}
       <AdminKpiStrip

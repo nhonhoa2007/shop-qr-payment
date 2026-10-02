@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useCartStore } from '@client/stores/cart-store';
 import { useWishlistStore } from '@client/stores/wishlist-store';
+import { ConfirmDialog } from '@client/components/ui/ConfirmDialog';
 import { formatVND } from '@shared/utils';
 import { Heart, Trash2, ArrowLeft, Plus } from 'lucide-react';
 import { toast } from 'sonner';
@@ -28,6 +29,7 @@ interface WishlistItem {
 export function WishlistView() {
   const [items, setItems] = useState<WishlistItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [removeTarget, setRemoveTarget] = useState<WishlistProduct | null>(null);
   const addItem = useCartStore((s) => s.addItem);
 
   useEffect(() => {
@@ -90,7 +92,7 @@ export function WishlistView() {
 
   if (loading) {
     return (
-      <div className="text-center py-20 text-[#787574] text-sm tracking-[-0.014em]">
+      <div className="text-center py-20 text-muted-gray text-sm tracking-[-0.014em]">
         <p>Đang tải danh sách yêu thích...</p>
       </div>
     );
@@ -98,19 +100,19 @@ export function WishlistView() {
 
   if (items.length === 0) {
     return (
-      <div className="bg-white rounded-[28px] p-12 text-center shadow-card-custom max-w-md mx-auto">
-        <div className="w-14 h-14 bg-[#f2f4f5] text-[#000000] rounded-full flex items-center justify-center mx-auto mb-4">
+      <div className="bg-white rounded-[28px] p-12 text-center shadow-card max-w-md mx-auto">
+        <div className="w-14 h-14 bg-canvas-mist text-ink-black rounded-full flex items-center justify-center mx-auto mb-4">
           <Heart className="w-6 h-6" />
         </div>
-        <h2 className="text-lg font-semibold text-[#000000] tracking-[-0.05em] mb-1">
+        <h2 className="text-lg font-semibold text-ink-black tracking-[-0.05em] mb-1">
           Danh sách yêu thích đang trống
         </h2>
-        <p className="text-xs text-[#787574] tracking-[-0.014em] mb-6">
+        <p className="text-xs text-muted-gray tracking-[-0.014em] mb-6">
           Hãy thả tim các sản phẩm bạn thích khi dạo shop để lưu lại mua sau nhé!
         </p>
         <Link
           href="/"
-          className="inline-flex items-center gap-2 bg-[#000000] text-white text-xs font-medium px-5 py-2.5 rounded-full hover:bg-[#332f2d] transition tracking-[-0.014em]"
+          className="inline-flex items-center gap-2 bg-ink-black text-white text-xs font-medium px-5 py-2.5 rounded-full hover:bg-slate-ink transition tracking-[-0.014em]"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           <span>Khám phá ngay</span>
@@ -120,7 +122,7 @@ export function WishlistView() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
+    <div className="max-w-[1200px] mx-auto px-4 py-8 space-y-8">
       <div className="flex items-center gap-3 mb-8">
         <div className="w-10 h-10 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center">
           <Heart className="w-5 h-5 fill-red-500" />
@@ -136,8 +138,8 @@ export function WishlistView() {
       </div>
 
       <div className="flex items-center justify-between">
-        <p className="text-xs text-[#787574] tracking-[-0.014em]">
-          Bạn đang lưu <strong className="text-[#000000]">{items.length}</strong> sản phẩm
+        <p className="text-xs text-muted-gray tracking-[-0.014em]">
+          Bạn đang lưu <strong className="text-ink-black">{items.length}</strong> sản phẩm
         </p>
       </div>
 
@@ -145,9 +147,9 @@ export function WishlistView() {
         {items.map(({ id, product }) => (
           <div
             key={id}
-            className="bg-white rounded-[28px] shadow-card-custom p-2.5 overflow-hidden flex flex-col justify-between hover:shadow-card-hover-custom transition-all duration-300"
+            className="bg-white rounded-[28px] shadow-card p-2.5 overflow-hidden flex flex-col justify-between hover:shadow-card-hover transition-all duration-300"
           >
-            <div className="relative aspect-square bg-[#f2f4f5] rounded-[20px] overflow-hidden group">
+            <div className="relative aspect-square bg-canvas-mist rounded-[20px] overflow-hidden group">
               {product.image ? (
                 <Image
                   src={product.image}
@@ -157,19 +159,19 @@ export function WishlistView() {
                   className="object-cover group-hover:scale-105 transition-transform duration-300"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-[#cccccc]">
+                <div className="w-full h-full flex items-center justify-center text-cool-stone">
                   <span className="text-xs">Không có ảnh</span>
                 </div>
               )}
               {product.category && (
-                <span className="absolute top-2.5 left-2.5 bg-white/90 backdrop-blur-sm text-[#000000] text-[11px] font-medium px-2.5 py-1 rounded-full shadow-soft-sm-custom">
+                <span className="absolute top-2.5 left-2.5 bg-white/90 backdrop-blur-sm text-ink-black text-[11px] font-medium px-2.5 py-1 rounded-full shadow-soft-sm">
                   {product.category}
                 </span>
               )}
               <button
-                onClick={() => handleRemove(product.id, product.name)}
-                className="absolute top-2.5 right-2.5 p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-soft-sm-custom text-[#787574] hover:text-red-500 transition"
-                title="Xóa khỏi yêu thích"
+                onClick={() => setRemoveTarget(product)}
+                className="absolute top-2.5 right-2.5 p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-soft-sm text-muted-gray hover:text-red-500 transition"
+                aria-label={`Xóa ${product.name} khỏi yêu thích`}
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
@@ -179,11 +181,11 @@ export function WishlistView() {
               <div>
                 <Link
                   href={`/products/${product.id}`}
-                  className="font-semibold text-xs text-[#000000] hover:text-[#5433eb] transition line-clamp-2 tracking-[-0.014em]"
+                  className="font-semibold text-xs text-ink-black hover:text-shop-violet transition line-clamp-2 tracking-[-0.014em]"
                 >
                   {product.name}
                 </Link>
-                <p className="text-sm font-semibold text-[#000000] tracking-tight-display mt-1">
+                <p className="text-sm font-semibold text-ink-black tracking-tight-display mt-1">
                   {formatVND(product.price)}
                 </p>
               </div>
@@ -192,7 +194,7 @@ export function WishlistView() {
                 type="button"
                 onClick={() => handleAddToCart(product)}
                 disabled={product.stock <= 0}
-                className="w-full flex items-center justify-center gap-1.5 bg-[#f2f4f5] hover:bg-[#000000] hover:text-white text-[#000000] font-medium py-2 px-3 rounded-full transition text-xs tracking-[-0.014em] disabled:opacity-30"
+                className="w-full flex items-center justify-center gap-1.5 bg-canvas-mist hover:bg-ink-black hover:text-white text-ink-black font-medium py-2 px-3 rounded-full transition text-xs tracking-[-0.014em] disabled:opacity-30"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>{product.stock > 0 ? 'Thêm vào giỏ' : 'Hết hàng'}</span>
@@ -201,6 +203,21 @@ export function WishlistView() {
           </div>
         ))}
       </div>
+
+      <ConfirmDialog
+        open={removeTarget !== null}
+        onClose={() => setRemoveTarget(null)}
+        onConfirm={() => {
+          if (removeTarget) {
+            handleRemove(removeTarget.id, removeTarget.name);
+          }
+          setRemoveTarget(null);
+        }}
+        title="Bỏ khỏi yêu thích?"
+        description={removeTarget ? `"${removeTarget.name}" sẽ được gỡ khỏi danh sách lưu của bạn.` : undefined}
+        confirmLabel="Bỏ khỏi yêu thích"
+        cancelLabel="Giữ lại"
+      />
     </div>
   );
 }

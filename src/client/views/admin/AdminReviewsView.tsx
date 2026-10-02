@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { formatDateTime } from '@shared/utils';
+import { ConfirmDialog } from '@client/components/ui/ConfirmDialog';
 import { toast } from 'sonner';
 import {
   Star,
@@ -51,6 +52,7 @@ export function AdminReviewsView({ initialReviews }: { initialReviews: AdminRevi
   const [replyingId, setReplyingId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState('');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AdminReviewItem | null>(null);
 
   const filtered = reviews.filter((r) => {
     if (filterApproved === 'APPROVED' && !r.isApproved) return false;
@@ -120,7 +122,6 @@ export function AdminReviewsView({ initialReviews }: { initialReviews: AdminRevi
   };
 
   const handleDelete = async (reviewId: string) => {
-    if (!confirm('Bạn có chắc chắn muốn xóa vĩnh viễn đánh giá này?')) return;
     setActionLoading(reviewId);
     try {
       const res = await fetch(`/api/admin/reviews?id=${reviewId}`, {
@@ -394,9 +395,10 @@ export function AdminReviewsView({ initialReviews }: { initialReviews: AdminRevi
 
                   {/* Delete Button */}
                   <button
-                    onClick={() => handleDelete(review.id)}
+                    onClick={() => setDeleteTarget(review)}
                     disabled={actionLoading === review.id}
                     title="Xóa đánh giá"
+                    aria-label={`Xóa đánh giá của ${review.user.name || review.user.email}`}
                     className="flex items-center gap-1 px-2 py-1.5 text-gray-400 hover:text-red-600 rounded-xl text-xs font-medium hover:bg-red-50 transition"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -407,6 +409,27 @@ export function AdminReviewsView({ initialReviews }: { initialReviews: AdminRevi
           ))
         )}
       </div>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (deleteTarget) {
+            handleDelete(deleteTarget.id);
+          }
+          setDeleteTarget(null);
+        }}
+        title="Xóa vĩnh viễn đánh giá?"
+        description={
+          deleteTarget
+            ? `Đánh giá trên sản phẩm "${deleteTarget.product.name}" sẽ bị xóa vĩnh viễn và không thể khôi phục.`
+            : undefined
+        }
+        confirmLabel="Xóa vĩnh viễn"
+        cancelLabel="Giữ lại"
+        variant="danger"
+        loading={deleteTarget !== null && actionLoading === deleteTarget.id}
+      />
     </div>
   );
 }

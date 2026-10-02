@@ -1,5 +1,5 @@
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@server/modules/auth/auth-options';
 import { redirect } from 'next/navigation';
 import { AdminAppShell } from '@client/components/admin/layout/AdminAppShell';
 import type { Metadata } from 'next';
@@ -19,7 +19,7 @@ export default async function AdminLayout({
   const session = await getServerSession(authOptions);
 
   if (!session?.user || session.user.role !== 'ADMIN') {
-    redirect('/');
+    redirect('/login?callbackUrl=/admin&reason=permission');
   }
 
   return <AdminAppShell user={session.user}>{children}</AdminAppShell>;

@@ -56,6 +56,18 @@ export function OrdersView({ orders: initialOrders, currentUserId }: OrdersViewP
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [expandedRoutes, setExpandedRoutes] = useState<Record<string, boolean>>({});
 
+  // Đóng modal hủy đơn bằng phím ESC
+  useEffect(() => {
+    if (!cancellingOrder) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isSubmitting) {
+        setCancellingOrder(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [cancellingOrder, isSubmitting]);
+
   // Lắng nghe sự kiện cập nhật trạng thái đơn hàng thời gian thực qua Pusher
   useEffect(() => {
     if (!currentUserId) return;
@@ -133,7 +145,7 @@ export function OrdersView({ orders: initialOrders, currentUserId }: OrdersViewP
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="max-w-[1200px] mx-auto px-4 py-8">
       {/* Tiêu đề trang */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
@@ -153,7 +165,7 @@ export function OrdersView({ orders: initialOrders, currentUserId }: OrdersViewP
           <p className="text-xs text-slate-400 mb-4">Các sản phẩm bạn đặt mua sẽ hiển thị tại đây</p>
           <Link
             href="/"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition shadow-sm shadow-blue-200"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-shop-violet hover:bg-shop-violet-deep text-white text-xs font-semibold transition shadow-sm"
           >
             Mua sắm ngay
           </Link>
@@ -294,7 +306,7 @@ export function OrdersView({ orders: initialOrders, currentUserId }: OrdersViewP
                               href={`https://donhang.ghn.vn/?order_code=${order.shipment.trackingCode}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline hover:text-blue-700 font-medium"
+                              className="inline-flex items-center gap-1 text-xs text-shop-violet hover:underline hover:text-shop-violet font-medium"
                               title="Xem trực tiếp trên cổng tra cứu GHN"
                             >
                               <ExternalLink className="w-3 h-3" />
@@ -390,7 +402,7 @@ export function OrdersView({ orders: initialOrders, currentUserId }: OrdersViewP
                 <div className="flex flex-wrap items-center justify-between gap-4 border-t border-slate-100 pt-4">
                   <div>
                     <span className="text-xs text-slate-400 block mb-0.5">Tổng tiền thanh toán</span>
-                    <span className="font-bold text-xl text-blue-600 tracking-tight">
+                    <span className="font-bold text-xl text-shop-violet tracking-tight">
                       {formatVND(order.totalAmount)}
                     </span>
                   </div>
@@ -412,7 +424,7 @@ export function OrdersView({ orders: initialOrders, currentUserId }: OrdersViewP
                     {isUnpaid && isPending && (
                       <Link
                         href={`/payment/${order.id}`}
-                        className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition shadow-xs cursor-pointer"
+                        className="inline-flex items-center gap-1.5 bg-shop-violet hover:bg-shop-violet-deep text-white px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition shadow-xs cursor-pointer"
                       >
                         <CreditCard className="w-4 h-4" />
                         <span>Thanh toán</span>
@@ -428,14 +440,21 @@ export function OrdersView({ orders: initialOrders, currentUserId }: OrdersViewP
 
       {/* Modal Hủy đơn an toàn (Safe Order Cancellation Modal) */}
       {cancellingOrder && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-5 animate-in zoom-in-95 duration-150">
+        <div
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cancel-order-title"
+        >
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-5">
             <div className="flex items-start gap-3.5">
               <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 shrink-0">
                 <AlertTriangle className="w-6 h-6 stroke-[1.8]" />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-slate-900 text-lg">Xác nhận hủy đơn hàng</h3>
+                <h3 id="cancel-order-title" className="font-bold text-slate-900 text-lg">
+                  Xác nhận hủy đơn hàng
+                </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
                   Mã đơn:{' '}
                   <span className="font-mono font-semibold text-slate-800">

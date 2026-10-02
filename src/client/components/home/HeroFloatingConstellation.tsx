@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { Product } from '@shared/types';
@@ -15,6 +15,22 @@ export function HeroFloatingConstellation({ products }: HeroFloatingConstellatio
   const containerRef = useRef<HTMLDivElement>(null);
   const [mouseOffset, setMouseOffset] = useState({ x: 0, y: 0 });
   const [isHovered, setIsHovered] = useState(false);
+  // Tôn trọng prefers-reduced-motion: tắt hoàn toàn parallax theo chuột
+  const prefersReducedMotion = useRef(false);
+
+  useEffect(() => {
+    const query = window.matchMedia('(prefers-reduced-motion: reduce)');
+    prefersReducedMotion.current = query.matches;
+    const handleChange = (e: MediaQueryListEvent) => {
+      prefersReducedMotion.current = e.matches;
+      if (e.matches) {
+        setMouseOffset({ x: 0, y: 0 });
+        setIsHovered(false);
+      }
+    };
+    query.addEventListener('change', handleChange);
+    return () => query.removeEventListener('change', handleChange);
+  }, []);
 
   // Pick 3 representative hero products for the constellation
   const heroProducts = useMemo(() => {
@@ -26,21 +42,43 @@ export function HeroFloatingConstellation({ products }: HeroFloatingConstellatio
   const pCenter = heroProducts[1] || heroProducts[0];
   const pRight = heroProducts[2] || heroProducts[0];
 
+  // rAF throttle: chỉ 1 lần setState mỗi frame thay vì mỗi pixel chuột di chuyển
+  const rafIdRef = useRef<number | null>(null);
+  const pendingOffsetRef = useRef({ x: 0, y: 0 });
+
+  const scheduleParallaxUpdate = useCallback(() => {
+    if (rafIdRef.current !== null) return;
+    rafIdRef.current = requestAnimationFrame(() => {
+      rafIdRef.current = null;
+      setMouseOffset(pendingOffsetRef.current);
+    });
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+      }
+    };
+  }, []);
+
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!containerRef.current) return;
+    if (!containerRef.current || prefersReducedMotion.current) return;
     const rect = containerRef.current.getBoundingClientRect();
     const x = (e.clientX - (rect.left + rect.width / 2)) / (rect.width / 2);
     const y = (e.clientY - (rect.top + rect.height / 2)) / (rect.height / 2);
-    setMouseOffset({
+    pendingOffsetRef.current = {
       x: Math.max(-1, Math.min(1, x)),
       y: Math.max(-1, Math.min(1, y)),
-    });
-    setIsHovered(true);
+    };
+    if (!isHovered) setIsHovered(true);
+    scheduleParallaxUpdate();
   };
 
   const handleMouseLeave = () => {
     setIsHovered(false);
-    setMouseOffset({ x: 0, y: 0 });
+    pendingOffsetRef.current = { x: 0, y: 0 };
+    scheduleParallaxUpdate();
   };
 
   if (heroProducts.length === 0) {
@@ -79,9 +117,9 @@ export function HeroFloatingConstellation({ products }: HeroFloatingConstellatio
           >
             <Link
               href={`/products/${pLeft.id}`}
-              className="group block bg-white rounded-[24px] sm:rounded-[28px] p-2 sm:p-2.5 shadow-card-custom hover:shadow-card-hover-custom transition-all duration-300 w-28 sm:w-36 md:w-40 border border-[#ebebeb]/60"
+              className="group block bg-white rounded-[24px] sm:rounded-[28px] p-2 sm:p-2.5 shadow-card hover:shadow-card-hover transition-all duration-300 w-28 sm:w-36 md:w-40 border border-faint-border/60"
             >
-              <div className="aspect-square relative bg-[#f2f4f5] rounded-[18px] sm:rounded-[20px] overflow-hidden mb-2">
+              <div className="aspect-square relative bg-canvas-mist rounded-[18px] sm:rounded-[20px] overflow-hidden mb-2">
                 {pLeft.image ? (
                   <Image
                     src={pLeft.image}
@@ -102,11 +140,11 @@ export function HeroFloatingConstellation({ products }: HeroFloatingConstellatio
                 )}
               </div>
               <div className="px-1">
-                <p className="text-[11px] sm:text-xs font-semibold text-[#000000] truncate tracking-[-0.014em]">
+                <p className="text-[11px] sm:text-xs font-semibold text-ink-black truncate tracking-[-0.014em]">
                   {pLeft.name}
                 </p>
                 <div className="flex items-center justify-between mt-1">
-                  <span className="text-[11px] font-bold text-[#5433eb]">
+                  <span className="text-[11px] font-bold text-shop-violet">
                     {formatVND(pLeft.price)}
                   </span>
                   <span className="flex items-center text-[10px] text-amber-500 font-bold">
@@ -134,16 +172,16 @@ export function HeroFloatingConstellation({ products }: HeroFloatingConstellatio
             }}
           >
             {/* Playful Miniature Persona Badge (Surreal Diorama Touch) */}
-            <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/95 border border-[#5433eb]/20 shadow-soft-sm-custom text-[10px] font-bold text-[#5433eb] mb-1.5 backdrop-blur-xs">
-              <Sparkles className="w-3 h-3 text-[#5433eb] animate-spin" style={{ animationDuration: '4s' }} />
+            <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/95 border border-shop-violet/20 shadow-soft-sm text-[10px] font-bold text-shop-violet mb-1.5 backdrop-blur-xs">
+              <Sparkles className="w-3 h-3 text-shop-violet animate-spin" style={{ animationDuration: '4s' }} />
               <span>Tuyển chọn đặc quyền</span>
             </div>
 
             <Link
               href={`/products/${pCenter.id}`}
-              className="group block bg-white rounded-[26px] sm:rounded-[30px] p-2.5 sm:p-3 shadow-card-hover-custom transition-all duration-300 w-36 sm:w-48 md:w-52 border border-[#ebebeb] relative overflow-hidden"
+              className="group block bg-white rounded-[26px] sm:rounded-[30px] p-2.5 sm:p-3 shadow-card-hover transition-all duration-300 w-36 sm:w-48 md:w-52 border border-faint-border relative overflow-hidden"
             >
-              <div className="aspect-square relative bg-[#f2f4f5] rounded-[20px] sm:rounded-[22px] overflow-hidden mb-2.5">
+              <div className="aspect-square relative bg-canvas-mist rounded-[20px] sm:rounded-[22px] overflow-hidden mb-2.5">
                 {pCenter.image ? (
                   <Image
                     src={pCenter.image}
@@ -175,14 +213,14 @@ export function HeroFloatingConstellation({ products }: HeroFloatingConstellatio
                     5.0 (Tuyển chọn)
                   </span>
                 </div>
-                <p className="text-xs sm:text-sm font-bold text-[#000000] truncate tracking-[-0.014em] group-hover:text-[#5433eb] transition-colors">
+                <p className="text-xs sm:text-sm font-bold text-ink-black truncate tracking-[-0.014em] group-hover:text-shop-violet transition-colors">
                   {pCenter.name}
                 </p>
                 <div className="flex items-center justify-between pt-0.5">
-                  <span className="text-xs sm:text-sm font-extrabold text-[#5433eb] tracking-tight">
+                  <span className="text-xs sm:text-sm font-extrabold text-shop-violet tracking-tight">
                     {formatVND(pCenter.price)}
                   </span>
-                  <span className="p-1 rounded-full bg-slate-50 text-slate-600 group-hover:bg-[#5433eb] group-hover:text-white transition">
+                  <span className="p-1 rounded-full bg-slate-50 text-slate-600 group-hover:bg-shop-violet group-hover:text-white transition">
                     <ArrowUpRight className="w-3 h-3" />
                   </span>
                 </div>
@@ -207,9 +245,9 @@ export function HeroFloatingConstellation({ products }: HeroFloatingConstellatio
           >
             <Link
               href={`/products/${pRight.id}`}
-              className="group block bg-white rounded-[24px] sm:rounded-[28px] p-2 sm:p-2.5 shadow-card-custom hover:shadow-card-hover-custom transition-all duration-300 w-28 sm:w-36 md:w-40 border border-[#ebebeb]/60"
+              className="group block bg-white rounded-[24px] sm:rounded-[28px] p-2 sm:p-2.5 shadow-card hover:shadow-card-hover transition-all duration-300 w-28 sm:w-36 md:w-40 border border-faint-border/60"
             >
-              <div className="aspect-square relative bg-[#f2f4f5] rounded-[18px] sm:rounded-[20px] overflow-hidden mb-2">
+              <div className="aspect-square relative bg-canvas-mist rounded-[18px] sm:rounded-[20px] overflow-hidden mb-2">
                 {pRight.image ? (
                   <Image
                     src={pRight.image}
@@ -230,11 +268,11 @@ export function HeroFloatingConstellation({ products }: HeroFloatingConstellatio
                 )}
               </div>
               <div className="px-1">
-                <p className="text-[11px] sm:text-xs font-semibold text-[#000000] truncate tracking-[-0.014em]">
+                <p className="text-[11px] sm:text-xs font-semibold text-ink-black truncate tracking-[-0.014em]">
                   {pRight.name}
                 </p>
                 <div className="flex items-center justify-between mt-1">
-                  <span className="text-[11px] font-bold text-[#5433eb]">
+                  <span className="text-[11px] font-bold text-shop-violet">
                     {formatVND(pRight.price)}
                   </span>
                   <span className="flex items-center text-[10px] text-amber-500 font-bold">
@@ -257,7 +295,7 @@ export function HeroFloatingConstellation({ products }: HeroFloatingConstellatio
       <div className="inline-flex items-center justify-center gap-1 mb-2 select-none group cursor-default">
         {/* Animated Liquid Gradient Wordmark */}
         <h1
-          className="text-5xl sm:text-6xl md:text-7xl font-semibold tracking-[-0.05em] bg-clip-text text-transparent bg-gradient-to-r from-[#5433eb] via-[#8338ec] via-[#3a86ff] to-[#5433eb] animate-liquid-flow transition-transform duration-300 group-hover:scale-102"
+          className="text-5xl sm:text-6xl md:text-7xl font-semibold tracking-[-0.05em] bg-clip-text text-transparent bg-gradient-to-r from-shop-violet via-[#8338ec] via-[#3a86ff] to-[#5433eb] animate-liquid-flow transition-transform duration-300 group-hover:scale-102"
           title="shop."
         >
           shop
@@ -265,8 +303,8 @@ export function HeroFloatingConstellation({ products }: HeroFloatingConstellatio
 
         {/* Signature Dot with Tinted Violet Pulsing Glow */}
         <div className="relative mt-5 sm:mt-6 md:mt-7">
-          <span className="block w-3 sm:w-3.5 h-3 sm:h-3.5 rounded-full bg-[#5433eb] shadow-violet-custom transition-transform duration-300 group-hover:scale-125" />
-          <span className="absolute inset-0 rounded-full bg-[#5433eb] animate-ping opacity-40" />
+          <span className="block w-3 sm:w-3.5 h-3 sm:h-3.5 rounded-full bg-shop-violet shadow-violet transition-transform duration-300 group-hover:scale-125" />
+          <span className="absolute inset-0 rounded-full bg-shop-violet animate-ping opacity-40" />
         </div>
       </div>
     </div>

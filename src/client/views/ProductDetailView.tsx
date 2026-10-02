@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCartStore } from '@client/stores/cart-store';
 import { useWishlistStore } from '@client/stores/wishlist-store';
-import { useHydrated } from '@/lib/hydration';
+import { useHydrated } from '@client/hooks/useHydrated';
 import { formatVND } from '@shared/utils';
 import { ProductReviews } from '@client/components/product/ProductReviews';
 import { ShoppingBag, Zap, Heart, ArrowLeft, ShieldCheck, Truck, RotateCcw, Check } from 'lucide-react';
@@ -186,16 +186,16 @@ export function ProductDetailView({ product }: { product: Product }) {
       {/* Back button */}
       <Link
         href="/"
-        className="inline-flex items-center gap-1.5 text-xs font-medium text-[#787574] hover:text-[#000000] transition mb-8 group tracking-[-0.014em]"
+        className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-gray hover:text-ink-black transition mb-8 group tracking-[-0.014em]"
       >
         <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
         <span>Quay lại danh sách sản phẩm</span>
       </Link>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12 bg-white rounded-[28px] p-6 sm:p-10 shadow-card-custom">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12 bg-white rounded-[28px] p-6 sm:p-10 shadow-card">
         {/* Product Image & Thumbnail Gallery */}
         <div className="space-y-4">
-          <div className="relative aspect-square bg-[#f2f4f5] rounded-[20px] overflow-hidden">
+          <div className="relative aspect-square bg-canvas-mist rounded-[20px] overflow-hidden">
             {displayImage ? (
               <Image
                 src={displayImage}
@@ -206,13 +206,13 @@ export function ProductDetailView({ product }: { product: Product }) {
                 className="object-cover transition-opacity duration-300"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-[#cccccc]">
+              <div className="w-full h-full flex items-center justify-center text-cool-stone">
                 <span className="text-sm">Chưa có ảnh</span>
               </div>
             )}
 
             {product.category && (
-              <span className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm text-[#000000] text-xs font-medium px-3 py-1.5 rounded-full shadow-soft-sm-custom">
+              <span className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm text-ink-black text-xs font-medium px-3 py-1.5 rounded-full shadow-soft-sm">
                 {product.category}
               </span>
             )}
@@ -221,13 +221,13 @@ export function ProductDetailView({ product }: { product: Product }) {
               type="button"
               onClick={handleToggleWishlist}
               disabled={togglingWishlist}
-              className="absolute top-4 right-4 p-3 bg-white/90 backdrop-blur-sm rounded-full shadow-soft-sm-custom hover:scale-105 active:scale-95 transition disabled:opacity-50"
+              className="absolute top-4 right-4 p-3 bg-white/90 backdrop-blur-sm rounded-full shadow-soft-sm hover:scale-105 active:scale-95 transition disabled:opacity-50"
               title={isWishlisted ? 'Xóa khỏi danh sách yêu thích' : 'Thêm vào danh sách yêu thích'}
               aria-label={isWishlisted ? `Xóa ${product.name} khỏi danh sách yêu thích` : `Thêm ${product.name} vào danh sách yêu thích`}
             >
               <Heart
                 className={`w-5 h-5 transition-colors ${
-                  isWishlisted ? 'fill-rose-500 text-rose-500' : 'text-[#787574] hover:text-rose-500'
+                  isWishlisted ? 'fill-rose-500 text-rose-500' : 'text-muted-gray hover:text-rose-500'
                 }`}
               />
             </button>
@@ -249,7 +249,7 @@ export function ProductDetailView({ product }: { product: Product }) {
                       }
                     }}
                     className={`relative w-16 h-16 rounded-[14px] overflow-hidden border-2 flex-shrink-0 transition ${
-                      isActive ? 'border-[#5433eb] ring-2 ring-[#5433eb]/20' : 'border-transparent opacity-70 hover:opacity-100'
+                      isActive ? 'border-shop-violet ring-2 ring-shop-violet/20' : 'border-transparent opacity-70 hover:opacity-100'
                     }`}
                   >
                     <Image src={thumb.url} alt={thumb.label} fill sizes="64px" className="object-cover" />
@@ -264,11 +264,11 @@ export function ProductDetailView({ product }: { product: Product }) {
         <div className="flex flex-col justify-between space-y-6">
           <div className="space-y-5">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-semibold text-[#000000] tracking-[-0.05em] leading-snug">
+              <h1 className="text-2xl sm:text-3xl font-semibold text-ink-black tracking-[-0.05em] leading-snug">
                 {product.name}
               </h1>
               {selectedVariant?.title && (
-                <p className="text-xs font-medium text-[#5433eb] mt-1 tracking-[-0.014em]">
+                <p className="text-xs font-medium text-shop-violet mt-1 tracking-[-0.014em]">
                   Đang chọn: {selectedVariant.title}
                 </p>
               )}
@@ -276,13 +276,13 @@ export function ProductDetailView({ product }: { product: Product }) {
 
             {/* Price and Stock Badge */}
             <div className="flex items-baseline gap-4">
-              <span className="text-3xl font-semibold text-[#000000] tracking-[-0.05em]">
+              <span className="text-3xl font-semibold text-ink-black tracking-[-0.05em]">
                 {formatVND(currentPrice)}
               </span>
               <span
                 className={`text-xs font-medium px-3 py-1 rounded-full ${
                   currentStock > 0
-                    ? 'bg-[#f2f4f5] text-[#000000]'
+                    ? 'bg-canvas-mist text-ink-black'
                     : 'bg-red-50 text-red-600'
                 }`}
               >
@@ -291,7 +291,7 @@ export function ProductDetailView({ product }: { product: Product }) {
             </div>
 
             {/* Description */}
-            <div className="border-t border-b border-[#ebebeb] py-4 text-[#787574] text-sm leading-relaxed tracking-[-0.014em] whitespace-pre-line">
+            <div className="border-t border-b border-faint-border py-4 text-muted-gray text-sm leading-relaxed tracking-[-0.014em] whitespace-pre-line">
               {product.description || 'Chưa có mô tả chi tiết cho sản phẩm này.'}
             </div>
 
@@ -304,8 +304,8 @@ export function ProductDetailView({ product }: { product: Product }) {
                     {/* Colors */}
                     <div className="space-y-2">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="font-medium text-[#787574] tracking-[-0.014em]">
-                          Màu sắc: <strong className="text-[#000000]">{selectedVariant?.color || 'Chọn màu'}</strong>
+                        <span className="font-medium text-muted-gray tracking-[-0.014em]">
+                          Màu sắc: <strong className="text-ink-black">{selectedVariant?.color || 'Chọn màu'}</strong>
                         </span>
                       </div>
                       <div className="flex flex-wrap gap-2">
@@ -319,8 +319,8 @@ export function ProductDetailView({ product }: { product: Product }) {
                               onClick={() => handleSelectColor(c)}
                               className={`px-4 py-2 rounded-full text-xs font-medium transition-all flex items-center gap-1.5 ${
                                 isSelected
-                                  ? 'bg-[#000000] text-white shadow-soft-sm-custom'
-                                  : 'bg-[#f2f4f5] text-[#000000] hover:bg-[#ebebeb]'
+                                  ? 'bg-ink-black text-white shadow-soft-sm'
+                                  : 'bg-canvas-mist text-ink-black hover:bg-faint-border'
                               } ${!isColorAvailable ? 'opacity-50' : ''}`}
                             >
                               {isSelected && <Check className="w-3.5 h-3.5 text-white" />}
@@ -334,8 +334,8 @@ export function ProductDetailView({ product }: { product: Product }) {
                     {/* Sizes */}
                     <div className="space-y-2">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="font-medium text-[#787574] tracking-[-0.014em]">
-                          Kích thước: <strong className="text-[#000000]">{selectedVariant?.size || 'Chọn kích thước'}</strong>
+                        <span className="font-medium text-muted-gray tracking-[-0.014em]">
+                          Kích thước: <strong className="text-ink-black">{selectedVariant?.size || 'Chọn kích thước'}</strong>
                         </span>
                       </div>
                       <div className="flex flex-wrap gap-2">
@@ -352,8 +352,8 @@ export function ProductDetailView({ product }: { product: Product }) {
                               onClick={() => handleSelectSize(s)}
                               className={`min-w-[44px] px-4 py-2 rounded-full text-xs font-medium transition-all text-center ${
                                 isSelected
-                                  ? 'bg-[#5433eb] text-white shadow-violet-custom'
-                                  : 'bg-[#f2f4f5] text-[#000000] hover:bg-[#ebebeb]'
+                                  ? 'bg-shop-violet text-white shadow-violet'
+                                  : 'bg-canvas-mist text-ink-black hover:bg-faint-border'
                               } ${!isSizeInStock ? 'opacity-40 line-through' : ''}`}
                             >
                               {s}
@@ -367,8 +367,8 @@ export function ProductDetailView({ product }: { product: Product }) {
                   /* Only Colors */
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="font-medium text-[#787574] tracking-[-0.014em]">
-                        Màu sắc: <strong className="text-[#000000]">{selectedVariant?.color || 'Chọn màu'}</strong>
+                      <span className="font-medium text-muted-gray tracking-[-0.014em]">
+                        Màu sắc: <strong className="text-ink-black">{selectedVariant?.color || 'Chọn màu'}</strong>
                       </span>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -383,8 +383,8 @@ export function ProductDetailView({ product }: { product: Product }) {
                             onClick={() => handleSelectColor(c)}
                             className={`px-4 py-2 rounded-full text-xs font-medium transition-all flex items-center gap-1.5 ${
                               isSelected
-                                ? 'bg-[#5433eb] text-white shadow-violet-custom'
-                                : 'bg-[#f2f4f5] text-[#000000] hover:bg-[#ebebeb]'
+                                ? 'bg-shop-violet text-white shadow-violet'
+                                : 'bg-canvas-mist text-ink-black hover:bg-faint-border'
                             } ${!isAvailable ? 'opacity-40 line-through' : ''}`}
                           >
                             {isSelected && <Check className="w-3.5 h-3.5 text-white" />}
@@ -398,8 +398,8 @@ export function ProductDetailView({ product }: { product: Product }) {
                   /* Only Sizes */
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="font-medium text-[#787574] tracking-[-0.014em]">
-                        Kích thước: <strong className="text-[#000000]">{selectedVariant?.size || 'Chọn kích thước'}</strong>
+                      <span className="font-medium text-muted-gray tracking-[-0.014em]">
+                        Kích thước: <strong className="text-ink-black">{selectedVariant?.size || 'Chọn kích thước'}</strong>
                       </span>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -414,8 +414,8 @@ export function ProductDetailView({ product }: { product: Product }) {
                             onClick={() => handleSelectSize(s)}
                             className={`min-w-[44px] px-4 py-2 rounded-full text-xs font-medium transition-all text-center ${
                               isSelected
-                                ? 'bg-[#5433eb] text-white shadow-violet-custom'
-                                : 'bg-[#f2f4f5] text-[#000000] hover:bg-[#ebebeb]'
+                                ? 'bg-shop-violet text-white shadow-violet'
+                                : 'bg-canvas-mist text-ink-black hover:bg-faint-border'
                             } ${!isAvailable ? 'opacity-40 line-through' : ''}`}
                           >
                             {s}
@@ -428,8 +428,8 @@ export function ProductDetailView({ product }: { product: Product }) {
                   /* Custom Variant Titles */
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="font-medium text-[#787574] tracking-[-0.014em]">
-                        Phân loại: <strong className="text-[#000000]">{selectedVariant?.title || 'Chọn phân loại'}</strong>
+                      <span className="font-medium text-muted-gray tracking-[-0.014em]">
+                        Phân loại: <strong className="text-ink-black">{selectedVariant?.title || 'Chọn phân loại'}</strong>
                       </span>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -443,13 +443,13 @@ export function ProductDetailView({ product }: { product: Product }) {
                             onClick={() => setSelectedVariantId(v.id)}
                             className={`px-4 py-2 rounded-full text-xs font-medium transition-all flex items-center gap-1.5 ${
                               isSelected
-                                ? 'bg-[#5433eb] text-white shadow-violet-custom'
-                                : 'bg-[#f2f4f5] text-[#000000] hover:bg-[#ebebeb]'
+                                ? 'bg-shop-violet text-white shadow-violet'
+                                : 'bg-canvas-mist text-ink-black hover:bg-faint-border'
                             } ${!isAvailable ? 'opacity-40 line-through' : ''}`}
                           >
                             {isSelected && <Check className="w-3.5 h-3.5 text-white" />}
                             <span>{v.title}</span>
-                            <span className={`text-[11px] ${isSelected ? 'text-white/80' : 'text-[#787574]'}`}>
+                            <span className={`text-[11px] ${isSelected ? 'text-white/80' : 'text-muted-gray'}`}>
                               ({formatVND(v.price)})
                             </span>
                           </button>
@@ -461,16 +461,16 @@ export function ProductDetailView({ product }: { product: Product }) {
 
                 {/* Variant Status Pill */}
                 {selectedVariant && (
-                  <div className="flex items-center gap-3 text-xs text-[#787574] bg-[#f8f9fa] px-4 py-2.5 rounded-[16px] border border-[#ebebeb]">
-                    <span className="font-medium text-[#000000]">{selectedVariant.title}</span>
+                  <div className="flex items-center gap-3 text-xs text-muted-gray bg-canvas-mist px-4 py-2.5 rounded-[16px] border border-faint-border">
+                    <span className="font-medium text-ink-black">{selectedVariant.title}</span>
                     {selectedVariant.sku && (
                       <span>
-                        • SKU: <code className="font-mono text-[11px] text-[#000000]">{selectedVariant.sku}</code>
+                        • SKU: <code className="font-mono text-[11px] text-ink-black">{selectedVariant.sku}</code>
                       </span>
                     )}
                     <span>
                       • Tồn kho:{' '}
-                      <strong className={selectedVariant.stock > 0 ? 'text-[#000000]' : 'text-red-600'}>
+                      <strong className={selectedVariant.stock > 0 ? 'text-ink-black' : 'text-red-600'}>
                         {selectedVariant.stock > 0 ? `${selectedVariant.stock} món` : 'Hết hàng'}
                       </strong>
                     </span>
@@ -482,22 +482,24 @@ export function ProductDetailView({ product }: { product: Product }) {
             {/* Quantity Selector */}
             {currentStock > 0 && (
               <div className="flex items-center gap-4">
-                <span className="text-xs font-medium text-[#787574] tracking-[-0.014em]">Số lượng:</span>
-                <div className="flex items-center border border-[#ebebeb] rounded-full bg-[#f2f4f5] overflow-hidden p-0.5">
+                <span className="text-xs font-medium text-muted-gray tracking-[-0.014em]">Số lượng:</span>
+                <div className="flex items-center border border-faint-border rounded-full bg-canvas-mist overflow-hidden p-0.5">
                   <button
                     type="button"
                     onClick={() => setQuantity(Math.max(1, effectiveQuantity - 1))}
-                    className="w-8 h-8 rounded-full text-[#000000] hover:bg-white transition font-medium flex items-center justify-center text-sm"
+                    className="w-10 h-10 rounded-full text-ink-black hover:bg-white transition font-medium flex items-center justify-center text-sm"
+                    aria-label="Giảm số lượng"
                   >
                     -
                   </button>
-                  <span className="w-10 text-center text-xs font-semibold text-[#000000]">
+                  <span className="w-10 text-center text-xs font-semibold text-ink-black">
                     {effectiveQuantity}
                   </span>
                   <button
                     type="button"
                     onClick={() => setQuantity(Math.min(currentStock, effectiveQuantity + 1))}
-                    className="w-8 h-8 rounded-full text-[#000000] hover:bg-white transition font-medium flex items-center justify-center text-sm"
+                    className="w-10 h-10 rounded-full text-ink-black hover:bg-white transition font-medium flex items-center justify-center text-sm"
+                    aria-label="Tăng số lượng"
                   >
                     +
                   </button>
@@ -513,7 +515,7 @@ export function ProductDetailView({ product }: { product: Product }) {
                 type="button"
                 onClick={handleAddToCart}
                 disabled={isOutOfStock}
-                className="w-full flex items-center justify-center gap-2 bg-[#f2f4f5] text-[#000000] hover:bg-[#ebebeb] font-medium py-3.5 px-6 rounded-full transition text-sm tracking-[-0.014em] disabled:opacity-40"
+                className="w-full flex items-center justify-center gap-2 bg-canvas-mist text-ink-black hover:bg-faint-border font-medium py-3.5 px-6 rounded-full transition text-sm tracking-[-0.014em] disabled:opacity-40"
               >
                 <ShoppingBag className="w-4 h-4" />
                 <span>Thêm vào giỏ</span>
@@ -523,7 +525,7 @@ export function ProductDetailView({ product }: { product: Product }) {
                 type="button"
                 onClick={handleBuyNow}
                 disabled={isOutOfStock}
-                className="w-full flex items-center justify-center gap-2 bg-[#5433eb] hover:bg-[#4428d4] text-white font-medium py-3.5 px-6 rounded-full shadow-violet-custom transition text-sm tracking-[-0.014em] disabled:opacity-40"
+                className="w-full flex items-center justify-center gap-2 bg-shop-violet hover:bg-shop-violet-deep text-white font-medium py-3.5 px-6 rounded-full shadow-violet transition text-sm tracking-[-0.014em] disabled:opacity-40"
               >
                 <Zap className="w-4 h-4 fill-white" />
                 <span>Mua ngay</span>
@@ -531,18 +533,18 @@ export function ProductDetailView({ product }: { product: Product }) {
             </div>
 
             {/* Commitments */}
-            <div className="grid grid-cols-3 gap-2 pt-4 border-t border-[#ebebeb] text-center">
-              <div className="p-2.5 rounded-[20px] bg-[#f2f4f5]">
-                <Truck className="w-4 h-4 text-[#000000] mx-auto mb-1" />
-                <span className="text-[11px] font-medium text-[#787574] block">Freeship từ 500k</span>
+            <div className="grid grid-cols-3 gap-2 pt-4 border-t border-faint-border text-center">
+              <div className="p-2.5 rounded-[20px] bg-canvas-mist">
+                <Truck className="w-4 h-4 text-ink-black mx-auto mb-1" />
+                <span className="text-[11px] font-medium text-muted-gray block">Freeship từ 500k</span>
               </div>
-              <div className="p-2.5 rounded-[20px] bg-[#f2f4f5]">
-                <ShieldCheck className="w-4 h-4 text-[#000000] mx-auto mb-1" />
-                <span className="text-[11px] font-medium text-[#787574] block">Chính hãng 100%</span>
+              <div className="p-2.5 rounded-[20px] bg-canvas-mist">
+                <ShieldCheck className="w-4 h-4 text-ink-black mx-auto mb-1" />
+                <span className="text-[11px] font-medium text-muted-gray block">Chính hãng 100%</span>
               </div>
-              <div className="p-2.5 rounded-[20px] bg-[#f2f4f5]">
-                <RotateCcw className="w-4 h-4 text-[#000000] mx-auto mb-1" />
-                <span className="text-[11px] font-medium text-[#787574] block">Đổi trả 7 ngày</span>
+              <div className="p-2.5 rounded-[20px] bg-canvas-mist">
+                <RotateCcw className="w-4 h-4 text-ink-black mx-auto mb-1" />
+                <span className="text-[11px] font-medium text-muted-gray block">Đổi trả 7 ngày</span>
               </div>
             </div>
           </div>

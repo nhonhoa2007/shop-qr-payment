@@ -97,7 +97,7 @@ export function OtpInput({ onComplete, onChange, disabled }: OtpInputProps) {
   };
 
   return (
-    <div className="flex gap-2 sm:gap-3 justify-center">
+    <div className="flex gap-2 sm:gap-3 justify-center" role="group" aria-label="Mã OTP gồm 6 chữ số">
       {values.map((val, i) => (
         <input
           key={i}
@@ -111,10 +111,11 @@ export function OtpInput({ onComplete, onChange, disabled }: OtpInputProps) {
           value={val}
           disabled={disabled}
           autoComplete="one-time-code"
+          aria-label={`Chữ số OTP thứ ${i + 1}`}
           onChange={(e) => handleChange(i, e.target.value)}
           onKeyDown={(e) => handleKeyDown(i, e)}
           onPaste={handlePaste}
-          className="w-11 h-14 sm:w-12 sm:h-16 text-center text-2xl font-semibold border border-[#ebebeb] bg-white rounded-2xl focus:border-[#5433eb] focus:ring-4 focus:ring-[#c0b5f3]/40 outline-none transition-all shadow-[0_2px_8px_rgba(0,0,0,0.04)] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-11 h-14 sm:w-12 sm:h-16 text-center text-2xl font-semibold border border-faint-border bg-white rounded-2xl focus:border-shop-violet focus:ring-4 focus:ring-violet-wash/40 outline-none transition-all shadow-[0_2px_8px_rgba(0,0,0,0.04)] disabled:opacity-50 disabled:cursor-not-allowed"
         />
       ))}
     </div>

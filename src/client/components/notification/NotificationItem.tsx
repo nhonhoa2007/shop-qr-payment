@@ -17,7 +17,7 @@ function renderNotificationIcon(type: string) {
   switch (type) {
     case 'ORDER_CREATED':
       return (
-        <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
+        <div className="w-8 h-8 rounded-full bg-shop-violet/10 text-shop-violet flex items-center justify-center flex-shrink-0">
           <ShoppingBag {...iconProps} />
         </div>
       );
@@ -29,7 +29,7 @@ function renderNotificationIcon(type: string) {
       );
     case 'ORDER_CONFIRMED':
       return (
-        <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0">
+        <div className="w-8 h-8 rounded-full bg-shop-violet/10 text-shop-violet flex items-center justify-center flex-shrink-0">
           <CheckCircle2 {...iconProps} />
         </div>
       );
@@ -77,7 +77,7 @@ export function NotificationItem({
     <div
       onClick={onClick}
       className={`flex items-start gap-3 px-4 py-3 hover:bg-slate-50 cursor-pointer transition border-b border-slate-100 ${
-        !notification.isRead ? 'bg-indigo-50/40' : ''
+        !notification.isRead ? 'bg-shop-violet/10/40' : ''
       }`}
     >
       {renderNotificationIcon(notification.type)}
@@ -89,7 +89,7 @@ export function NotificationItem({
         <p className="text-[11px] text-slate-400 mt-1">{formatDateTime(notification.createdAt)}</p>
       </div>
       {!notification.isRead && (
-        <span className="w-2 h-2 bg-indigo-600 rounded-full flex-shrink-0 mt-2" />
+        <span className="w-2 h-2 bg-shop-violet rounded-full flex-shrink-0 mt-2" />
       )}
     </div>
   );

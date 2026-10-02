@@ -9,6 +9,7 @@ import {
   calculateVariantSummary,
   validateClientVariants,
 } from '@shared/utils';
+import { ConfirmDialog } from '@client/components/ui/ConfirmDialog';
 import { toast } from 'sonner';
 import type { Product, ProductVariant } from '@shared/types';
 import Link from 'next/link';
@@ -42,6 +43,12 @@ interface VariantFormItem {
   image?: string;
   isActive: boolean;
 }
+
+type ProductConfirmState =
+  | { type: 'clearVariants' }
+  | { type: 'deleteProduct'; id: string; name: string }
+  | { type: 'matrixMode'; generated: VariantFormItem[]; count: number }
+  | null;
 
 export function AdminProductsView({ initialProducts }: { initialProducts: Product[] }) {
   const [products, setProducts] = useState<Product[]>(initialProducts);
@@ -78,6 +85,9 @@ export function AdminProductsView({ initialProducts }: { initialProducts: Produc
   const [matrixSkuPrefix, setMatrixSkuPrefix] = useState('');
   const [matrixPrice, setMatrixPrice] = useState(100000);
   const [matrixStock, setMatrixStock] = useState(10);
+
+  // Dialog xác nhận thay cho confirm() native
+  const [confirmState, setConfirmState] = useState<ProductConfirmState>(null);
 
   const toggleExpand = (productId: string) => {
     setExpandedProductIds((prev) => {
@@ -273,10 +283,7 @@ export function AdminProductsView({ initialProducts }: { initialProducts: Produc
 
   // Xóa toàn bộ biến thể để quay về sản phẩm đơn thể
   const handleClearAllVariants = () => {
-    if (confirm('Bạn có chắc chắn muốn xóa toàn bộ biến thể và chuyển về sản phẩm đơn thể?')) {
-      setVariants([]);
-      toast.info('Đã xóa tất cả biến thể');
-    }
+    setConfirmState({ type: 'clearVariants' });
   };
 
   // Kích hoạt sinh ma trận biến thể tự động
@@ -304,17 +311,11 @@ export function AdminProductsView({ initialProducts }: { initialProducts: Produc
     }
 
     if (variants.length > 0) {
-      const mode = confirm(
-        `Đã sinh ${generated.length} biến thể mới.\nBấm OK để THÊM VÀO danh sách hiện có, hoặc Cancel để THAY THẾ toàn bộ.`
-      );
-      if (mode) {
-        setVariants((prev) => [...prev, ...(generated as VariantFormItem[])]);
-      } else {
-        setVariants(generated as VariantFormItem[]);
-      }
-    } else {
-      setVariants(generated as VariantFormItem[]);
+      // Đã có biến thể: hỏi người dùng muốn thêm vào hay thay thế toàn bộ
+      setConfirmState({ type: 'matrixMode', generated: generated as VariantFormItem[], count: generated.length });
+      return;
     }
+    setVariants(generated as VariantFormItem[]);
 
     toast.success(`Đã tạo thành công ${generated.length} biến thể!`);
     setShowMatrixGen(false);
@@ -424,9 +425,6 @@ export function AdminProductsView({ initialProducts }: { initialProducts: Produc
   };
 
   const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Bạn có chắc chắn muốn xóa sản phẩm "${name}" và toàn bộ biến thể của nó?`))
-      return;
-
     try {
       const res = await fetch(`/api/products?id=${id}`, { method: 'DELETE' });
       const data = await res.json().catch(() => ({}));
@@ -672,7 +670,7 @@ export function AdminProductsView({ initialProducts }: { initialProducts: Produc
                             </button>
                             <button
                               type="button"
-                              onClick={() => handleDelete(p.id, p.name)}
+                              onClick={() => setConfirmState({ type: 'deleteProduct', id: p.id, name: p.name })}
                               className="px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 transition text-xs font-semibold"
                             >
                               Xóa
@@ -682,7 +680,7 @@ export function AdminProductsView({ initialProducts }: { initialProducts: Produc
 
                         {/* Collapsible Variants Detail Sub-Table */}
                         {hasVariants && isExpanded && (
-                          <div className="bg-slate-50/90 border-t border-b border-purple-100 px-6 py-4 animate-in slide-in-from-top-1 duration-200">
+                          <div className="bg-slate-50/90 border-t border-b border-purple-100 px-6 py-4 animate-fade-in">
                             <div className="flex items-center justify-between mb-2.5">
                               <div className="flex items-center gap-2">
                                 <Layers className="w-4 h-4 text-purple-600" />
@@ -790,7 +788,7 @@ export function AdminProductsView({ initialProducts }: { initialProducts: Produc
       {/* Modal Thêm / Chỉnh sửa Sản phẩm & Biến thể */}
       {showModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-4xl w-full p-6 md:p-8 shadow-2xl animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[92vh] border border-gray-100">
+          <div className="bg-white rounded-3xl max-w-4xl w-full p-6 md:p-8 shadow-2xl animate-fade-in flex flex-col max-h-[92vh] border border-gray-100">
             {/* Modal Header */}
             <div className="flex items-start justify-between pb-4 border-b border-gray-100">
               <div>
@@ -1119,7 +1117,7 @@ export function AdminProductsView({ initialProducts }: { initialProducts: Produc
 
                   {/* Collapsible Quick Matrix Generator Panel */}
                   {showMatrixGen && (
-                    <div className="p-4 rounded-2xl bg-purple-50/70 border border-purple-200 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="p-4 rounded-2xl bg-purple-50/70 border border-purple-200 space-y-3 animate-fade-in">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Wand2 className="w-4 h-4 text-purple-700" />
@@ -1452,6 +1450,58 @@ export function AdminProductsView({ initialProducts }: { initialProducts: Produc
           </div>
         </div>
       )}
+
+      {/* Dialog xác nhận thay cho confirm() native */}
+      <ConfirmDialog
+        open={confirmState !== null}
+        onClose={() => setConfirmState(null)}
+        onConfirm={() => {
+          if (confirmState?.type === 'clearVariants') {
+            setVariants([]);
+            toast.info('Đã xóa tất cả biến thể');
+          } else if (confirmState?.type === 'deleteProduct') {
+            handleDelete(confirmState.id, confirmState.name);
+          } else if (confirmState?.type === 'matrixMode') {
+            setVariants((prev) => [...prev, ...confirmState.generated]);
+            toast.success(`Đã thêm ${confirmState.count} biến thể mới!`);
+            setShowMatrixGen(false);
+          }
+          setConfirmState(null);
+        }}
+        title={
+          confirmState?.type === 'clearVariants'
+            ? 'Xóa toàn bộ biến thể?'
+            : confirmState?.type === 'deleteProduct'
+              ? `Xóa sản phẩm "${confirmState.name}"?`
+              : `Đã sinh ${confirmState?.type === 'matrixMode' ? confirmState.count : 0} biến thể mới`
+        }
+        description={
+          confirmState?.type === 'clearVariants'
+            ? 'Toàn bộ biến thể sẽ được xóa và sản phẩm quay về dạng đơn thể.'
+            : confirmState?.type === 'deleteProduct'
+              ? 'Sản phẩm và toàn bộ biến thể của nó sẽ bị xóa vĩnh viễn.'
+              : confirmState?.type === 'matrixMode'
+                ? 'Chọn "Thêm vào" để nối vào danh sách hiện có, hoặc "Thay thế" để ghi đè toàn bộ.'
+                : undefined
+        }
+        confirmLabel={
+          confirmState?.type === 'matrixMode' ? 'Thêm vào danh sách' : 'Xóa'
+        }
+        cancelLabel="Giữ lại"
+        variant={confirmState?.type === 'matrixMode' ? 'default' : 'danger'}
+        secondaryAction={
+          confirmState?.type === 'matrixMode'
+            ? {
+                label: 'Thay thế toàn bộ',
+                onClick: () => {
+                  setVariants(confirmState.generated);
+                  toast.success(`Đã thay thế bằng ${confirmState.count} biến thể mới!`);
+                  setShowMatrixGen(false);
+                },
+              }
+            : undefined
+        }
+      />
     </div>
   );
 }

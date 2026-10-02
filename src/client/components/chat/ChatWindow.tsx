@@ -50,7 +50,7 @@ export function ChatWindow({
       }`}
     >
       {/* Chat Header */}
-      <div className="px-4 py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-semibold flex items-center justify-between shadow-sm shrink-0">
+      <div className="px-4 py-3 bg-gradient-to-r from-shop-violet to-shop-violet-deep text-white font-semibold flex items-center justify-between shadow-sm shrink-0">
         <div className="flex items-center gap-2.5 min-w-0">
           {backHref && (
             <Link
@@ -68,7 +68,7 @@ export function ChatWindow({
             <h2 className="text-sm font-semibold truncate leading-tight">
               {otherUserName || 'Chat'}
             </h2>
-            <p className="text-[11px] text-indigo-100/90 font-normal leading-none mt-0.5">
+            <p className="text-[11px] text-violet-wash/90 font-normal leading-none mt-0.5">
               Đang trực tuyến
             </p>
           </div>
@@ -76,7 +76,7 @@ export function ChatWindow({
 
         {orderInfo?.orderCode && (
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/15 border border-white/20 text-xs text-white shrink-0">
-            <ShoppingBag className="w-3.5 h-3.5 text-indigo-200" />
+            <ShoppingBag className="w-3.5 h-3.5 text-violet-wash" />
             <span className="font-medium text-[11px]">Đơn {orderInfo.orderCode}</span>
           </div>
         )}
