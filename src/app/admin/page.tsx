@@ -1,7 +1,7 @@
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@server/modules/auth/auth-options';
 import { redirect } from 'next/navigation';
-import { AdminDashboardView } from '@/client/views/admin/AdminDashboardView';
+import { AdminDashboardView } from '@client/views/admin/AdminDashboardView';
 
 export const dynamic = 'force-dynamic';
 

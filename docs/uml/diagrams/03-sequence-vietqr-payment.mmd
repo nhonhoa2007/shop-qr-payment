@@ -1,0 +1,44 @@
+sequenceDiagram
+    autonumber
+    actor Customer as 👤 Khách hàng
+    participant UI as 🖥️ Storefront (Client)
+    participant API as ⚙️ Order Controller
+    participant Inv as 📦 Inventory Service
+    participant PayOS as 🏦 PayOS Gateway (VietQR)
+    participant BankApp as 📱 App Ngân hàng (NAPAS 247)
+    participant Webhook as 🛡️ Webhook Controller
+    participant DB as 🐘 PostgreSQL (Prisma)
+    participant Pusher as 📡 Pusher Realtime
+    participant GHN as 🚚 GHN Logistics
+
+    Customer->>UI: Bấm "Thanh toán VietQR"
+    UI->>API: POST /api/orders (items, address, coupon)
+    activate API
+    API->>DB: Bắt đầu Database Transaction
+    API->>Inv: reserveOrderStock(tx, items) [Trừ kho nguyên tử]
+    Inv-->>API: Kho hợp lệ (OK)
+    API->>PayOS: createPaymentLink(orderCode, amount)
+    PayOS-->>API: Trả về qrContent & checkoutUrl
+    API->>DB: Lưu Order (status: PENDING, paymentStatus: UNPAID, expiresAt: +15m)
+    API-->>UI: Trả về qrContent & orderCode
+    deactivate API
+
+    UI-->>Customer: Hiển thị mã QR ngân hàng kèm đồng hồ đếm ngược 15:00
+    Customer->>BankApp: Quét mã VietQR & Xác nhận chuyển khoản NAPAS 247
+    BankApp->>PayOS: Xử lý giao dịch liên ngân hàng thành công
+    PayOS->>Webhook: POST /api/webhooks/payos (Payload kèm chữ ký HMAC-SHA256)
+
+    activate Webhook
+    Webhook->>Webhook: verifyPayOSWebhookSignature(timingSafeEqual)
+    Webhook->>DB: Kiểm tra Idempotency (bankTransId đã xử lý chưa?)
+    Webhook->>DB: Atomic Update Order (status: CONFIRMED, paymentStatus: PAID)
+    Webhook->>DB: Lưu Transaction (bankTransId, amount, verified: true)
+    Webhook->>GHN: createGHNShipment (Tự động sinh vận đơn giao hàng)
+    GHN-->>Webhook: Trả về trackingCode GHN
+    Webhook->>DB: Lưu Shipment (trackingCode, status: READY_TO_PICK)
+    Webhook->>Pusher: trigger("order-paid", "analytics-updated")
+    Webhook-->>PayOS: HTTP 200 OK (Ghi nhận thành công)
+    deactivate Webhook
+
+    Pusher-->>UI: Bắn sự kiện "order-paid" qua WebSocket
+    UI-->>Customer: Tự động chuyển màn hình "Thanh toán Thành công! Đơn hàng đã xác nhận"

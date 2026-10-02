@@ -1,0 +1,38 @@
+sequenceDiagram
+    autonumber
+    actor User as 👤 Khách hàng / Admin
+    participant UI as 🖥️ Giao diện Web (Client)
+    participant OrderCtrl as ⚙️ OrderDetail Controller
+    participant WalletSvc as 💳 Wallet Service
+    participant DB as 🐘 PostgreSQL (Prisma)
+    participant InvSvc as 📦 Inventory Service
+    participant Pusher as 📡 Pusher Realtime Cloud
+
+    User->>UI: Bấm "Hủy đơn hàng & Hoàn tiền vào Ví"
+    UI->>OrderCtrl: PATCH /api/orders/{id} (status: CANCELLED)
+    activate OrderCtrl
+    OrderCtrl->>WalletSvc: refundOrderToWallet(orderId)
+
+    activate WalletSvc
+    WalletSvc->>DB: Bắt đầu prisma.$transaction
+    WalletSvc->>DB: updateMany (where: {id, paymentStatus: PAID}, data: {paymentStatus: REFUNDED})
+
+    alt updateResult.count !== 1 (Đã hoàn tiền trước đó hoặc chưa thanh toán)
+        DB-->>WalletSvc: count = 0 (Race Condition / Double Refund Blocked)
+        WalletSvc-->>OrderCtrl: Throw Error: Đơn không ở trạng thái PAID
+        OrderCtrl-->>UI: HTTP 400 Bad Request (Không thể hoàn tiền trùng lặp)
+    else updateResult.count === 1 (Chính xác 1 lần hoàn tiền)
+        DB-->>WalletSvc: count = 1 (Atomic CAS thành công)
+        WalletSvc->>DB: update UserWallet (balance += totalAmount)
+        WalletSvc->>DB: create WalletTransaction (type: REFUND, orderId)
+        WalletSvc->>InvSvc: releaseOrderStock(tx, order.items)
+        InvSvc->>DB: Tăng lại stock cho Product & ProductVariant
+        WalletSvc->>Pusher: trigger private-user-{userId} ('wallet-updated')
+        WalletSvc->>Pusher: trigger private-admin-channel ('analytics-updated')
+        WalletSvc-->>OrderCtrl: Hoàn tiền thành công
+        deactivate WalletSvc
+        OrderCtrl-->>UI: HTTP 200 OK (Đơn đã hủy & tiền đã hoàn vào ví)
+    end
+    deactivate OrderCtrl
+
+    UI-->>User: Hiển thị thông báo "Đã hoàn 100% tiền vào Ví Shop thành công!"

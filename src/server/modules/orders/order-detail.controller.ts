@@ -1,20 +1,21 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import type { OrderStatus, PaymentStatus } from '@/types';
-import { prisma } from '@/lib/prisma';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { createNotification } from '@/lib/notifications';
-import { pusherServer } from '@/lib/pusher-server';
-import { formatVND } from '@/lib/utils';
-import { releaseOrderStock } from '@/lib/inventory';
-import { createGHNShipment } from '@/lib/ghn';
-import { refundOrderToWallet } from '@/lib/wallet';
+import { prisma } from '@server/database/prisma';
+import { authOptions } from '@server/modules/auth/auth-options';
+import { createNotification } from '@server/modules/notifications/notifications.service';
+import { pusherServer } from '@server/infrastructure/pusher';
+import { formatVND } from '@shared/utils';
+import { releaseOrderStock } from '@server/modules/inventory/inventory.service';
+import { createGHNShipment } from '@server/modules/shipping/ghn.service';
+import { refundOrderToWallet } from '@server/modules/wallet/wallet.service';
 import {
   STATUS_NOTIFICATION_MAP,
+  canCustomerCancelOrder,
   isOrderStatus,
   isPaymentStatus,
   validateOrderTransition,
-} from '@/lib/order-transitions';
+} from '@server/modules/orders/orders.fsm';
 
 interface UpdateOrderBody {
   status?: unknown;
@@ -66,8 +67,8 @@ export async function PATCH(
     const { id } = await params;
     const session = await getServerSession(authOptions);
 
-    if (!session?.user || session.user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 403 });
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = (await req.json()) as UpdateOrderBody;
@@ -88,6 +89,37 @@ export async function PATCH(
 
     if (!currentOrder) {
       return NextResponse.json({ error: 'Không tìm thấy đơn hàng' }, { status: 404 });
+    }
+
+    const isAdmin = session.user.role === 'ADMIN';
+
+    if (!isAdmin) {
+      // 1. Phải là chủ nhân đơn hàng
+      if (currentOrder.userId !== session.user.id) {
+        return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 403 });
+      }
+
+      // 2. Khách hàng không được can thiệp trạng thái thanh toán
+      if (paymentStatus !== undefined) {
+        return NextResponse.json(
+          { error: 'Khách hàng không được phép cập nhật trạng thái thanh toán' },
+          { status: 403 }
+        );
+      }
+
+      // 3. Khách hàng chỉ được phép yêu cầu hủy đơn hàng
+      if (status !== 'CANCELLED') {
+        return NextResponse.json(
+          { error: 'Khách hàng chỉ có quyền yêu cầu hủy đơn hàng' },
+          { status: 403 }
+        );
+      }
+
+      // 4. Kiểm tra điều kiện hủy (chỉ khi đơn ở trạng thái PENDING)
+      const cancelCheck = canCustomerCancelOrder(currentOrder, session.user.id);
+      if (!cancelCheck.allowed) {
+        return NextResponse.json({ error: cancelCheck.reason }, { status: 400 });
+      }
     }
 
     const nextStatus = status as OrderStatus | undefined;
@@ -117,14 +149,17 @@ export async function PATCH(
         where: { id },
         data: {
           ...(nextStatus && { status: nextStatus }),
-          ...(nextPaymentStatus && { paymentStatus: nextPaymentStatus }),
+          ...(!shouldRefundPaidOrder && nextPaymentStatus && { paymentStatus: nextPaymentStatus }),
         },
         include: { items: { include: { product: true, variant: true } } },
       });
 
       if (shouldRefundPaidOrder) {
-        await refundOrderToWallet(tx, currentOrder.id, 'Hủy đơn hàng bởi Quản trị viên');
-        await releaseOrderStock(tx, currentOrder.items);
+        await refundOrderToWallet(
+          tx,
+          currentOrder.id,
+          isAdmin ? 'Hủy đơn hàng bởi Quản trị viên' : 'Hủy đơn hàng bởi khách hàng'
+        );
       } else if (shouldReleaseStock) {
         await releaseOrderStock(tx, currentOrder.items);
 
@@ -147,16 +182,22 @@ export async function PATCH(
         }
       }
 
-      // Tự động khởi tạo vận đơn GHN khi đơn hàng chuyển sang PROCESSING
-      if (nextStatus === 'PROCESSING' && !currentOrder.shipment) {
+      return order;
+    });
+
+    // Tự động khởi tạo vận đơn GHN khi đơn hàng chuyển sang PROCESSING (thực thi ngoài DB Transaction để giải phóng Connection Pool)
+    if (nextStatus === 'PROCESSING' && !currentOrder.shipment) {
+      try {
+        const toDistrictId = Number(process.env.DEFAULT_TO_DISTRICT_ID) || 1442;
+        const toWardCode = process.env.DEFAULT_TO_WARD_CODE || '20101';
         const shipmentResult = await createGHNShipment({
           orderId: currentOrder.id,
           orderCode: currentOrder.orderCode,
           customerName: currentOrder.customerName,
           customerPhone: currentOrder.customerPhone,
           customerAddress: currentOrder.customerAddress,
-          toDistrictId: 1442,
-          toWardCode: '20101',
+          toDistrictId,
+          toWardCode,
           items: currentOrder.items.map((i) => ({
             name: i.product?.name || 'Sản phẩm',
             quantity: i.quantity,
@@ -165,7 +206,7 @@ export async function PATCH(
           codAmount: currentOrder.paymentStatus === 'PAID' ? 0 : currentOrder.totalAmount,
         });
 
-        await tx.shipment.create({
+        await prisma.shipment.create({
           data: {
             orderId: currentOrder.id,
             carrier: shipmentResult.carrier,
@@ -183,10 +224,10 @@ export async function PATCH(
             ],
           },
         });
+      } catch (shipmentErr) {
+        console.error('[GHN Shipment] Lỗi khởi tạo vận đơn tự động:', shipmentErr);
       }
-
-      return order;
-    });
+    }
 
     if (currentOrder.userId) {
       if (nextPaymentStatus === 'PAID' && currentOrder.paymentStatus !== 'PAID') {
@@ -235,7 +276,11 @@ export async function PATCH(
       if (nextPaymentStatus === 'PAID' && currentOrder.paymentStatus !== 'PAID') {
         sysMsg = `Đơn hàng ${currentOrder.orderCode} đã được xác nhận thanh toán thành công.`;
       } else if (nextStatus && nextStatus !== currentOrder.status) {
-        sysMsg = `Trạng thái đơn hàng cập nhật: ${nextStatus}`;
+        sysMsg = nextStatus === 'CANCELLED'
+          ? (isAdmin
+              ? `Quản trị viên đã hủy đơn hàng ${currentOrder.orderCode}.`
+              : `Khách hàng đã hủy đơn hàng ${currentOrder.orderCode}.`)
+          : `Trạng thái đơn hàng cập nhật: ${nextStatus}`;
       }
 
       if (sysMsg) {
@@ -254,6 +299,27 @@ export async function PATCH(
           createdAt: new Date().toISOString(),
         });
       }
+    }
+
+    if (currentOrder.userId && nextStatus) {
+      try {
+        await pusherServer.trigger(`private-user-${currentOrder.userId}`, 'order-status-changed', {
+          orderId: currentOrder.id,
+          orderCode: currentOrder.orderCode,
+          status: nextStatus,
+        });
+      } catch (pusherUserErr) {
+        console.error('[Order Detail] Pusher user trigger error:', pusherUserErr);
+      }
+    }
+
+    try {
+      await pusherServer.trigger('private-admin-channel', 'analytics-updated', {
+        type: 'ORDER_STATUS_CHANGED',
+        timestamp: Date.now(),
+      });
+    } catch (pusherErr) {
+      console.error('[Order Detail] Pusher admin trigger error:', pusherErr);
     }
 
     return NextResponse.json({ order: updatedOrder });

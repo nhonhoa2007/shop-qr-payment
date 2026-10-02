@@ -28,18 +28,18 @@ export function MessageInput({ onSend, onTyping }: MessageInputProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex items-center gap-2 p-3 border-t bg-white">
+    <form onSubmit={handleSubmit} className="flex items-center gap-2 p-3 border-t border-slate-200/80 bg-white">
       <input
         type="text"
         value={value}
         onChange={handleChange}
         placeholder="Nhập tin nhắn..."
-        className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-sm"
+        className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-shop-violet/30 focus:border-shop-violet outline-none transition text-sm text-slate-800 placeholder:text-slate-400"
       />
       <button
         type="submit"
         disabled={!value.trim()}
-        className="bg-blue-600 text-white p-2.5 rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+        className="bg-shop-violet text-white p-2.5 rounded-xl hover:bg-shop-violet-deep disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />

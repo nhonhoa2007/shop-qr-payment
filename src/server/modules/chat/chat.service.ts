@@ -58,12 +58,42 @@ export class ChatService {
     allowed: boolean;
     messages: Message[];
     otherName: string;
+    order?: { orderCode: string } | null;
   }> {
-    const participant = await prisma.chatRoomParticipant.findUnique({
+    const room = await prisma.chatRoom.findUnique({
+      where: { id: roomId },
+      include: {
+        order: { select: { orderCode: true } },
+        participants: {
+          where: { userId: { not: userId } },
+          include: { user: { select: { id: true, name: true, avatar: true } } },
+        },
+      },
+    });
+
+    if (!room) {
+      return { allowed: false, messages: [], otherName: '', order: null };
+    }
+
+    let participant = await prisma.chatRoomParticipant.findUnique({
       where: { roomId_userId: { roomId, userId } },
     });
+
     if (!participant) {
-      return { allowed: false, messages: [], otherName: '' };
+      const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+      if (user?.role === 'ADMIN') {
+        try {
+          participant = await prisma.chatRoomParticipant.create({
+            data: { roomId, userId },
+          });
+        } catch {
+          participant = await prisma.chatRoomParticipant.findUnique({
+            where: { roomId_userId: { roomId, userId } },
+          });
+        }
+      } else {
+        return { allowed: false, messages: [], otherName: '', order: null };
+      }
     }
 
     const rawMessages = await prisma.message.findMany({
@@ -73,19 +103,8 @@ export class ChatService {
       take: 100,
     });
 
-    const room = await prisma.chatRoom.findUnique({
-      where: { id: roomId },
-      include: {
-        order: { select: { orderCode: true } },
-        participants: {
-          where: { userId: { not: userId } },
-          include: { user: { select: { name: true } } },
-        },
-      },
-    });
-
     const otherName =
-      room?.participants[0]?.user?.name || (room?.order ? `Đơn ${room.order.orderCode}` : 'Chat');
+      room.participants[0]?.user?.name || (room.order ? `Đơn ${room.order.orderCode}` : 'Chat');
 
     const messages: Message[] = rawMessages.map((message) => ({
       ...message,
@@ -96,6 +115,7 @@ export class ChatService {
       allowed: true,
       messages,
       otherName,
+      order: room.order,
     };
   }
 }

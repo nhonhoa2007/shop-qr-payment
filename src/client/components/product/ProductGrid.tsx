@@ -1,4 +1,4 @@
-import type { Product } from '@/types';
+import type { Product } from '@shared/types';
 import { ProductCard } from './ProductCard';
 
 export function ProductGrid({ products }: { products: Product[] }) {

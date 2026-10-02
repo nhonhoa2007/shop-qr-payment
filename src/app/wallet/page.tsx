@@ -2,7 +2,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { redirect } from 'next/navigation';
 import { getWalletDetails } from '@/lib/wallet';
-import { WalletView } from '@/client/views/WalletView';
+import { WalletView } from '@client/views/WalletView';
 import type { Metadata } from 'next';
 import type { WalletTransaction } from '@/types';
 

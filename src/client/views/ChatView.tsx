@@ -1,8 +1,8 @@
 'use client';
 
-import { ChatRoomList } from '@/client/components/chat/ChatRoomList';
+import { ChatRoomList } from '@client/components/chat/ChatRoomList';
 import { MessageSquare, Inbox } from 'lucide-react';
-import type { ChatRoom } from '@/types';
+import type { ChatRoom } from '@shared/types';
 
 export interface ChatViewProps {
   rooms: ChatRoom[];
@@ -12,7 +12,7 @@ export function ChatView({ rooms }: ChatViewProps) {
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
       <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-sm">
+        <div className="w-10 h-10 rounded-xl bg-shop-violet/10 border border-violet-wash/50 flex items-center justify-center text-shop-violet shadow-sm">
           <MessageSquare className="w-5 h-5" />
         </div>
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">

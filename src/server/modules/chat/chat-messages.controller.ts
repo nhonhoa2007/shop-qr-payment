@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { prisma } from '@/lib/prisma';
-import { pusherServer } from '@/lib/pusher-server';
-import { createNotification } from '@/lib/notifications';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { prisma } from '@server/database/prisma';
+import { pusherServer } from '@server/infrastructure/pusher';
+import { createNotification } from '@server/modules/notifications/notifications.service';
+import { authOptions } from '@server/modules/auth/auth-options';
 
 export async function POST(req: Request) {
   try {
@@ -13,10 +13,24 @@ export async function POST(req: Request) {
     const { roomId, content, type = 'TEXT' } = await req.json();
     if (!roomId || !content) return NextResponse.json({ error: 'Missing data' }, { status: 400 });
 
-    const participant = await prisma.chatRoomParticipant.findUnique({
+    let participant = await prisma.chatRoomParticipant.findUnique({
       where: { roomId_userId: { roomId, userId: session.user.id } },
     });
-    if (!participant) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (!participant) {
+      if (session.user.role === 'ADMIN') {
+        try {
+          participant = await prisma.chatRoomParticipant.create({
+            data: { roomId, userId: session.user.id },
+          });
+        } catch {
+          participant = await prisma.chatRoomParticipant.findUnique({
+            where: { roomId_userId: { roomId, userId: session.user.id } },
+          });
+        }
+      } else {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+    }
 
     const message = await prisma.message.create({
       data: { roomId, senderId: session.user.id, content, type },
@@ -68,10 +82,24 @@ export async function GET(req: Request) {
     const roomId = searchParams.get('roomId');
     if (!roomId) return NextResponse.json({ error: 'Missing roomId' }, { status: 400 });
 
-    const participant = await prisma.chatRoomParticipant.findUnique({
+    let participant = await prisma.chatRoomParticipant.findUnique({
       where: { roomId_userId: { roomId, userId: session.user.id } },
     });
-    if (!participant) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (!participant) {
+      if (session.user.role === 'ADMIN') {
+        try {
+          participant = await prisma.chatRoomParticipant.create({
+            data: { roomId, userId: session.user.id },
+          });
+        } catch {
+          participant = await prisma.chatRoomParticipant.findUnique({
+            where: { roomId_userId: { roomId, userId: session.user.id } },
+          });
+        }
+      } else {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+    }
 
     const messages = await prisma.message.findMany({
       where: { roomId },

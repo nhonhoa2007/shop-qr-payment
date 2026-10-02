@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import type { ShipmentStatus, OrderStatus, CarrierName } from '@/types';
 
 export const GHN_API_BASE_URL =
@@ -117,7 +118,23 @@ export function mapGHNStatusToShipmentStatus(ghnStatus: string): GHNStatusMappin
 }
 
 /**
- * Tính toán cước phí vận chuyển GHN
+ * Tính toán cước phí vận chuyển Giao Hàng Nhanh (GHN Logistics Fee Engine)
+ *
+ * @param params.toDistrictId - Mã quận/huyện đích đến theo danh mục GHN
+ * @param params.toWardCode - Mã phường/xã đích đến theo danh mục GHN
+ * @param params.weight - Khối lượng kiện hàng (gram, mặc định 500g)
+ * @param params.subtotal - Tổng tiền hàng của đơn hàng (dùng xét ngưỡng freeship & phí bảo hiểm)
+ * @param params.serviceTypeId - Loại dịch vụ GHN (mặc định 2: Chuẩn / E-commerce)
+ * @returns `GHNCalculateFeeResult` chứa tổng phí vận chuyển, phí bảo hiểm và trạng thái freeship
+ *
+ * @business Rules & Heuristic Fallback
+ * 1. Ngưỡng miễn phí vận chuyển (Free Shipping Threshold):
+ *    - Nếu `subtotal >= 500,000 VND`, cước phí tự động trả về `0 VND` (`isFreeShipping: true`).
+ * 2. Tích hợp trực tiếp GHN OpenAPI v2:
+ *    - Gửi request đến `POST /v2/shipping-order/fee` kèm Header `Token` và `ShopId`.
+ * 3. Fallback theo bậc thang khối lượng (Heuristic Fallback):
+ *    - Khi không có kết nối API hoặc chạy local offline: Cước cố định 30,000 VND cho 500g đầu tiên,
+ *      cộng thêm 5,000 VND cho mỗi 500g tiếp theo (`30k + ceil((weight - 500) / 500) * 5k`).
  */
 export async function calculateGHNFee(
   params: GHNCalculateFeeParams
@@ -191,7 +208,16 @@ export async function calculateGHNFee(
 }
 
 /**
- * Tạo vận đơn GHN khi đơn hàng chuyển sang PROCESSING
+ * Khởi tạo vận đơn thực tế qua GHN OpenAPI v2 khi đơn hàng chuyển sang trạng thái PROCESSING
+ *
+ * @param params - Chi tiết đơn hàng, địa chỉ người nhận, danh sách mặt hàng và tiền thu hộ COD
+ * @returns `GHNCreateOrderResult` chứa mã tracking vận đơn (`trackingCode`), phí vận chuyển và thời gian dự kiến
+ *
+ * @workflow & Invariants
+ * 1. Tự động tính toán tổng trọng lượng kiện hàng dựa trên danh mục items (mặc định 250g/item).
+ * 2. Gửi request tạo vận đơn sang GHN OpenAPI `POST /v2/shipping-order/create`.
+ * 3. Nếu không có kết nối API (môi trường dev): Tự sinh mã vận đơn mô phỏng `GHN...` hợp lệ để đảm bảo
+ *    luồng thử nghiệm hoàn tất đơn hàng không bị gián đoạn.
  */
 export async function createGHNShipment(
   params: GHNCreateOrderParams
@@ -266,4 +292,64 @@ export async function createGHNShipment(
     carrier: 'GHN',
     source: 'MOCK',
   };
+}
+
+/**
+ * Xác thực bảo mật yêu cầu Webhook từ hệ thống GHN Logistics (Security Invariant SEC-01)
+ *
+ * @param req - HTTP Request gửi tới endpoint `/api/webhooks/ghn`
+ * @param ghnWebhookToken - Khóa bảo mật mong đợi cấu hình trong env `GHN_WEBHOOK_TOKEN`
+ * @param nodeEnv - Môi trường runtime hiện tại (`production`, `development`, `test`)
+ * @returns `{ authorized: boolean; status?: number; error?: string }`
+ *
+ * @security Protocol (Fail-Closed & Timing Attack Protection)
+ * 1. Chế độ Fail-Closed trong Production:
+ *    - Nếu `NODE_ENV === 'production'` và `GHN_WEBHOOK_TOKEN` chưa được thiết lập hoặc rỗng,
+ *      hệ thống ngay lập tức từ chối với status 500 để ngăn chặn lỗ hổng giả mạo cập nhật đơn hàng.
+ * 2. Hỗ trợ đa dạng HTTP Headers:
+ *    - GHN có thể truyền token qua header `token` hoặc `x-ghn-token`.
+ * 3. So sánh chuỗi an toàn thời gian hằng số (Timing-Safe Equal):
+ *    - Sử dụng `crypto.timingSafeEqual` đối chiếu byte nhị phân của token, chặn đứng nguy cơ tấn công kênh kề (Side-channel Timing Attack).
+ */
+export function verifyGHNWebhookAuth(
+  req: Request,
+  ghnWebhookToken: string | undefined = process.env.GHN_WEBHOOK_TOKEN,
+  nodeEnv: string | undefined = process.env.NODE_ENV
+): { authorized: boolean; status?: number; error?: string } {
+  const isProduction = nodeEnv === 'production';
+
+  if (isProduction && (!ghnWebhookToken || ghnWebhookToken.trim() === '')) {
+    console.error('[GHN Webhook] GHN_WEBHOOK_TOKEN chưa được cấu hình trong môi trường production');
+    return {
+      authorized: false,
+      status: 500,
+      error: 'Webhook chưa được cấu hình bảo mật',
+    };
+  }
+
+  if (ghnWebhookToken && ghnWebhookToken.trim() !== '') {
+    const incomingToken =
+      req.headers.get('token') ||
+      req.headers.get('x-ghn-token') ||
+      '';
+
+    const safeCompare = (a: string, b: string): boolean => {
+      const bufA = Buffer.from(a);
+      const bufB = Buffer.from(b);
+      if (bufA.length !== bufB.length) return false;
+      return crypto.timingSafeEqual(bufA, bufB);
+    };
+
+    if (!incomingToken || !safeCompare(incomingToken.trim(), ghnWebhookToken.trim())) {
+      return {
+        authorized: false,
+        status: 401,
+        error: 'Unauthorized',
+      };
+    }
+  } else {
+    console.warn('[GHN Webhook] Cảnh báo: GHN_WEBHOOK_TOKEN chưa được cấu hình trong môi trường phát triển');
+  }
+
+  return { authorized: true };
 }

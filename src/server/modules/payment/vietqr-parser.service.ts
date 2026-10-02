@@ -1,3 +1,5 @@
+import crypto from 'node:crypto';
+
 export interface BankTransactionPayload {
   id?: string | number | null;
   amount?: number | string | null;
@@ -6,11 +8,50 @@ export interface BankTransactionPayload {
   when?: string | null;
 }
 
+/**
+ * So sánh an toàn hai chuỗi ký tự bằng thuật toán hằng số thời gian (Constant-time comparison)
+ * Ngăn chặn triệt để tấn công kênh bên đo thời gian (Timing Attacks) đối với Token / Chữ ký số / Idempotency Token
+ */
+export function safeCompare(a: string, b: string): boolean {
+  if (!a || !b || typeof a !== 'string' || typeof b !== 'string') return false;
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
+/**
+ * Trích xuất mã đơn hàng từ chuỗi nội dung chuyển khoản ngân hàng (VietQR Transfer Description Parser)
+ *
+ * @param description - Chuỗi nội dung tin nhắn báo có biến động số dư ngân hàng
+ * @returns Mã đơn chuẩn dạng `DH123456` nếu khớp mẫu regex; trả về `null` nếu không tìm thấy
+ *
+ * @rules & Regex Matching
+ * - Nhận diện tiền tố `DH` không phân biệt hoa thường (`/DH\s*([0-9]{6,}[A-Z0-9]*)/i`).
+ * - Xử lý trường hợp người dùng gõ có khoảng trắng giữa tiền tố và số (vd: "DH 100001" -> "DH100001").
+ */
 export function parseOrderCodeFromDescription(description: string | null | undefined): string | null {
   if (!description) return null;
 
   const match = description.toUpperCase().match(/DH\s*([0-9]{6,}[A-Z0-9]*)/i);
   return match ? `DH${match[1]}` : null;
+}
+
+/**
+ * Trích xuất mã giao dịch nạp tiền ví từ chuỗi nội dung chuyển khoản ngân hàng (NAPxxxxx)
+ *
+ * @param description - Chuỗi nội dung tin nhắn báo có biến động số dư ngân hàng
+ * @returns Mã nạp ví chuẩn dạng `NAPxxxxx` nếu khớp mẫu regex; trả về `null` nếu không tìm thấy
+ *
+ * @rules & Regex Matching
+ * - Nhận diện tiền tố `NAP` không phân biệt hoa thường (`/NAP\s*([0-9A-Z]{4,})/i`).
+ * - Hỗ trợ các trường hợp gõ có khoảng trắng (vd: "NAP 260924001" -> "NAP260924001").
+ */
+export function parseTopupCodeFromDescription(description: string | null | undefined): string | null {
+  if (!description) return null;
+
+  const match = description.toUpperCase().match(/NAP\s*([0-9A-Z]{4,})/i);
+  return match ? `NAP${match[1]}` : null;
 }
 
 export function getTransactionAmount(transaction: BankTransactionPayload): number | null {
@@ -44,6 +85,27 @@ export type WebhookProcessDecision =
       transactionId: string | null;
     };
 
+/**
+ * Đánh giá quyết định xử lý webhook chuyển khoản ngân hàng (Webhook Idempotency & Validation Decision Matrix)
+ *
+ * @param txn - Dữ liệu giao dịch ngân hàng từ webhook (`id`, `amount`, `description`)
+ * @param context.isDuplicateTransaction - Cờ kiểm tra giao dịch đã từng xử lý trước đó hay chưa (trùng mã `bankTransId`)
+ * @param context.order - Thông tin đơn hàng tìm thấy trong database (hoặc `null` nếu không có)
+ * @returns `WebhookProcessDecision`: `{ action: 'PROCESS', ... }` nếu hợp lệ để xác nhận đơn; hoặc `{ action: 'SKIP', reason }` nếu cần bỏ qua
+ *
+ * @idempotency & Security Hierarchy
+ * 1. Chống tấn công phát lại (Replay Attack Prevention):
+ *    - Ưu tiên kiểm tra `isDuplicateTransaction`: Bỏ qua ngay nếu mã giao dịch ngân hàng đã tồn tại trong DB (`DUPLICATE_TRANSACTION`).
+ * 2. Tính toàn vẹn cú pháp:
+ *    - Bỏ qua nếu không trích xuất được mã đơn (`NO_ORDER_CODE`) hoặc số tiền không hợp lệ (`INVALID_AMOUNT`).
+ * 3. Bảo vệ trạng thái đơn hàng (Order Lifecycle Guards):
+ *    - Không tìm thấy đơn: `ORDER_NOT_FOUND`.
+ *    - Đơn đã xác nhận thanh toán: `ALREADY_PAID` (đảm bảo tính lũy đẳng idempotency khi đối tác retry webhook).
+ *    - Đơn đã hết hạn thanh toán: `ORDER_EXPIRED`.
+ *    - Đơn đã bị hủy: `ORDER_CANCELLED`.
+ * 4. Chống chuyển thiếu tiền (Underpaid Protection):
+ *    - Nếu `amount < order.totalAmount`: Bỏ qua với lý do `UNDERPAID` (ngăn chặn gian lận chuyển 1đ để kích hoạt đơn tiền triệu).
+ */
 export function evaluateWebhookDecision(
   txn: BankTransactionPayload,
   context: {
@@ -98,3 +160,76 @@ export function evaluateWebhookDecision(
     transactionId,
   };
 }
+
+export type TopupWebhookProcessDecision =
+  | {
+      action: 'SKIP';
+      reason:
+        | 'DUPLICATE_TRANSACTION'
+        | 'NO_TOPUP_CODE'
+        | 'INVALID_AMOUNT'
+        | 'SESSION_NOT_FOUND'
+        | 'ALREADY_COMPLETED'
+        | 'UNDERPAID';
+    }
+  | {
+      action: 'PROCESS';
+      topupCode: string;
+      amount: number;
+      transactionId: string | null;
+    };
+
+/**
+ * Đánh giá quyết định xử lý webhook nạp tiền ví điện tử (Top-up Idempotency & Validation Decision Matrix)
+ *
+ * @param txn - Dữ liệu giao dịch ngân hàng từ webhook (`id`, `amount`, `description`)
+ * @param context.isDuplicateTransaction - Cờ kiểm tra giao dịch đã từng xử lý trước đó hay chưa (trùng mã `bankTransId`)
+ * @param context.session - Thông tin phiên nạp tiền tìm thấy trong DB/Cache
+ * @returns `TopupWebhookProcessDecision`
+ */
+export function evaluateTopupWebhookDecision(
+  txn: BankTransactionPayload,
+  context: {
+    isDuplicateTransaction: boolean;
+    session: {
+      topupCode: string;
+      amount: number;
+      status: string;
+    } | null;
+  }
+): TopupWebhookProcessDecision {
+  const transactionId = getTransactionId(txn);
+  if (transactionId && context.isDuplicateTransaction) {
+    return { action: 'SKIP', reason: 'DUPLICATE_TRANSACTION' };
+  }
+
+  const matchedCode = parseTopupCodeFromDescription(txn.description);
+  if (!matchedCode) {
+    return { action: 'SKIP', reason: 'NO_TOPUP_CODE' };
+  }
+
+  const amount = getTransactionAmount(txn);
+  if (!amount || amount <= 0) {
+    return { action: 'SKIP', reason: 'INVALID_AMOUNT' };
+  }
+
+  if (!context.session) {
+    return { action: 'SKIP', reason: 'SESSION_NOT_FOUND' };
+  }
+
+  if (context.session.status === 'COMPLETED') {
+    return { action: 'SKIP', reason: 'ALREADY_COMPLETED' };
+  }
+
+  if (amount < context.session.amount) {
+    return { action: 'SKIP', reason: 'UNDERPAID' };
+  }
+
+  return {
+    action: 'PROCESS',
+    topupCode: matchedCode,
+    amount,
+    transactionId,
+  };
+}
+

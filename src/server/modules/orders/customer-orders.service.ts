@@ -1,14 +1,18 @@
-import { prisma } from '@/server/database/prisma';
-import type { SerializedOrder } from '@/client/views/OrdersView';
+import { prisma } from '@server/database/prisma';
+import type { SerializedOrder, SerializedShipmentLog } from '@shared/types';
 
 export class CustomerOrderService {
   /**
    * Lấy lịch sử đơn hàng của người dùng (hoặc toàn bộ nếu là ADMIN)
+   * Kèm thông tin vận đơn GHN Logistics và lộ trình giao hàng trực tiếp
    */
   static async getCustomerOrders(userId: string, role?: string): Promise<SerializedOrder[]> {
     const orders = await prisma.order.findMany({
       where: role === 'ADMIN' ? {} : { userId },
-      include: { items: { include: { product: true } } },
+      include: {
+        items: { include: { product: true } },
+        shipment: true,
+      },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -25,8 +29,27 @@ export class CustomerOrderService {
         price: item.price,
         product: {
           name: item.product.name,
+          image: item.product.image,
         },
+        variantTitle: item.variantTitle,
       })),
+      shipment: order.shipment
+        ? {
+            id: order.shipment.id,
+            carrier: order.shipment.carrier,
+            trackingCode: order.shipment.trackingCode,
+            shippingFee: order.shipment.shippingFee,
+            codAmount: order.shipment.codAmount,
+            status: order.shipment.status,
+            estimatedArrival: order.shipment.estimatedArrival
+              ? order.shipment.estimatedArrival.toISOString()
+              : null,
+            shippingLogs: Array.isArray(order.shipment.shippingLogs)
+              ? (order.shipment.shippingLogs as unknown as SerializedShipmentLog[])
+              : [],
+            createdAt: order.shipment.createdAt.toISOString(),
+          }
+        : null,
     }));
   }
 

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@server/database/prisma';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 export async function POST(req: Request) {
@@ -15,12 +15,28 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing roomId' }, { status: 400 });
     }
 
-    const participant = await prisma.chatRoomParticipant.findUnique({
+    let participant = await prisma.chatRoomParticipant.findUnique({
       where: { roomId_userId: { roomId, userId: session.user.id } },
     });
 
     if (!participant) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      if (session.user.role === 'ADMIN') {
+        try {
+          participant = await prisma.chatRoomParticipant.create({
+            data: { roomId, userId: session.user.id },
+          });
+        } catch {
+          participant = await prisma.chatRoomParticipant.findUnique({
+            where: { roomId_userId: { roomId, userId: session.user.id } },
+          });
+        }
+      } else {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+    }
+
+    if (!participant) {
+      return NextResponse.json({ error: 'Participant not found' }, { status: 404 });
     }
 
     // Mark messages sent by OTHERS in this room as read

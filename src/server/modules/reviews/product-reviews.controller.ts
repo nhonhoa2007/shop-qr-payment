@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { prisma } from '@/lib/prisma';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { prisma } from '@server/database/prisma';
+import { authOptions } from '@server/modules/auth/auth-options';
+import {
+  validateReviewSubmissionInput,
+  resolveReviewEligibility,
+} from './review.service';
 
 export async function GET(
   req: Request,
@@ -9,11 +13,12 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    
+
     const product = await prisma.product.findUnique({
-      where: { id }
+      where: { id },
+      select: { id: true },
     });
-    
+
     if (!product) {
       return NextResponse.json({ error: 'Không tìm thấy sản phẩm' }, { status: 404 });
     }
@@ -29,12 +34,12 @@ export async function GET(
             id: true,
             name: true,
             avatar: true,
-          }
-        }
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',
-      }
+      },
     });
 
     const total = reviews.length;
@@ -44,10 +49,62 @@ export async function GET(
       avgRating = Number((sum / total).toFixed(1));
     }
 
+    // Eligibility check for authenticated user
+    let canReview = false;
+    let eligibleOrders: Array<{ id: string; orderCode: string; createdAt: Date | string }> = [];
+    let alreadyReviewedAll = false;
+
+    const session = await getServerSession(authOptions);
+    if (session?.user?.id) {
+      const userOrders = await prisma.order.findMany({
+        where: {
+          userId: session.user.id,
+          items: {
+            some: { productId: id },
+          },
+        },
+        include: {
+          items: {
+            where: { productId: id },
+            select: { productId: true },
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      const existingReviews = await prisma.review.findMany({
+        where: {
+          productId: id,
+          userId: session.user.id,
+        },
+        select: {
+          orderId: true,
+        },
+      });
+
+      const eligibility = resolveReviewEligibility({
+        userId: session.user.id,
+        productId: id,
+        userOrders,
+        existingReviews,
+      });
+
+      canReview = eligibility.eligible;
+      alreadyReviewedAll = !!eligibility.alreadyReviewedAll;
+      if (eligibility.availableOrders) {
+        eligibleOrders = eligibility.availableOrders;
+      }
+    }
+
     return NextResponse.json({
       reviews,
       avgRating,
       total,
+      canReview,
+      eligibleOrders,
+      alreadyReviewedAll,
     });
   } catch (error) {
     console.error('Get reviews error:', error);
@@ -61,73 +118,90 @@ export async function POST(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { id } = await params;
     const body = await req.json();
-    const { rating, comment, images, orderId } = body;
 
-    if (!rating || typeof rating !== 'number' || rating < 1 || rating > 5) {
-      return NextResponse.json({ error: 'Rating không hợp lệ (1-5)' }, { status: 400 });
+    const validation = validateReviewSubmissionInput(body);
+    if (!validation.valid || !validation.data) {
+      return NextResponse.json({ error: validation.error || 'Dữ liệu không hợp lệ' }, { status: 400 });
     }
-    
-    if (!orderId || typeof orderId !== 'string') {
-      return NextResponse.json({ error: 'orderId không hợp lệ' }, { status: 400 });
-    }
+
+    const { rating, comment, images, orderId } = validation.data;
 
     const product = await prisma.product.findUnique({
-      where: { id }
+      where: { id },
+      select: { id: true },
     });
-    
+
     if (!product) {
       return NextResponse.json({ error: 'Không tìm thấy sản phẩm' }, { status: 404 });
     }
 
-    const order = await prisma.order.findUnique({
-      where: { id: orderId },
-      include: { items: true },
-    });
+    // Retrieve order candidate(s)
+    const userOrders = orderId
+      ? await prisma.order.findMany({
+          where: { id: orderId },
+          include: {
+            items: {
+              select: { productId: true },
+            },
+          },
+        })
+      : await prisma.order.findMany({
+          where: {
+            userId: session.user.id,
+            items: {
+              some: { productId: id },
+            },
+          },
+          include: {
+            items: {
+              select: { productId: true },
+            },
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        });
 
-    if (!order) {
-      return NextResponse.json({ error: 'Không tìm thấy đơn hàng' }, { status: 404 });
-    }
-
-    if (order.userId !== session.user.id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
-    if (order.status !== 'COMPLETED') {
-      return NextResponse.json({ error: 'Đơn hàng phải ở trạng thái COMPLETED' }, { status: 400 });
-    }
-
-    const hasPurchasedProduct = order.items.some((item) => item.productId === id);
-    if (!hasPurchasedProduct) {
-      return NextResponse.json({ error: 'Bạn chỉ có thể đánh giá sản phẩm đã mua trong đơn hàng này' }, { status: 403 });
-    }
-
-    const existingReview = await prisma.review.findFirst({
+    const existingReviews = await prisma.review.findMany({
       where: {
         productId: id,
         userId: session.user.id,
-        orderId: orderId,
-      }
+      },
+      select: {
+        orderId: true,
+      },
     });
 
-    if (existingReview) {
-      return NextResponse.json({ error: 'Bạn đã đánh giá sản phẩm này trong đơn hàng này' }, { status: 400 });
+    const eligibility = resolveReviewEligibility({
+      userId: session.user.id,
+      productId: id,
+      userOrders,
+      existingReviews,
+      requestedOrderId: orderId,
+    });
+
+    if (!eligibility.eligible || !eligibility.selectedOrderId) {
+      return NextResponse.json(
+        { error: eligibility.error || 'Không đủ điều kiện đánh giá sản phẩm' },
+        { status: eligibility.statusCode || 400 }
+      );
     }
 
     const review = await prisma.review.create({
       data: {
         productId: id,
         userId: session.user.id,
-        orderId,
+        orderId: eligibility.selectedOrderId,
         rating,
-        comment: comment || null,
-        images: Array.isArray(images) ? images : [],
-      }
+        comment,
+        images,
+      },
     });
 
     return NextResponse.json(review, { status: 201 });

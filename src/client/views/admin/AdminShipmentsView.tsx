@@ -2,9 +2,9 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { formatVND, formatDate } from '@/lib/utils';
+import { formatVND, formatDate } from '@shared/utils';
 import { Truck, Search, ArrowLeft, Calendar, MapPin, User, Package, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
-import type { ShipmentStatus, CarrierName } from '@/types';
+import type { ShipmentStatus, CarrierName } from '@shared/types';
 
 export interface AdminShipmentLog {
   status: string;
@@ -45,7 +45,7 @@ const STATUS_CONFIG: Record<ShipmentStatus, { label: string; bg: string; text: s
   CANCELLED: { label: 'Đã hủy', bg: 'bg-gray-100', text: 'text-gray-600', icon: AlertCircle },
 };
 
-export function ShipmentManager({ initialShipments }: { initialShipments: AdminShipment[] }) {
+export function AdminShipmentsView({ initialShipments }: { initialShipments: AdminShipment[] }) {
   const [shipments] = useState<AdminShipment[]>(initialShipments);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -327,3 +327,5 @@ export function ShipmentManager({ initialShipments }: { initialShipments: AdminS
     </div>
   );
 }
+
+export { AdminShipmentsView as ShipmentManager, AdminShipmentsView as default };

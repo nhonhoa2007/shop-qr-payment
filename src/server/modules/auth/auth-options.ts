@@ -1,9 +1,9 @@
 import { AuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from 'next-auth/providers/google';
-import { prisma } from '@/server/database/prisma';
-import { handleGoogleSignIn } from '@/lib/auth-helpers';
-import { authorizeCredentialsLogin } from '@/lib/admin-rbac';
+import { prisma } from '@server/database/prisma';
+import { handleGoogleSignIn } from './auth-google.service';
+import { authorizeCredentialsLogin } from '@server/modules/admin/admin-rbac.service';
 
 export const authOptions: AuthOptions = {
   providers: [

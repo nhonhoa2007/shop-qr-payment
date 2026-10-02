@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
-import { formatVND, formatDate } from '@/lib/utils';
+import { formatVND, formatDate } from '@shared/utils';
 import { pusherClient } from '@/lib/pusher-client';
+import { toast } from 'sonner';
 import {
   Wallet,
   ArrowUpRight,
@@ -17,8 +18,10 @@ import {
   Search,
   CheckCircle2,
   Lock,
+  PlusCircle,
 } from 'lucide-react';
-import type { WalletTransaction, UserWallet } from '@/types';
+import type { WalletTransaction, UserWallet } from '@shared/types';
+import { WalletTopupModal } from '@client/components/wallet';
 
 interface WalletViewProps {
   initialWallet: UserWallet & {
@@ -30,37 +33,88 @@ interface WalletViewProps {
 
 export function WalletView({ initialWallet, userName, userId }: WalletViewProps) {
   const [balance, setBalance] = useState(initialWallet.balance);
-  const [transactions, setTransactions] = useState<WalletTransaction[]>(initialWallet.transactions || []);
+  const [transactions, setTransactions] = useState<WalletTransaction[]>(
+    initialWallet.transactions || []
+  );
   const [filterType, setFilterType] = useState<string>('ALL');
   const [search, setSearch] = useState('');
+  const [isTopupModalOpen, setIsTopupModalOpen] = useState(false);
 
-  // Lắng nghe sự kiện Pusher realtime khi có hoàn tiền hoặc thanh toán bằng ví
+  // Tái đồng bộ dữ liệu ví và lịch sử biến động từ API
+  const refreshWalletData = useCallback(async () => {
+    try {
+      const res = await fetch('/api/wallet');
+      const resData = await res.json();
+      if (resData.success && resData.data) {
+        setTransactions(resData.data.transactions || []);
+        setBalance(resData.data.balance);
+      }
+    } catch (err) {
+      console.error('[WalletView] Lỗi đồng bộ ví:', err);
+    }
+  }, []);
+
+  // Xử lý chuyển hướng callback từ cổng thanh toán PayOS (?topup=success hoặc ?topup=cancelled)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const params = new URLSearchParams(window.location.search);
+    const topupStatus = params.get('topup');
+    const topupCode = params.get('code');
+
+    if (!topupStatus) return;
+
+    let ignore = false;
+
+    if (topupStatus === 'success') {
+      toast.success(
+        topupCode
+          ? `Nạp tiền vào ví thành công (Mã GD: ${topupCode})!`
+          : 'Nạp tiền vào ví thành công!'
+      );
+      fetch('/api/wallet')
+        .then((res) => res.json())
+        .then((resData) => {
+          if (!ignore && resData?.success && resData.data) {
+            setTransactions(resData.data.transactions || []);
+            setBalance(resData.data.balance);
+          }
+        })
+        .catch((err) => console.error('[WalletView] Lỗi đồng bộ ví:', err));
+    } else if (topupStatus === 'cancelled') {
+      toast.info('Bạn đã hủy phiên nạp tiền VietQR PayOS');
+    }
+
+    const newUrl = window.location.pathname;
+    window.history.replaceState({}, '', newUrl);
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  // Lắng nghe sự kiện Pusher realtime khi có nạp ví, hoàn tiền hoặc thanh toán
   useEffect(() => {
     if (!userId) return;
 
     const channel = pusherClient.subscribe(`private-user-${userId}`);
 
-    channel.bind('wallet-updated', (data: { balance: number }) => {
+    const handleWalletUpdated = (data: { balance: number }) => {
       if (typeof data.balance === 'number') {
         setBalance(data.balance);
       }
-      // Re-fetch transactions
-      fetch('/api/wallet')
-        .then((res) => res.json())
-        .then((resData) => {
-          if (resData.success && resData.data) {
-            setTransactions(resData.data.transactions || []);
-            setBalance(resData.data.balance);
-          }
-        })
-        .catch(console.error);
-    });
+      refreshWalletData();
+    };
+
+    channel.bind('wallet-updated', handleWalletUpdated);
 
     return () => {
+      channel.unbind('wallet-updated', handleWalletUpdated);
       pusherClient.unsubscribe(`private-user-${userId}`);
     };
-  }, [userId]);
+  }, [userId, refreshWalletData]);
 
+  // Bộ lọc danh sách giao dịch
   const filteredTransactions = useMemo(() => {
     return transactions.filter((tx) => {
       const matchType = filterType === 'ALL' || tx.type === filterType;
@@ -76,7 +130,7 @@ export function WalletView({ initialWallet, userName, userId }: WalletViewProps)
   return (
     <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-8 space-y-8">
       {/* Hero Wallet Balance Card */}
-      <div className="relative overflow-hidden rounded-[32px] bg-gradient-to-br from-[#5433eb] via-[#3b1cb8] to-[#120630] text-white p-8 sm:p-10 shadow-2xl">
+      <div className="relative overflow-hidden rounded-[32px] bg-gradient-to-br from-shop-violet via-[#3b1cb8] to-[#120630] text-white p-8 sm:p-10 shadow-2xl">
         {/* Background decorative circles */}
         <div className="absolute -right-12 -top-12 w-64 h-64 rounded-full bg-white/5 blur-2xl pointer-events-none" />
         <div className="absolute right-32 -bottom-20 w-80 h-80 rounded-full bg-[#ff6b00]/10 blur-3xl pointer-events-none" />
@@ -98,19 +152,31 @@ export function WalletView({ initialWallet, userName, userId }: WalletViewProps)
             </div>
 
             <p className="text-xs text-white/80 leading-relaxed">
-              Số dư ví được tự động cộng khi đơn hàng được hoàn tiền và có thể sử dụng thanh toán 1-chạm
-              nhanh chóng cho mọi đơn hàng tiếp theo.
+              Số dư ví được nạp nhanh qua VietQR PayOS 24/7 và hoàn tiền 100% tự động khi đơn hàng hủy,
+              cho phép thanh toán 1-chạm tức thì cho mọi đơn hàng tiếp theo.
             </p>
           </div>
 
+          {/* Action CTA Buttons */}
           <div className="flex flex-col sm:flex-row md:flex-col gap-3 shrink-0">
+            {/* Nút Nạp tiền vào ví nổi bật */}
+            <button
+              type="button"
+              onClick={() => setIsTopupModalOpen(true)}
+              className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-white text-[#120630] font-bold text-xs hover:bg-white/95 active:scale-[0.98] transition-all shadow-xl cursor-pointer"
+            >
+              <PlusCircle className="w-4 h-4 text-shop-violet" />
+              <span>Nạp tiền vào ví</span>
+            </button>
+
             <Link
               href="/"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-white text-[#120630] font-semibold text-xs hover:bg-white/90 transition shadow-lg"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-white/10 hover:bg-white/20 text-white font-medium text-xs backdrop-blur-md transition border border-white/20"
             >
               <ShoppingBag className="w-4 h-4" />
               <span>Mua sắm ngay</span>
             </Link>
+
             <Link
               href="/orders"
               className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-white/10 hover:bg-white/20 text-white font-medium text-xs backdrop-blur-md transition border border-white/20"
@@ -124,7 +190,7 @@ export function WalletView({ initialWallet, userName, userId }: WalletViewProps)
 
       {/* 3 Value Proposition Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-[24px] p-6 shadow-card-custom border border-gray-100 flex items-start gap-4">
+        <div className="bg-white rounded-[24px] p-6 shadow-card border border-gray-100 flex items-start gap-4">
           <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
             <ShieldCheck className="w-6 h-6" />
           </div>
@@ -137,8 +203,8 @@ export function WalletView({ initialWallet, userName, userId }: WalletViewProps)
           </div>
         </div>
 
-        <div className="bg-white rounded-[24px] p-6 shadow-card-custom border border-gray-100 flex items-start gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-purple-50 text-[#5433eb] flex items-center justify-center shrink-0">
+        <div className="bg-white rounded-[24px] p-6 shadow-card border border-gray-100 flex items-start gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-purple-50 text-shop-violet flex items-center justify-center shrink-0">
             <Zap className="w-6 h-6" />
           </div>
           <div>
@@ -150,8 +216,8 @@ export function WalletView({ initialWallet, userName, userId }: WalletViewProps)
           </div>
         </div>
 
-        <div className="bg-white rounded-[24px] p-6 shadow-card-custom border border-gray-100 flex items-start gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+        <div className="bg-white rounded-[24px] p-6 shadow-card border border-gray-100 flex items-start gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-shop-violet/10 text-shop-violet flex items-center justify-center shrink-0">
             <Lock className="w-6 h-6" />
           </div>
           <div>
@@ -165,11 +231,13 @@ export function WalletView({ initialWallet, userName, userId }: WalletViewProps)
       </div>
 
       {/* Transaction History Section */}
-      <div className="bg-white rounded-[28px] p-6 sm:p-8 shadow-card-custom border border-gray-100 space-y-6">
+      <div className="bg-white rounded-[28px] p-6 sm:p-8 shadow-card border border-gray-100 space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 pb-4">
           <div className="flex items-center gap-2">
-            <History className="w-5 h-5 text-[#5433eb]" />
-            <h2 className="font-bold text-base text-gray-900 tracking-tight">Lịch sử biến động số dư</h2>
+            <History className="w-5 h-5 text-shop-violet" />
+            <h2 className="font-bold text-base text-gray-900 tracking-tight">
+              Lịch sử biến động số dư
+            </h2>
           </div>
 
           <div className="flex items-center gap-3">
@@ -180,7 +248,7 @@ export function WalletView({ initialWallet, userName, userId }: WalletViewProps)
                 placeholder="Tìm nội dung, mã đơn..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-8 pr-3 py-1.5 text-xs rounded-full border border-gray-200 focus:outline-none focus:border-[#5433eb] transition w-48 sm:w-60"
+                className="pl-8 pr-3 py-1.5 text-xs rounded-full border border-gray-200 focus:outline-hidden focus:border-shop-violet transition w-48 sm:w-60"
               />
             </div>
           </div>
@@ -191,9 +259,9 @@ export function WalletView({ initialWallet, userName, userId }: WalletViewProps)
           <button
             type="button"
             onClick={() => setFilterType('ALL')}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition ${
+            className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition cursor-pointer ${
               filterType === 'ALL'
-                ? 'bg-gray-900 text-white shadow-sm'
+                ? 'bg-gray-900 text-white shadow-xs'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
@@ -201,10 +269,22 @@ export function WalletView({ initialWallet, userName, userId }: WalletViewProps)
           </button>
           <button
             type="button"
+            onClick={() => setFilterType('TOPUP')}
+            className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition flex items-center gap-1.5 cursor-pointer ${
+              filterType === 'TOPUP'
+                ? 'bg-shop-violet text-white shadow-xs'
+                : 'bg-purple-50 text-shop-violet hover:bg-purple-100'
+            }`}
+          >
+            <PlusCircle className="w-3.5 h-3.5" />
+            <span>Nạp ví ({transactions.filter((t) => t.type === 'TOPUP').length})</span>
+          </button>
+          <button
+            type="button"
             onClick={() => setFilterType('REFUND')}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition flex items-center gap-1.5 ${
+            className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition flex items-center gap-1.5 cursor-pointer ${
               filterType === 'REFUND'
-                ? 'bg-emerald-600 text-white shadow-sm'
+                ? 'bg-emerald-600 text-white shadow-xs'
                 : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
             }`}
           >
@@ -214,14 +294,16 @@ export function WalletView({ initialWallet, userName, userId }: WalletViewProps)
           <button
             type="button"
             onClick={() => setFilterType('PURCHASE_PAYMENT')}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition flex items-center gap-1.5 ${
+            className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition flex items-center gap-1.5 cursor-pointer ${
               filterType === 'PURCHASE_PAYMENT'
-                ? 'bg-[#5433eb] text-white shadow-sm'
-                : 'bg-purple-50 text-[#5433eb] hover:bg-purple-100'
+                ? 'bg-rose-600 text-white shadow-xs'
+                : 'bg-rose-50 text-rose-700 hover:bg-rose-100'
             }`}
           >
             <ArrowUpRight className="w-3.5 h-3.5" />
-            <span>Thanh toán đơn ({transactions.filter((t) => t.type === 'PURCHASE_PAYMENT').length})</span>
+            <span>
+              Thanh toán đơn ({transactions.filter((t) => t.type === 'PURCHASE_PAYMENT').length})
+            </span>
           </button>
         </div>
 
@@ -233,7 +315,7 @@ export function WalletView({ initialWallet, userName, userId }: WalletViewProps)
             </div>
             <p className="text-sm font-medium text-gray-600">Chưa có giao dịch nào được ghi nhận</p>
             <p className="text-xs text-gray-400 mt-1">
-              Các giao dịch hoàn tiền hoặc thanh toán bằng ví sẽ xuất hiện chi tiết tại đây
+              Các giao dịch nạp tiền, hoàn tiền hoặc thanh toán bằng ví sẽ xuất hiện chi tiết tại đây
             </p>
           </div>
         ) : (
@@ -241,33 +323,52 @@ export function WalletView({ initialWallet, userName, userId }: WalletViewProps)
             {filteredTransactions.map((tx) => {
               const isPositive = tx.amount > 0;
               const isRefund = tx.type === 'REFUND';
+              const isTopup = tx.type === 'TOPUP';
+
               return (
-                <div key={tx.id} className="py-4 flex items-center justify-between gap-4 hover:bg-gray-50/50 rounded-xl px-2 transition">
+                <div
+                  key={tx.id}
+                  className="py-4 flex items-center justify-between gap-4 hover:bg-gray-50/50 rounded-xl px-2 transition"
+                >
                   <div className="flex items-center gap-3">
                     <div
                       className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
-                        isPositive ? 'bg-emerald-50 text-emerald-600' : 'bg-purple-50 text-[#5433eb]'
+                        isTopup
+                          ? 'bg-shop-violet/10 text-shop-violet'
+                          : isRefund
+                          ? 'bg-emerald-50 text-emerald-600'
+                          : 'bg-rose-50 text-rose-600'
                       }`}
                     >
-                      {isPositive ? <ArrowDownLeft className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
+                      {isTopup ? (
+                        <PlusCircle className="w-5 h-5 text-shop-violet" />
+                      ) : isPositive ? (
+                        <ArrowDownLeft className="w-5 h-5 text-emerald-600" />
+                      ) : (
+                        <ArrowUpRight className="w-5 h-5 text-rose-600" />
+                      )}
                     </div>
 
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold text-xs text-gray-900">{tx.description}</span>
+                        <span className="font-semibold text-xs text-gray-900">
+                          {tx.description}
+                        </span>
                         <span
                           className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                            isRefund
+                            isTopup
+                              ? 'bg-shop-violet/10 text-shop-violet'
+                              : isRefund
                               ? 'bg-emerald-50 text-emerald-700'
-                              : 'bg-purple-50 text-[#5433eb]'
+                              : 'bg-rose-50 text-rose-700'
                           }`}
                         >
-                          {isRefund ? 'Hoàn tiền' : 'Thanh toán'}
+                          {isTopup ? 'Nạp tiền ví' : isRefund ? 'Hoàn tiền' : 'Thanh toán'}
                         </span>
                       </div>
                       <p className="text-[11px] text-gray-400 mt-0.5">
                         {formatDate(tx.createdAt)}
-                        {tx.orderId && ` • Mã đơn: ${tx.orderId}`}
+                        {tx.orderId && ` • Mã GD: ${tx.orderId}`}
                       </p>
                     </div>
                   </div>
@@ -291,6 +392,18 @@ export function WalletView({ initialWallet, userName, userId }: WalletViewProps)
           </div>
         )}
       </div>
+
+      {/* Modal Nạp tiền Ví điện tử VietQR PayOS */}
+      <WalletTopupModal
+        isOpen={isTopupModalOpen}
+        onClose={() => setIsTopupModalOpen(false)}
+        userId={userId}
+        userName={userName}
+        onTopupSuccess={(newBalance) => {
+          setBalance(newBalance);
+          refreshWalletData();
+        }}
+      />
     </div>
   );
 }

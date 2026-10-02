@@ -1,0 +1,36 @@
+stateDiagram-v2
+    direction TB
+
+    [*] --> READY_TO_PICK: Đơn hàng PAID -> Gọi GHN API tạo Vận đơn & Lấy trackingCode
+
+    READY_TO_PICK --> PICKING: Tài xế GHN tiếp nhận & Đến kho shop lấy hàng
+    READY_TO_PICK --> CANCELLED: Shop hủy đơn trước khi tài xế đến lấy hàng
+
+    PICKING --> DELIVERING: Hàng nhập kho trung chuyển GHN & Xuất tuyến giao hàng
+
+    DELIVERING --> DELIVERED: Khách hàng nhận bưu phẩm thành công (Webhook GHN)
+    DELIVERING --> RETURNED: Giao thất bại 3 lần / Khách từ chối nhận hàng (Hàng hoàn trả)
+
+    DELIVERED --> [*]
+    RETURNED --> [*]
+    CANCELLED --> [*]
+
+    note right of READY_TO_PICK
+        Đã cấp mã trackingCode
+        In phiếu gửi hàng & dán lên kiện
+    end note
+
+    note right of DELIVERING
+        Đang luân chuyển trên mạng lưới bưu cục
+        Khách hàng theo dõi vị trí qua App/Web
+    end note
+
+    note right of DELIVERED
+        Kích hoạt cập nhật Order -> DELIVERED
+        Đối soát cước phí vận chuyển
+    end note
+
+    note right of RETURNED
+        Bưu phẩm chuyển hoàn về kho gốc
+        Nhân viên kho kiểm tra & hoàn kho
+    end note

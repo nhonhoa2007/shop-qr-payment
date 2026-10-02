@@ -53,41 +53,27 @@ export function checkRateLimit(
 /**
  * Distributed Sliding Window Rate Limiter
  * Tương thích Serverless Next.js, lưu trữ phiên gọi qua Redis HTTP
+ * Sử dụng cơ chế INCR và EXPIRE nguyên tử để triệt tiêu Race Condition
  */
 export async function checkDistributedRateLimit(
   key: string,
   limit: number = 10,
   windowMs: number = 60_000
 ): Promise<{ allowed: boolean; remaining: number; resetAt: number; source: 'REDIS' | 'IN_MEMORY' }> {
-  const now = Date.now();
   const redisKey = `ratelimit:${key}`;
+  const ttlSeconds = Math.ceil(windowMs / 1000);
 
   if (redis.isRemoteConfigured()) {
     try {
-      const record = await redis.get<RateLimitRecord>(redisKey);
-      if (!record || now > record.resetAt) {
-        const resetAt = now + windowMs;
-        const ttlSeconds = Math.ceil(windowMs / 1000);
-        await redis.set(redisKey, { count: 1, resetAt }, { ex: ttlSeconds });
-        return { allowed: true, remaining: limit - 1, resetAt, source: 'REDIS' };
+      const count = await redis.incr(redisKey);
+      if (count === 1) {
+        await redis.expire(redisKey, ttlSeconds);
       }
-
-      if (record.count >= limit) {
-        return { allowed: false, remaining: 0, resetAt: record.resetAt, source: 'REDIS' };
-      }
-
-      const updatedCount = record.count + 1;
-      const ttlRemaining = Math.max(1, Math.ceil((record.resetAt - now) / 1000));
-      await redis.set(
-        redisKey,
-        { count: updatedCount, resetAt: record.resetAt },
-        { ex: ttlRemaining }
-      );
-
+      const allowed = count <= limit;
       return {
-        allowed: true,
-        remaining: limit - updatedCount,
-        resetAt: record.resetAt,
+        allowed,
+        remaining: Math.max(0, limit - count),
+        resetAt: Date.now() + windowMs,
         source: 'REDIS',
       };
     } catch (err) {

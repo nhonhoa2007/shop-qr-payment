@@ -2,7 +2,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { redirect } from 'next/navigation';
 import { ChatService } from '@/server/modules/chat/chat.service';
-import { AdminChatView } from '@/client/views/admin/AdminChatView';
+import { AdminChatView } from '@client/views/admin/AdminChatView';
 import type { Metadata } from 'next';
 
 export const dynamic = 'force-dynamic';
@@ -19,5 +19,5 @@ export default async function AdminChatPage() {
 
   const rooms = await ChatService.getAdminChatRooms(session.user.id);
 
-  return <AdminChatView rooms={rooms} />;
+  return <AdminChatView rooms={rooms} currentUserId={session.user.id} />;
 }

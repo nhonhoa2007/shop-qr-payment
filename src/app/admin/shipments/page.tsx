@@ -2,7 +2,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { redirect } from 'next/navigation';
 import { AdminService } from '@/server/modules/admin/admin.service';
-import { ShipmentManager } from '@/client/views/admin/AdminShipmentsView';
+import { AdminShipmentsView } from '@client/views/admin/AdminShipmentsView';
 import type { Metadata } from 'next';
 
 export const dynamic = 'force-dynamic';
@@ -20,5 +20,5 @@ export default async function AdminShipmentsPage() {
 
   const shipments = await AdminService.getAdminShipments();
 
-  return <ShipmentManager initialShipments={shipments} />;
+  return <AdminShipmentsView initialShipments={shipments} />;
 }

@@ -24,12 +24,13 @@ function createMockOtpPrisma() {
   const delegate: OtpPrismaDelegate = {
     async deleteMany({ where }) {
       const initialCount = records.length;
-      const now = new Date();
+      const ltCondition = where.OR?.find((c): c is { expiresAt?: { lt: Date } } => 'expiresAt' in c && !!c.expiresAt?.lt);
+      const cutoffTime = ltCondition?.expiresAt?.lt ?? new Date();
       for (let i = records.length - 1; i >= 0; i--) {
         const item = records[i];
         const matchEmail = !where.email || item.email === where.email;
         if (!matchEmail) continue;
-        const expired = item.expiresAt < now;
+        const expired = item.expiresAt < cutoffTime;
         const used = item.used;
         if (expired || used) {
           records.splice(i, 1);

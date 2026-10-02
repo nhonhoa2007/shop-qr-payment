@@ -1,7 +1,7 @@
 'use client';
 
-import { ChatWindow } from '@/client/components/chat/ChatWindow';
-import type { Message } from '@/types';
+import { ChatWindow } from '@client/components/chat/ChatWindow';
+import type { Message } from '@shared/types';
 
 export interface ChatRoomViewProps {
   roomId: string;

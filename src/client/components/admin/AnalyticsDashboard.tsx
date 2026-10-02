@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { formatVND } from '@/lib/utils';
+import { formatVND } from '@shared/utils';
 import { Users, Package, ShoppingCart, TrendingUp, AlertTriangle } from 'lucide-react';
 
 interface TopProduct {

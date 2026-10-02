@@ -1,0 +1,45 @@
+sequenceDiagram
+    autonumber
+    actor Customer as 👤 Khách hàng
+    participant UI as 🖥️ Wallet UI (Client)
+    participant Ctrl as ⚙️ WalletTopup Controller
+    participant Svc as 💳 WalletTopup Service
+    participant PayOS as 🏦 PayOS Gateway (VietQR)
+    participant BankApp as 📱 App Ngân hàng (NAPAS 247)
+    participant Webhook as 🛡️ PayOS Webhook Controller
+    participant DB as 🐘 PostgreSQL (Prisma)
+    participant Pusher as 📡 Pusher Realtime Cloud
+
+    Customer->>UI: Nhập số tiền nạp & Bấm "Tạo mã QR Nạp tiền"
+    UI->>Ctrl: POST /api/wallet/topup (amount: 200.000đ)
+    activate Ctrl
+    Ctrl->>Ctrl: Rate Limit Check (15 req/phút per IP & User)
+    Ctrl->>Svc: createWalletTopupPaymentLink(userId, amount)
+    Svc->>Svc: Sinh mã giao dịch duy nhất NAPVI{orderCode}
+    Svc->>PayOS: createPaymentLink(orderCode, amount, description)
+    PayOS-->>Svc: Trả về qrContent & checkoutUrl
+    Svc->>DB: Lưu Topup Session (PENDING, expiresAt: +15m)
+    Svc-->>Ctrl: Dữ liệu VietQR
+    Ctrl-->>UI: HTTP 200 OK (qrContent, checkoutUrl, topupCode)
+    deactivate Ctrl
+
+    UI-->>Customer: Hiển thị mã VietQR Động kèm nội dung NAPVI{orderCode}
+    Customer->>BankApp: Mở App Ngân hàng quét QR & Chuyển tiền 24/7
+    BankApp->>PayOS: Giao dịch NAPAS 247 thành công
+    PayOS->>Webhook: POST /api/webhooks/payos (Kèm chữ ký HMAC-SHA256)
+
+    activate Webhook
+    Webhook->>Webhook: verifyPayOSWebhookSignature(timingSafeEqual)
+    Webhook->>Webhook: Phân tích mã nạp tiền NAPVI...
+    Webhook->>DB: Bắt đầu Prisma Transaction
+    Webhook->>DB: Kiểm tra Idempotency bankTransId (Chống cộng tiền trùng lặp)
+    Webhook->>DB: Atomic CAS: UserWallet.balance += amount
+    Webhook->>DB: Tạo WalletTransaction (type: TOPUP, amount: 200.000đ)
+    Webhook->>DB: Tạo Notification (PAYMENT_RECEIVED)
+    Webhook->>Pusher: trigger private-user-{userId} ('wallet-updated', 'payment-success')
+    Webhook->>Pusher: trigger private-admin-channel ('analytics-updated')
+    Webhook-->>PayOS: HTTP 200 OK (Giao dịch nạp ví thành công)
+    deactivate Webhook
+
+    Pusher-->>UI: Bắn sự kiện "wallet-updated" với số dư mới
+    UI-->>Customer: Màn hình ví cập nhật số dư tức thì & Hiện thông báo thành công

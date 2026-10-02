@@ -48,3 +48,7 @@ next-env.d.ts
 /prisma/backups/*.sql
 !/prisma/backups/.gitkeep
 
+
+# IDE tools
+.zcode/
+.zcodeignore

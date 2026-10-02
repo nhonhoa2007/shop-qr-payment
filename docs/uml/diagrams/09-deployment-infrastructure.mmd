@@ -1,0 +1,64 @@
+flowchart TB
+    %% Client Devices
+    subgraph ClientTier ["📱 Tầng Người dùng Cuối (End Users)"]
+        DesktopBrowser["💻 Máy tính Để bàn (Admin & Customers)"]
+        MobileBrowser["📱 Thiết bị Di động (Mobile Safari / Chrome)"]
+        BankAppDevice["🏦 App Ngân hàng Khách hàng (Quét VietQR)"]
+    end
+
+    %% Edge & Network
+    subgraph EdgeTier ["🛡️ Tầng Biên Mạng (Edge & CDN)"]
+        CloudflareEdge["Cloudflare Edge Network / Vercel Edge Cache
+- SSL/TLS Termination
+- DDoS Mitigation & Web Application Firewall (WAF)
+- Static Asset Caching (JS/CSS/Next.js Images)"]
+    end
+
+    %% Compute Tier
+    subgraph ComputeTier ["⚡ Tầng Điện toán Không máy chủ (Vercel Serverless Platform)"]
+        NodeRuntime["Node.js Serverless Functions (Next.js 16 App Router)
+- Edge Middleware (Session & RBAC Guard)
+- API Handlers (/api/orders, /api/webhooks, /api/admin)
+- Server-Side Rendering (SSR) & Dynamic Streaming"]
+    end
+
+    %% Persistence Tier
+    subgraph PersistenceTier ["💾 Tầng Dữ liệu Cốt lõi (Persistence Tier)"]
+        PostgresInstance[("🐘 Managed PostgreSQL (Neon / Supabase)
+- Connection Pooling
+- ACID Transactions
+- Prisma Engine Integration")]
+        RedisInstance[("⚡ Upstash Serverless Redis
+- Catalogue Query Caching (TTL)
+- Distributed Rate Limiting")]
+    end
+
+    %% External SaaS Ecosystem
+    subgraph ExternalSaaSTier ["🌐 Tầng Dịch vụ Đám mây Chuyên biệt (Third-party Cloud Ecosystem)"]
+        PayOSServer["🏦 Cổng PayOS / NAPAS 247 Switch (VietQR)"]
+        GHNServer["🚚 Giao Hàng Nhanh API (Logistics OpenAPI)"]
+        PusherServer["📡 Pusher Cloud Channels (WebSocket Gateway)"]
+        ResendServer["✉️ Resend Cloud API (Transactional Emails)"]
+        CloudinaryServer["🖼️ Cloudinary CDN (Image Optimization)"]
+    end
+
+    %% Connections
+    DesktopBrowser -->|HTTPS / WSS| CloudflareEdge
+    MobileBrowser -->|HTTPS / WSS| CloudflareEdge
+    BankAppDevice -->|Quét QR chuyển tiền| PayOSServer
+
+    CloudflareEdge --> NodeRuntime
+    NodeRuntime -->|Prisma TCP / SSL| PostgresInstance
+    NodeRuntime -->|REST API over HTTPS| RedisInstance
+    NodeRuntime -->|Trigger Events| PusherServer
+    PusherServer -.->|WSS Push Notifications| DesktopBrowser
+    PusherServer -.->|WSS Push Notifications| MobileBrowser
+
+    NodeRuntime -->|Create Payment Link| PayOSServer
+    PayOSServer -->|Webhook POST with HMAC| NodeRuntime
+
+    NodeRuntime -->|Create Order & Calc Fee| GHNServer
+    GHNServer -->|Webhook Tracking Update| NodeRuntime
+
+    NodeRuntime -->|Send OTP & Reset Pass| ResendServer
+    NodeRuntime -->|Upload Media| CloudinaryServer

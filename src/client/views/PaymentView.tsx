@@ -1,6 +1,6 @@
 'use client';
 
-import { QRPayment } from '@/client/components/payment/QRPayment';
+import { QRPayment } from '@client/components/payment/QRPayment';
 
 export interface PaymentViewProps {
   orderId: string;

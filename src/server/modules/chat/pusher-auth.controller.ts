@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { prisma } from '@/lib/prisma';
-import { pusherServer } from '@/lib/pusher-server';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { prisma } from '@server/database/prisma';
+import { pusherServer } from '@server/infrastructure/pusher';
+import { authOptions } from '@server/modules/auth/auth-options';
 
 export async function POST(req: Request) {
   try {
@@ -15,12 +15,17 @@ export async function POST(req: Request) {
     const socketId = formData.get('socket_id') as string;
     const channelName = formData.get('channel_name') as string;
 
+    if (channelName === 'private-admin-channel' || channelName.startsWith('private-admin-')) {
+      if (session.user.role !== 'ADMIN') return new Response('Forbidden', { status: 403 });
+    }
+
     if (channelName.startsWith('private-chat-')) {
       const roomId = channelName.replace('private-chat-', '');
       const participant = await prisma.chatRoomParticipant.findUnique({
         where: { roomId_userId: { roomId, userId: session.user.id } },
       });
-      if (!participant) return new Response('Forbidden', { status: 403 });
+      const isAdminOrStaff = session.user.role === 'ADMIN' || session.user.role === 'STAFF';
+      if (!participant && !isAdminOrStaff) return new Response('Forbidden', { status: 403 });
     }
 
     if (channelName.startsWith('private-user-')) {

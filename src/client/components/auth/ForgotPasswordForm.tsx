@@ -157,19 +157,19 @@ export function ForgotPasswordForm() {
 
   return (
     <div className="w-full max-w-md mx-auto">
-      <div className="bg-white rounded-[28px] shadow-card-custom p-8 sm:p-10">
+      <div className="bg-white rounded-[28px] shadow-card p-8 sm:p-10">
         {/* Brand Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-1 mb-2">
-            <span className="font-semibold text-2xl tracking-[-0.05em] text-[#000000]">shop</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-[#5433eb] mt-2.5" />
+            <span className="font-semibold text-2xl tracking-[-0.05em] text-ink-black">shop</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-shop-violet mt-2.5" />
           </div>
-          <h1 className="text-xl font-semibold text-[#000000] tracking-[-0.05em]">
+          <h1 className="text-xl font-semibold text-ink-black tracking-[-0.05em]">
             {step === 1 && 'Quên mật khẩu'}
             {step === 2 && 'Đặt lại mật khẩu'}
             {step === 3 && 'Hoàn tất đặt lại mật khẩu'}
           </h1>
-          <p className="text-xs text-[#787574] mt-1 tracking-[-0.014em]">
+          <p className="text-xs text-muted-gray mt-1 tracking-[-0.014em]">
             {step === 1 && 'Nhập email đã đăng ký để nhận mã xác thực đặt lại mật khẩu'}
             {step === 2 && 'Nhập mã xác thực gửi tới email và tạo mật khẩu mới'}
             {step === 3 && 'Mật khẩu tài khoản của bạn đã được cập nhật an toàn'}
@@ -187,7 +187,7 @@ export function ForgotPasswordForm() {
         {step === 1 && (
           <form onSubmit={handleRequestOtp} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-[#787574] mb-1 tracking-[-0.014em]">
+              <label className="block text-xs font-medium text-muted-gray mb-1 tracking-[-0.014em]">
                 Email tài khoản
               </label>
               <div className="relative">
@@ -196,17 +196,17 @@ export function ForgotPasswordForm() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-full border border-[#000000]/10 bg-white text-xs text-[#000000] placeholder:text-[#787574] focus:outline-none focus:border-[#5433eb]/40 transition tracking-[-0.014em]"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-full border border-ink-black/10 bg-white text-xs text-ink-black placeholder:text-muted-gray focus:outline-none focus:border-shop-violet/40 transition tracking-[-0.014em]"
                   placeholder="name@example.com"
                 />
-                <Mail className="w-4 h-4 text-[#787574] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Mail className="w-4 h-4 text-muted-gray absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
             </div>
 
             <button
               type="submit"
               disabled={loading || !email.trim()}
-              className="w-full bg-[#000000] text-white py-3 rounded-full text-xs font-medium hover:bg-[#332f2d] disabled:opacity-40 transition flex items-center justify-center gap-1.5 tracking-[-0.014em]"
+              className="w-full bg-ink-black text-white py-3 rounded-full text-xs font-medium hover:bg-slate-ink disabled:opacity-40 transition flex items-center justify-center gap-1.5 tracking-[-0.014em]"
             >
               <span>{loading ? 'Đang gửi mã...' : 'Gửi mã xác thực'}</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -215,7 +215,7 @@ export function ForgotPasswordForm() {
             <div className="pt-2 text-center">
               <Link
                 href="/login"
-                className="inline-flex items-center gap-1.5 text-xs text-[#787574] hover:text-[#000000] font-medium transition tracking-[-0.014em]"
+                className="inline-flex items-center gap-1.5 text-xs text-muted-gray hover:text-ink-black font-medium transition tracking-[-0.014em]"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Quay lại Đăng nhập</span>
@@ -228,9 +228,9 @@ export function ForgotPasswordForm() {
         {step === 2 && (
           <form onSubmit={handleResetPassword} className="space-y-4">
             {/* Email info banner */}
-            <div className="p-3 bg-[#f8f9fa] rounded-2xl border border-[#ebebeb] text-center text-xs text-[#787574]">
+            <div className="p-3 bg-canvas-mist rounded-2xl border border-faint-border text-center text-xs text-muted-gray">
               <span>Mã OTP 6 số đã được gửi tới </span>
-              <span className="font-semibold text-[#000000]">{email}</span>
+              <span className="font-semibold text-ink-black">{email}</span>
               <button
                 type="button"
                 onClick={() => {
@@ -238,7 +238,7 @@ export function ForgotPasswordForm() {
                   setOtp('');
                   setError('');
                 }}
-                className="block mx-auto mt-1 text-[#5433eb] hover:underline font-medium text-[11px]"
+                className="block mx-auto mt-1 text-shop-violet hover:underline font-medium text-[11px]"
               >
                 Đổi địa chỉ email khác
               </button>
@@ -246,7 +246,7 @@ export function ForgotPasswordForm() {
 
             {/* OTP input */}
             <div>
-              <label className="block text-center text-xs font-medium text-[#787574] mb-2 tracking-[-0.014em]">
+              <label className="block text-center text-xs font-medium text-muted-gray mb-2 tracking-[-0.014em]">
                 Mã xác thực OTP
               </label>
               <OtpInput
@@ -258,7 +258,7 @@ export function ForgotPasswordForm() {
 
             {/* New password */}
             <div>
-              <label className="block text-xs font-medium text-[#787574] mb-1 tracking-[-0.014em]">
+              <label className="block text-xs font-medium text-muted-gray mb-1 tracking-[-0.014em]">
                 Mật khẩu mới
               </label>
               <div className="relative">
@@ -267,16 +267,16 @@ export function ForgotPasswordForm() {
                   required
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-full border border-[#000000]/10 bg-white text-xs text-[#000000] placeholder:text-[#787574] focus:outline-none focus:border-[#5433eb]/40 transition tracking-[-0.014em]"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-full border border-ink-black/10 bg-white text-xs text-ink-black placeholder:text-muted-gray focus:outline-none focus:border-shop-violet/40 transition tracking-[-0.014em]"
                   placeholder="Tối thiểu 6 ký tự"
                 />
-                <KeyRound className="w-4 h-4 text-[#787574] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <KeyRound className="w-4 h-4 text-muted-gray absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
             </div>
 
             {/* Confirm new password */}
             <div>
-              <label className="block text-xs font-medium text-[#787574] mb-1 tracking-[-0.014em]">
+              <label className="block text-xs font-medium text-muted-gray mb-1 tracking-[-0.014em]">
                 Xác nhận mật khẩu mới
               </label>
               <div className="relative">
@@ -285,10 +285,10 @@ export function ForgotPasswordForm() {
                   required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-full border border-[#000000]/10 bg-white text-xs text-[#000000] placeholder:text-[#787574] focus:outline-none focus:border-[#5433eb]/40 transition tracking-[-0.014em]"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-full border border-ink-black/10 bg-white text-xs text-ink-black placeholder:text-muted-gray focus:outline-none focus:border-shop-violet/40 transition tracking-[-0.014em]"
                   placeholder="Nhập lại mật khẩu mới"
                 />
-                <KeyRound className="w-4 h-4 text-[#787574] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <KeyRound className="w-4 h-4 text-muted-gray absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
             </div>
 
@@ -298,7 +298,7 @@ export function ForgotPasswordForm() {
                 type="button"
                 onClick={handleResendOtp}
                 disabled={cooldown > 0 || resending || loading}
-                className="inline-flex items-center gap-1.5 text-xs text-[#5433eb] hover:underline disabled:text-[#787574] disabled:no-underline font-medium transition"
+                className="inline-flex items-center gap-1.5 text-xs text-shop-violet hover:underline disabled:text-muted-gray disabled:no-underline font-medium transition"
               >
                 <RotateCw className={`w-3.5 h-3.5 ${resending ? 'animate-spin' : ''}`} />
                 <span>{cooldown > 0 ? `Gửi lại mã sau ${cooldown}s` : 'Gửi lại mã xác thực'}</span>
@@ -309,7 +309,7 @@ export function ForgotPasswordForm() {
             <button
               type="submit"
               disabled={loading || otp.length !== 6 || !newPassword || !confirmPassword}
-              className="w-full bg-[#5433eb] text-white py-3 rounded-full text-xs font-medium hover:opacity-90 disabled:opacity-40 transition flex items-center justify-center gap-1.5 tracking-[-0.014em] shadow-[0_4px_24px_rgba(69,36,219,0.3)]"
+              className="w-full bg-shop-violet text-white py-3 rounded-full text-xs font-medium hover:opacity-90 disabled:opacity-40 transition flex items-center justify-center gap-1.5 tracking-[-0.014em] shadow-[0_4px_24px_rgba(69,36,219,0.3)]"
             >
               <span>{loading ? 'Đang cập nhật...' : 'Đặt lại mật khẩu'}</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -318,7 +318,7 @@ export function ForgotPasswordForm() {
             <div className="pt-2 text-center">
               <Link
                 href="/login"
-                className="inline-flex items-center gap-1.5 text-xs text-[#787574] hover:text-[#000000] font-medium transition tracking-[-0.014em]"
+                className="inline-flex items-center gap-1.5 text-xs text-muted-gray hover:text-ink-black font-medium transition tracking-[-0.014em]"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Quay lại Đăng nhập</span>
@@ -334,16 +334,16 @@ export function ForgotPasswordForm() {
               <CheckCircle2 className="w-8 h-8 stroke-[2.5]" />
             </div>
             <div>
-              <p className="text-sm font-medium text-[#000000]">
+              <p className="text-sm font-medium text-ink-black">
                 Mật khẩu mới của bạn đã được cập nhật thành công!
               </p>
-              <p className="text-xs text-[#787574] mt-1">
+              <p className="text-xs text-muted-gray mt-1">
                 Đang chuyển hướng về trang đăng nhập sau 3 giây...
               </p>
             </div>
             <Link
               href="/login"
-              className="w-full bg-[#000000] text-white py-3 rounded-full text-xs font-medium hover:bg-[#332f2d] transition flex items-center justify-center gap-1.5 tracking-[-0.014em] inline-flex"
+              className="w-full bg-ink-black text-white py-3 rounded-full text-xs font-medium hover:bg-slate-ink transition flex items-center justify-center gap-1.5 tracking-[-0.014em] inline-flex"
             >
               <span>Đăng nhập ngay</span>
               <ArrowRight className="w-3.5 h-3.5" />

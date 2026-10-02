@@ -1,7 +1,7 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { redirect } from 'next/navigation';
-import { CouponManager as AdminCouponsView } from '@/client/views/admin/AdminCouponsView';
+import { AdminCouponsView } from '@client/views/admin/AdminCouponsView';
 
 export const dynamic = 'force-dynamic';
 

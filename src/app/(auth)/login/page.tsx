@@ -1,1 +1,1 @@
-export { default } from '@/client/views/auth/LoginView';
+export { default } from '@client/views/auth/LoginView';

@@ -1,6 +1,6 @@
 'use client';
 
-import { ForgotPasswordForm } from '@/client/components/auth/ForgotPasswordForm';
+import { ForgotPasswordForm } from '@client/components/auth/ForgotPasswordForm';
 
 export function ForgotPasswordView() {
   return (

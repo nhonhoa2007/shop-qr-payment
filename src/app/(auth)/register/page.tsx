@@ -1,1 +1,1 @@
-export { default } from '@/client/views/auth/RegisterView';
+export { default } from '@client/views/auth/RegisterView';

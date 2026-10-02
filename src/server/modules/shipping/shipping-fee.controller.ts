@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { calculateGHNFee } from '@/lib/ghn';
+import { calculateGHNFee } from '@server/modules/shipping/ghn.service';
 
 interface CalculateFeeBody {
   toDistrictId?: unknown;

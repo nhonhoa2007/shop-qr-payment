@@ -1,0 +1,94 @@
+flowchart TB
+    %% Root Packages
+    subgraph RootProject ["📁 shop-qr-payment (Dự án Gốc)"]
+
+        subgraph PkgClient ["📦 @client (src/client)"]
+            direction TB
+            ClientComponents["components/
+├── admin/ (Bento Dashboard, AppShell, Topbar)
+├── auth/ (LoginForm, Register, OtpInput)
+├── cart/ (CartItem, CartSummary)
+├── chat/ (ChatWindow, MessageBubble, ChatRoomList)
+├── home/ (HeroFloatingConstellation 3D)
+├── layout/ (Header, Footer, Notifications)
+├── payment/ (QRPayment, PaymentStatus)
+├── product/ (ProductCard, ProductGrid, Reviews)
+└── wallet/ (WalletTopupModal, BalanceCard)"]
+            ClientViews["views/
+├── HomeView
+├── ProductDetailView
+├── CartView & CheckoutView
+├── WalletView & WishlistView
+└── admin/ (7 Bento Workspaces: Analytics, Orders, Chat,...)"]
+            ClientStores["stores/
+├── useCartStore (Zustand)
+└── useWishlistStore (Zustand)"]
+        end
+
+        subgraph PkgServer ["📦 @server (src/server)"]
+            direction TB
+            ServerModules["modules/
+├── admin/ (admin.service, analytics, reconcile)
+├── auth/ (auth-options, rbac-guard, password-reset)
+├── catalog/ (catalog.service, caching)
+├── chat/ (pusher-auth, chat.service, messages)
+├── inventory/ (inventory.service, reservation-engine)
+├── notifications/ (notifications.service)
+├── orders/ (orders.controller, customer-orders, orders.fsm)
+├── payment/ (payos.service, casso, vietqr-parser)
+├── products/ (product.service, variant-sync)
+├── reviews/ (product-reviews.controller)
+├── shipping/ (ghn.service, ghn-webhook.controller)
+├── wallet/ (wallet.service, wallet-topup.service)
+└── wishlist/ (wishlist.controller)"]
+            ServerInfrastructure["infrastructure/
+├── redis.ts (Upstash Client & Rate Limiter)
+├── pusher.ts (Pusher Server Instance)
+└── resend.ts (Email Gateway)"]
+        end
+
+        subgraph PkgShared ["📦 @shared (src/shared)"]
+            direction TB
+            SharedConst["constants/ (HTTP codes, Roles, Limits, Tokens)"]
+            SharedErrors["errors/ (AppError, ValidationError, AuthError)"]
+            SharedTypes["types/ (Order, Product, Variant, DTO Contracts)"]
+            SharedUtils["utils/ (formatVND, cryptoUtils, productVariants)"]
+            SharedVal["validations/ (Zod Schemas)"]
+        end
+
+        subgraph PkgApp ["📦 App Router (src/app)"]
+            AppPages["Routing Facade (Server Components & Route Handlers)
+├── (storefront pages: /, /products, /cart, /checkout, /wallet)
+├── /admin (Layout Guard & 7 SaaS Workspaces)
+└── /api (REST Handlers forwarding to @server modules)"]
+        end
+
+        subgraph PkgPrisma ["📦 Prisma Database (prisma)"]
+            PrismaSchema["schema.prisma (PostgreSQL 17 Models & Enums)"]
+            PrismaSeed["seed.ts (100% Mock & Fixture Data)"]
+        end
+
+        subgraph PkgTests ["📦 Test Suites (tests)"]
+            TestFiles["250+ Test Cases (node --test)
+├── admin-chat-navigation.test.ts
+├── order-cancellation-inventory-release.test.ts
+├── product-variant-lifecycle-and-stock-sync.test.ts
+├── wallet-topup-idempotency.test.ts
+└── webhook-security.test.ts"]
+        end
+    end
+
+    %% Dependency Arrows
+    PkgApp --> PkgClient
+    PkgApp --> PkgServer
+    PkgApp --> PkgShared
+
+    PkgClient --> PkgShared
+    PkgServer --> PkgShared
+    PkgServer --> PkgPrisma
+
+    %% Zero Server Leakage Rule
+    PkgClient -.->|❌ BỊ CHẶN: KHÔNG ĐƯỢC IMPORT| PkgServer
+
+    PkgTests --> PkgServer
+    PkgTests --> PkgShared

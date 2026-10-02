@@ -1,4 +1,4 @@
-import { getStatusLabel, getStatusColor } from '@/lib/utils';
+import { getStatusLabel, getStatusColor } from '@shared/utils';
 
 export function PaymentStatusBadge({ status }: { status: string }) {
   return (

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { formatVND, formatDateTime, getStatusLabel, getStatusColor } from '@/lib/utils';
+import { formatVND, formatDateTime, getStatusLabel, getStatusColor } from '@shared/utils';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { Coins, Check, User, Phone, Mail, MapPin, FileText } from 'lucide-react';
@@ -26,7 +26,7 @@ export interface AdminOrder {
   }[];
 }
 
-export function AdminOrderManager({ initialOrders }: { initialOrders: AdminOrder[] }) {
+export function AdminOrdersView({ initialOrders }: { initialOrders: AdminOrder[] }) {
   const [orders, setOrders] = useState<AdminOrder[]>(initialOrders);
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [filterPayment, setFilterPayment] = useState<string>('ALL');
@@ -267,3 +267,5 @@ export function AdminOrderManager({ initialOrders }: { initialOrders: AdminOrder
     </div>
   );
 }
+
+export { AdminOrdersView as AdminOrderManager, AdminOrdersView as default };

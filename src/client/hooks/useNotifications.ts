@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect } from 'react';
-import { pusherClient } from '@/lib/pusher-client';
+import { pusherClient } from '@client/infrastructure/pusher-client';
 import { toast } from 'sonner';
-import { useNotificationStore } from '@/client/stores/notification-store';
-import type { Notification } from '@/types';
-import { formatVND } from '@/lib/utils';
+import { useNotificationStore } from '@client/stores/notification-store';
+import type { Notification } from '@shared/types';
+import { formatVND } from '@shared/utils';
 
 export function useNotifications(userId: string | undefined) {
   const { setUnreadCount, addNotification } = useNotificationStore();

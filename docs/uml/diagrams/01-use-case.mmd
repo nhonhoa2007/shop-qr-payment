@@ -1,0 +1,74 @@
+flowchart LR
+    %% Actors
+    Customer(["👤 Khách hàng (Customer)"])
+    Staff(["👔 Nhân viên (Staff)"])
+    Admin(["👑 Quản trị viên (Admin)"])
+    PayOS_Bank(["🏦 PayOS & Ngân hàng (NAPAS 247)"])
+    GHN(["🚚 GHN Logistics"])
+    SystemCron(["⏰ Hệ thống Quét Tự động"])
+
+    %% Storefront Subsystem
+    subgraph Storefront ["🛒 Phân hệ Mua sắm & Khách hàng"]
+        UC1[1. Xem & Tìm kiếm Sản phẩm]
+        UC2[2. Chọn Biến thể Màu / Kích thước (SKU)]
+        UC3[3. Quản lý Giỏ hàng & Áp Coupon]
+        UC4[4. Đặt hàng & Nhận mã VietQR Động]
+        UC5[5. Nạp tiền Ví nội bộ qua VietQR]
+        UC6[6. Thanh toán Đơn bằng Ví Shop]
+        UC7[7. Hủy đơn & Hoàn tiền vào Ví]
+        UC8[8. Chat Tư vấn Trực tuyến Real-time]
+        UC9[9. Đánh giá & Gửi nhận xét Sản phẩm]
+        UC10[10. Quản lý Danh sách Yêu thích Wishlist]
+    end
+
+    %% Admin Subsystem
+    subgraph AdminPortal ["📊 Phân hệ Quản trị SaaS Bento"]
+        UC11[11. Giám sát Doanh thu Realtime]
+        UC12[12. Đối soát Giao dịch VietQR]
+        UC13[13. Quản lý Đơn & Đẩy vận đơn GHN]
+        UC14[14. Quản lý Sản phẩm, Biến thể & Kho]
+        UC15[15. Tư vấn Khách hàng qua Chat Room]
+        UC16[16. Kiểm duyệt Đánh giá Review]
+        UC17[17. Phân quyền RBAC & Khóa tài khoản]
+    end
+
+    %% Background & Gateways
+    subgraph Gateways ["⚡ Phân hệ Cổng Tích hợp Ngoài"]
+        UC18[18. Webhook Biến động Số dư (HMAC)]
+        UC19[19. Webhook Trạng thái Vận đơn GHN]
+        UC20[20. Tự động Hủy đơn & Nhả kho quá hạn]
+    end
+
+    %% Customer Connections
+    Customer --> UC1
+    Customer --> UC2
+    Customer --> UC3
+    Customer --> UC4
+    Customer --> UC5
+    Customer --> UC6
+    Customer --> UC7
+    Customer --> UC8
+    Customer --> UC9
+    Customer --> UC10
+
+    %% Staff Connections
+    Staff --> UC13
+    Staff --> UC14
+    Staff --> UC15
+
+    %% Admin Connections
+    Admin --> UC11
+    Admin --> UC12
+    Admin --> UC13
+    Admin --> UC14
+    Admin --> UC15
+    Admin --> UC16
+    Admin --> UC17
+
+    %% External Systems Connections
+    PayOS_Bank --> UC18
+    UC18 -.->|Khớp tiền đơn hàng| UC4
+    UC18 -.->|Khớp tiền nạp ví| UC5
+    GHN --> UC19
+    UC13 -.->|Sinh mã vận đơn tự động| GHN
+    SystemCron --> UC20

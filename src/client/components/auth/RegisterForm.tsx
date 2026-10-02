@@ -60,14 +60,14 @@ export function RegisterForm() {
 
   return (
     <div className="w-full max-w-md mx-auto">
-      <div className="bg-white rounded-[28px] shadow-card-custom p-8 sm:p-10">
+      <div className="bg-white rounded-[28px] shadow-card p-8 sm:p-10">
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-1 mb-2">
-            <span className="font-semibold text-2xl tracking-[-0.05em] text-[#000000]">shop</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-[#5433eb] mt-2.5" />
+            <span className="font-semibold text-2xl tracking-[-0.05em] text-ink-black">shop</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-shop-violet mt-2.5" />
           </div>
-          <h1 className="text-xl font-semibold text-[#000000] tracking-[-0.05em]">Tạo tài khoản</h1>
-          <p className="text-xs text-[#787574] mt-1 tracking-[-0.014em]">Trải nghiệm mua sắm nhanh chóng và tiện lợi</p>
+          <h1 className="text-xl font-semibold text-ink-black tracking-[-0.05em]">Tạo tài khoản</h1>
+          <p className="text-xs text-muted-gray mt-1 tracking-[-0.014em]">Trải nghiệm mua sắm nhanh chóng và tiện lợi</p>
         </div>
 
         {error && (
@@ -82,7 +82,7 @@ export function RegisterForm() {
               type="button"
               onClick={handleGoogleSignIn}
               disabled={loading || googleLoading}
-              className="w-full flex items-center justify-center gap-3 bg-white border border-[#ebebeb] text-[#000000] py-3 rounded-full text-xs font-medium hover:bg-[#f2f4f5] disabled:opacity-40 transition shadow-soft-sm-custom tracking-[-0.014em]"
+              className="w-full flex items-center justify-center gap-3 bg-white border border-faint-border text-ink-black py-3 rounded-full text-xs font-medium hover:bg-canvas-mist disabled:opacity-40 transition shadow-soft-sm tracking-[-0.014em]"
             >
               <GoogleIcon className="w-4 h-4" />
               <span>{googleLoading ? 'Đang chuyển hướng...' : 'Đăng ký nhanh với Google'}</span>
@@ -90,10 +90,10 @@ export function RegisterForm() {
 
             <div className="relative my-6">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-[#ebebeb]" />
+                <div className="w-full border-t border-faint-border" />
               </div>
               <div className="relative flex justify-center text-xs">
-                <span className="bg-white px-3 text-[#787574] tracking-[-0.017em]">hoặc email</span>
+                <span className="bg-white px-3 text-muted-gray tracking-[-0.017em]">hoặc email</span>
               </div>
             </div>
           </>
@@ -101,62 +101,98 @@ export function RegisterForm() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-[#787574] mb-1 tracking-[-0.014em]">Họ và tên</label>
+            <label
+              htmlFor="register-name"
+              className="block text-xs font-medium text-muted-gray mb-1 tracking-[-0.014em]"
+            >
+              Họ và tên
+            </label>
             <input
+              id="register-name"
+              name="name"
               type="text"
               required
+              autoComplete="name"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="w-full px-4 py-2.5 rounded-full border border-[#000000]/10 bg-white text-xs text-[#000000] placeholder:text-[#787574] focus:outline-none focus:border-[#5433eb]/40 transition tracking-[-0.014em]"
+              className="w-full px-4 py-2.5 rounded-full border border-ink-black/10 bg-white text-xs text-ink-black placeholder:text-muted-gray focus:outline-none focus:border-shop-violet/40 transition tracking-[-0.014em]"
               placeholder="Nguyễn Văn A"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-[#787574] mb-1 tracking-[-0.014em]">Email</label>
+            <label
+              htmlFor="register-email"
+              className="block text-xs font-medium text-muted-gray mb-1 tracking-[-0.014em]"
+            >
+              Email
+            </label>
             <input
+              id="register-email"
+              name="email"
               type="email"
               required
+              autoComplete="email"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
-              className="w-full px-4 py-2.5 rounded-full border border-[#000000]/10 bg-white text-xs text-[#000000] placeholder:text-[#787574] focus:outline-none focus:border-[#5433eb]/40 transition tracking-[-0.014em]"
+              className="w-full px-4 py-2.5 rounded-full border border-ink-black/10 bg-white text-xs text-ink-black placeholder:text-muted-gray focus:outline-none focus:border-shop-violet/40 transition tracking-[-0.014em]"
               placeholder="email@example.com"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-[#787574] mb-1 tracking-[-0.014em]">Mật khẩu</label>
+            <label
+              htmlFor="register-password"
+              className="block text-xs font-medium text-muted-gray mb-1 tracking-[-0.014em]"
+            >
+              Mật khẩu
+            </label>
             <input
+              id="register-password"
+              name="password"
               type="password"
               required
+              autoComplete="new-password"
+              aria-describedby="register-password-hint"
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
-              className="w-full px-4 py-2.5 rounded-full border border-[#000000]/10 bg-white text-xs text-[#000000] placeholder:text-[#787574] focus:outline-none focus:border-[#5433eb]/40 transition tracking-[-0.014em]"
+              className="w-full px-4 py-2.5 rounded-full border border-ink-black/10 bg-white text-xs text-ink-black placeholder:text-muted-gray focus:outline-none focus:border-shop-violet/40 transition tracking-[-0.014em]"
               placeholder="Ít nhất 6 ký tự"
             />
+            <p id="register-password-hint" className="sr-only">
+              Mật khẩu phải có ít nhất 6 ký tự
+            </p>
           </div>
           <div>
-            <label className="block text-xs font-medium text-[#787574] mb-1 tracking-[-0.014em]">Xác nhận mật khẩu</label>
+            <label
+              htmlFor="register-confirm-password"
+              className="block text-xs font-medium text-muted-gray mb-1 tracking-[-0.014em]"
+            >
+              Xác nhận mật khẩu
+            </label>
             <input
+              id="register-confirm-password"
+              name="confirmPassword"
               type="password"
               required
+              autoComplete="new-password"
               value={form.confirmPassword}
               onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
-              className="w-full px-4 py-2.5 rounded-full border border-[#000000]/10 bg-white text-xs text-[#000000] placeholder:text-[#787574] focus:outline-none focus:border-[#5433eb]/40 transition tracking-[-0.014em]"
+              className="w-full px-4 py-2.5 rounded-full border border-ink-black/10 bg-white text-xs text-ink-black placeholder:text-muted-gray focus:outline-none focus:border-shop-violet/40 transition tracking-[-0.014em]"
               placeholder="Nhập lại mật khẩu"
             />
           </div>
           <button
             type="submit"
             disabled={loading || googleLoading}
-            className="w-full bg-[#000000] text-white py-3 rounded-full text-xs font-medium hover:bg-[#332f2d] disabled:opacity-40 transition flex items-center justify-center gap-1.5 tracking-[-0.014em]"
+            className="w-full bg-ink-black text-white py-3 rounded-full text-xs font-medium hover:bg-slate-ink disabled:opacity-40 transition flex items-center justify-center gap-1.5 tracking-[-0.014em]"
           >
             <span>{loading ? 'Đang xử lý...' : 'Đăng ký tài khoản'}</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </form>
 
-        <p className="text-center text-xs text-[#787574] mt-6 tracking-[-0.014em]">
+        <p className="text-center text-xs text-muted-gray mt-6 tracking-[-0.014em]">
           Đã có tài khoản?{' '}
-          <Link href="/login" className="text-[#000000] font-semibold hover:underline">
+          <Link href="/login" className="text-ink-black font-semibold hover:underline">
             Đăng nhập ngay
           </Link>
         </p>

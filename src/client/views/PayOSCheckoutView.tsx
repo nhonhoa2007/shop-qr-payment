@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { formatVND } from '@/lib/utils';
+import { formatVND } from '@shared/utils';
 import { ShieldCheck, ArrowLeft, CheckCircle2, XCircle, Loader2, QrCode } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
@@ -65,8 +65,8 @@ function PayOSCheckoutContent() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] py-12 px-4 sm:px-6">
-      <div className="max-w-md mx-auto bg-white rounded-[28px] p-6 sm:p-8 shadow-card-custom border border-gray-100">
+    <div className="min-h-screen bg-canvas-mist py-12 px-4 sm:px-6">
+      <div className="max-w-md mx-auto bg-white rounded-[28px] p-6 sm:p-8 shadow-card border border-gray-100">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-6">
           <div className="flex items-center gap-2">
@@ -85,14 +85,14 @@ function PayOSCheckoutContent() {
         </div>
 
         {/* Order Details */}
-        <div className="bg-[#f8f9fa] rounded-2xl p-4 mb-6 space-y-2.5 text-xs">
+        <div className="bg-canvas-mist rounded-2xl p-4 mb-6 space-y-2.5 text-xs">
           <div className="flex justify-between">
             <span className="text-gray-500">Mã đơn hàng:</span>
             <span className="font-mono font-bold text-gray-900">DH{code}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-500">Số tiền thanh toán:</span>
-            <span className="font-bold text-sm text-[#5433eb]">{formatVND(amount)}</span>
+            <span className="font-bold text-sm text-shop-violet">{formatVND(amount)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-500">Mã phiên giao dịch:</span>
@@ -102,7 +102,7 @@ function PayOSCheckoutContent() {
 
         {/* Simulated QR display */}
         <div className="border border-dashed border-gray-200 rounded-2xl p-6 text-center mb-6">
-          <div className="w-40 h-40 bg-[#f2f4f5] rounded-xl mx-auto flex flex-col items-center justify-center text-gray-400 mb-3">
+          <div className="w-40 h-40 bg-canvas-mist rounded-xl mx-auto flex flex-col items-center justify-center text-gray-400 mb-3">
             <QrCode className="w-16 h-16 text-gray-600 mb-1" />
             <span className="text-[11px] font-medium text-gray-500">Mã QR PayOS Napas</span>
           </div>
@@ -117,7 +117,7 @@ function PayOSCheckoutContent() {
             type="button"
             onClick={handleSimulatePayment}
             disabled={loading || cancelling || success}
-            className="w-full bg-[#5433eb] hover:bg-[#4428d4] text-white font-medium py-3 px-4 rounded-full transition shadow-violet-custom disabled:opacity-50 flex items-center justify-center gap-2 text-xs"
+            className="w-full bg-shop-violet hover:bg-shop-violet-deep text-white font-medium py-3 px-4 rounded-full transition shadow-violet disabled:opacity-50 flex items-center justify-center gap-2 text-xs"
           >
             {loading ? (
               <>

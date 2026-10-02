@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { createPayOSPaymentLink, parsePayOSOrderCode } from '@/lib/payos';
+import { prisma } from '@server/database/prisma';
+import { createPayOSPaymentLink, parsePayOSOrderCode } from '@server/modules/payment/payos.service';
 
 interface CreatePayOSLinkBody {
   orderId?: unknown;
@@ -52,6 +52,13 @@ export async function POST(req: Request) {
         price: i.price,
       })),
     });
+
+    if (!payOSResult.success) {
+      return NextResponse.json(
+        { error: payOSResult.error || 'Cổng thanh toán PayOS tạm thời không khả dụng' },
+        { status: 502 }
+      );
+    }
 
     return NextResponse.json({
       success: true,

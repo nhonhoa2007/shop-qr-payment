@@ -1,0 +1,37 @@
+sequenceDiagram
+    autonumber
+    actor User as Khách hàng / Admin
+    participant UI as Giao diện Web
+    participant OrderCtrl as OrderDetail Controller
+    participant WalletSvc as Wallet Service
+    participant DB as PostgreSQL
+    participant InvSvc as Inventory Service
+    participant Pusher as Pusher Gateway
+
+    User->>UI: Bấm Hủy đơn & Hoàn tiền vào Ví
+    UI->>OrderCtrl: PATCH /api/orders/id (status: CANCELLED)
+    activate OrderCtrl
+    OrderCtrl->>WalletSvc: refundOrderToWallet(orderId)
+    
+    activate WalletSvc
+    WalletSvc->>DB: Bắt đầu prisma transaction
+    WalletSvc->>DB: updateMany (paymentStatus: PAID to REFUNDED)
+    
+    alt updateResult.count !== 1
+        DB-->>WalletSvc: count = 0
+        WalletSvc-->>OrderCtrl: Báo lỗi Đơn không ở trạng thái PAID
+        OrderCtrl-->>UI: HTTP 400 Bad Request
+    else updateResult.count === 1
+        DB-->>WalletSvc: count = 1
+        WalletSvc->>DB: update UserWallet (balance += totalAmount)
+        WalletSvc->>DB: create WalletTransaction (type: REFUND)
+        WalletSvc->>InvSvc: releaseOrderStock(tx, order.items)
+        InvSvc->>DB: Tăng lại stock cho Product & Variant
+        WalletSvc->>Pusher: trigger private-admin-channel (analytics-updated)
+        WalletSvc-->>OrderCtrl: Hoàn tiền thành công
+        deactivate WalletSvc
+        OrderCtrl-->>UI: HTTP 200 OK (Đơn đã hủy & tiền đã về ví)
+    end
+    deactivate OrderCtrl
+
+    UI-->>User: Thông báo Đã hoàn 100% tiền vào Ví nội bộ thành công

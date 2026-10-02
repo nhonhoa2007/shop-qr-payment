@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { prisma } from '@/lib/prisma';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { prisma } from '@server/database/prisma';
+import { authOptions } from '@server/modules/auth/auth-options';
 import type { ShipmentStatus } from '@/types';
 
 export async function GET(req: Request) {

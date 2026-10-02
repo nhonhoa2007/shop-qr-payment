@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { pusherClient } from '@/lib/pusher-client';
+import { pusherClient } from '@client/infrastructure/pusher-client';
 import { toast } from 'sonner';
-import type { Message } from '@/types';
+import type { Message } from '@shared/types';
 
 export function useChatMessages(roomId: string, currentUserId: string, initialMessages: Message[] = []) {
   const [messages, setMessages] = useState<Message[]>(initialMessages);

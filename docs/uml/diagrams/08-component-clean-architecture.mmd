@@ -1,0 +1,51 @@
+flowchart TB
+    subgraph PresentationLayer ["🖥️ Tầng Trình diễn (Presentation Layer - @client)"]
+        HomeView["HomeView (Constellation 3D)"]
+        ProductDetailView["ProductDetailView"]
+        CartView["CartView"]
+        CheckoutView["CheckoutView"]
+        AdminDashboard["AdminDashboardView (Bento Grid)"]
+        AdminOrders["AdminOrdersView"]
+        ZustandCart["Zustand Cart Store"]
+        PusherClient["Pusher JS Client"]
+    end
+
+    subgraph ApplicationLayer ["⚙️ Tầng Ứng dụng & Dịch vụ (Application Layer - @server)"]
+        OrderRoutes["Order & Checkout APIs"]
+        WebhookRoutes["PayOS & GHN Webhook Handlers"]
+        AdminRoutes["Analytics & Reconciliation APIs"]
+        WalletService["WalletService (Atomic CAS Refund)"]
+        InventoryService["InventoryService (Atomic Stock & Expiry)"]
+        OrderFSM["OrderFSM Engine (Invariants Guard)"]
+        PayOSService["PayOSService (HMAC Gateway)"]
+        GHNService["GHNService (Logistics OpenAPI)"]
+    end
+
+    subgraph SharedLayer ["📦 Tầng Dùng chung An toàn (@shared)"]
+        SharedTypes["DTO Types & Interfaces"]
+        SharedEnums["Domain Enums"]
+        SharedValidators["Zod Validation Schemas"]
+        SharedErrors["AppError, ValidationError, AuthError"]
+        SharedUtils["Formatters & Crypto Utils"]
+    end
+
+    subgraph InfrastructureLayer ["🗄️ Tầng Hạ tầng & Dịch vụ Đám mây"]
+        PostgresDB[("PostgreSQL Database (Prisma ORM)")]
+        RedisCache[("Upstash Redis Cache")]
+        PusherCloud["Pusher Realtime Cloud Gateway"]
+        PayOSGateway["PayOS Payment API"]
+        GHNCloud["GHN OpenAPI Server"]
+        CloudinaryCDN["Cloudinary Media CDN"]
+    end
+
+    PresentationLayer --> SharedLayer
+    ApplicationLayer --> SharedLayer
+    PresentationLayer -->|Fetch REST APIs| ApplicationLayer
+    PresentationLayer -.->|NGHIÊM CẤM IMPORT TRỰC TIẾP| ApplicationLayer
+
+    ApplicationLayer --> PostgresDB
+    ApplicationLayer --> RedisCache
+    ApplicationLayer --> PusherCloud
+    ApplicationLayer --> PayOSGateway
+    ApplicationLayer --> GHNCloud
+    ApplicationLayer --> CloudinaryCDN
