@@ -13,6 +13,7 @@ import {
   buildRevenueTrend,
   buildHourlyRevenueTrend,
   buildMonthlyRevenueTrend,
+  buildNewCustomersTrend,
 } from './admin-analytics.service';
 
 export interface GetAdminCustomersOptions {
@@ -266,6 +267,8 @@ export class AdminService {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
 
     const trendStartDate = range === 'today' ? startOfToday : range === 'month' ? thirtyDaysAgo : sevenDaysAgo;
+    // Đầu tháng cách đây 11 tháng (để trend khách hàng mới đủ 12 bucket tháng)
+    const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1, 0, 0, 0, 0);
 
     const [
       paidOrdersAgg,
@@ -288,6 +291,7 @@ export class AdminService {
       recentPaidOrders,
       topOrderItems,
       rawRecentOrders,
+      recentCustomers,
     ] = await Promise.all([
       // 1. Overall paid orders & revenue
       prisma.order.aggregate({
@@ -404,6 +408,11 @@ export class AdminService {
           },
         },
       }),
+      // 21. Customers registered trong 12 tháng gần nhất (cho trend khách hàng mới)
+      prisma.user.findMany({
+        where: { role: 'CUSTOMER', createdAt: { gte: twelveMonthsAgo } },
+        select: { createdAt: true },
+      }),
     ]);
 
     const totalRevenue = paidOrdersAgg._sum.totalAmount || 0;
@@ -497,6 +506,7 @@ export class AdminService {
       },
       ordersByStatus,
       revenueTrend,
+      newCustomersTrend: buildNewCustomersTrend(now, recentCustomers),
       paymentMethodDistribution,
       urgentActions,
       recentOrders,

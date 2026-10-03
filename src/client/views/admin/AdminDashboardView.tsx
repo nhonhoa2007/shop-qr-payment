@@ -1,52 +1,52 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import Link from 'next/link';
 import { useHydrated } from '@client/hooks/useHydrated';
 import { pusherClient } from '@client/infrastructure/pusher-client';
 import { AdminKpiStrip, KpiSummaryData } from '@client/components/admin/dashboard/AdminKpiStrip';
-import { AdminRevenueChart, RevenueTrendPoint } from '@client/components/admin/dashboard/AdminRevenueChart';
-import { AdminPaymentBreakdown, PaymentMethodDistribution } from '@client/components/admin/dashboard/AdminPaymentBreakdown';
+import { AdminRevenueBars, RevenueBarRange, RevenueBarPoint } from '@client/components/admin/dashboard/AdminRevenueBars';
+import { AdminDonutChart, DonutPaymentDistribution } from '@client/components/admin/dashboard/AdminDonutChart';
+import { AdminTopProducts, TopProductItem } from '@client/components/admin/dashboard/AdminTopProducts';
+import { AdminCustomersCard, CustomerTrendPoint } from '@client/components/admin/dashboard/AdminCustomersCard';
+import { AdminRevenueShareCard } from '@client/components/admin/dashboard/AdminRevenueShareCard';
+import { AdminRealtimeOrdersCard } from '@client/components/admin/dashboard/AdminRealtimeOrdersCard';
 import { AdminActionCenter, UrgentActionItem } from '@client/components/admin/dashboard/AdminActionCenter';
 import { AdminRecentOrdersTable, RecentOrderItem } from '@client/components/admin/dashboard/AdminRecentOrdersTable';
-import {
-  AlertTriangle,
-  Package,
-  Truck,
-  CreditCard,
-  ShoppingBag,
-  Tag,
-  Star,
-  Users,
-  MessageSquare,
-  RefreshCw,
-  Sparkles,
-} from 'lucide-react';
+import { AlertTriangle, RefreshCw, Sparkles } from 'lucide-react';
 
 interface AnalyticsPayload {
   error?: boolean;
   summary?: KpiSummaryData;
   ordersByStatus?: Record<string, number>;
-  revenueTrend?: RevenueTrendPoint[];
-  paymentMethodDistribution?: PaymentMethodDistribution;
+  revenueTrend?: RevenueBarPoint[];
+  newCustomersTrend?: CustomerTrendPoint[];
+  paymentMethodDistribution?: DonutPaymentDistribution;
   urgentActions?: UrgentActionItem[];
   recentOrders?: RecentOrderItem[];
-  topProducts?: Array<{
-    productId: string;
-    name: string;
-    price: number;
-    image: string | null;
-    category?: string | null;
-    totalSold: number;
-  }>;
+  topProducts?: TopProductItem[];
 }
+
+/** Lời chào theo giờ trong ngày (chỉ chạy phía client sau khi hydrate) */
+function getGreeting(): string {
+  if (typeof window === 'undefined') return 'Xin chào';
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Chào buổi sáng';
+  if (hour < 18) return 'Chào buổi chiều';
+  return 'Chào buổi tối';
+}
+
+const PERIOD_LABELS: Record<RevenueBarRange, string> = {
+  today: 'hôm nay',
+  '7days': '7 ngày qua',
+  month: '30 ngày qua',
+};
 
 export function AdminDashboardView() {
   const [data, setData] = useState<AnalyticsPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [fetchError, setFetchError] = useState(false);
-  const [timeRange, setTimeRange] = useState<'today' | '7days' | 'month'>('today');
+  const [timeRange, setTimeRange] = useState<RevenueBarRange>('today');
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const isHydrated = useHydrated();
 
@@ -63,6 +63,8 @@ export function AdminDashboardView() {
         year: 'numeric',
       })
     : 'Hôm nay';
+
+  const greeting = isHydrated ? getGreeting() : 'Xin chào';
 
   const formattedLastUpdated =
     isHydrated && lastUpdated
@@ -86,7 +88,7 @@ export function AdminDashboardView() {
 
   // Fetch khi người dùng chủ động (đổi range, bấm refresh, realtime, polling) — được set state đồng bộ
   const fetchAnalytics = useCallback(
-    (range: 'today' | '7days' | 'month', isInitial = false) => {
+    (range: RevenueBarRange, isInitial = false) => {
       if (isInitial) {
         setLoading(true);
       } else {
@@ -171,7 +173,7 @@ export function AdminDashboardView() {
     };
   }, [fetchAnalytics]);
 
-  const handleRangeChange = (newRange: 'today' | '7days' | 'month') => {
+  const handleRangeChange = (newRange: RevenueBarRange) => {
     setTimeRange(newRange);
     fetchAnalytics(newRange, false);
   };
@@ -180,14 +182,16 @@ export function AdminDashboardView() {
     fetchAnalytics(timeRange, false);
   };
 
+  const isLoading = loading || refreshing;
+
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
-      {/* Welcome & Time Range Filter Strip */}
+    <div className="p-4 sm:p-6 lg:p-8 space-y-5 max-w-7xl mx-auto">
+      {/* HEADER: Chào hỏi theo giờ + trạng thái realtime + refresh */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-              Xin chào, Quản trị viên 👋
+              {greeting}, Quản trị viên 👋
             </h1>
             <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#5433eb]/10 text-[#5433eb] text-[10px] font-bold">
               <Sparkles className="w-3 h-3" />
@@ -195,40 +199,29 @@ export function AdminDashboardView() {
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Dữ liệu kinh doanh và vận hành thanh toán QR tự động hôm nay ({currentDateString})
+            Toàn bộ số liệu kinh doanh và vận hành thanh toán QR được cập nhật tự động ({currentDateString})
           </p>
         </div>
 
-        {/* Realtime Live Indicator, Time range switcher & Refresh */}
         <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
-          {/* Realtime Live status dot & Last updated */}
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50/90 border border-emerald-200/80 text-xs font-semibold text-emerald-800 shadow-xs">
+          {/* Realtime Live status dot & Last sync — tương đương "Last sync · Just now" của mẫu */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50/90 border border-emerald-200/80 text-xs font-semibold text-emerald-800 shadow-xs">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
             <span className="text-[11px] font-bold text-emerald-700">
-              Thời gian thực (Realtime)
+              {formattedLastUpdated ? `Sync ${formattedLastUpdated}` : 'Realtime'}
             </span>
-            {formattedLastUpdated && (
-              <>
-                <span className="text-emerald-300">•</span>
-                <span className="text-[11px] text-emerald-600 font-medium">
-                  Cập nhật lúc: {formattedLastUpdated}
-                </span>
-              </>
-            )}
           </div>
 
-          {/* Time range switcher */}
+          {/* Bộ chọn kỳ toàn cục (điều khiển KPI + chart) */}
           <div className="flex items-center p-1 rounded-xl bg-white border border-slate-200/80 text-xs font-bold text-slate-700 shadow-sm">
             <button
               type="button"
               onClick={() => handleRangeChange('today')}
-              className={`px-3 py-1 rounded-lg transition ${
-                timeRange === 'today'
-                  ? 'bg-[#5433eb] text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-100'
+              className={`px-3 py-1 rounded-lg transition cursor-pointer ${
+                timeRange === 'today' ? 'bg-[#5433eb] text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
               }`}
             >
               Hôm nay
@@ -236,10 +229,8 @@ export function AdminDashboardView() {
             <button
               type="button"
               onClick={() => handleRangeChange('7days')}
-              className={`px-3 py-1 rounded-lg transition ${
-                timeRange === '7days'
-                  ? 'bg-[#5433eb] text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-100'
+              className={`px-3 py-1 rounded-lg transition cursor-pointer ${
+                timeRange === '7days' ? 'bg-[#5433eb] text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
               }`}
             >
               7 ngày
@@ -247,30 +238,23 @@ export function AdminDashboardView() {
             <button
               type="button"
               onClick={() => handleRangeChange('month')}
-              className={`px-3 py-1 rounded-lg transition ${
-                timeRange === 'month'
-                  ? 'bg-[#5433eb] text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-100'
+              className={`px-3 py-1 rounded-lg transition cursor-pointer ${
+                timeRange === 'month' ? 'bg-[#5433eb] text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
               }`}
             >
-              Tháng này
+              30 ngày
             </button>
           </div>
 
-          {/* Manual Refresh button */}
           <button
             type="button"
             onClick={handleRefresh}
-            disabled={loading || refreshing}
+            disabled={isLoading}
             aria-label="Làm mới dữ liệu"
-            className="p-2 rounded-xl bg-white border border-slate-200/80 text-slate-500 hover:text-slate-800 hover:bg-slate-50 shadow-sm transition disabled:opacity-50"
+            className="p-2 rounded-xl bg-white border border-slate-200/80 text-slate-500 hover:text-slate-800 hover:bg-slate-50 shadow-sm transition disabled:opacity-50 cursor-pointer"
             title="Tải lại số liệu"
           >
-            <RefreshCw
-              className={`w-4 h-4 ${
-                loading || refreshing ? 'animate-spin text-[#5433eb]' : ''
-              }`}
-            />
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-[#5433eb]' : ''}`} />
           </button>
         </div>
       </div>
@@ -293,125 +277,84 @@ export function AdminDashboardView() {
         </div>
       )}
 
-      {/* BENTO ROW 1: KPI CARDS */}
+      {/* HÀNG 1: 4 KPI CARDS với mini bar-strip + delta pill */}
       <AdminKpiStrip
         summary={data?.summary}
         timeRange={timeRange}
-        loading={loading || refreshing}
+        loading={isLoading}
+        trend={data?.revenueTrend}
       />
 
-      {/* BENTO ROW 2: CHART (8 COLS) + PAYMENT & ACTIONS (4 COLS) */}
+      {/* HÀNG 2: Big bar chart texture chấm bi (8) + Khách hàng gradient & Doanh thu kỳ (4) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* 8 Cols: Revenue Area Chart */}
-        <div className="lg:col-span-8">
-          <AdminRevenueChart
+        <div className="lg:col-span-8 min-h-[320px]">
+          <AdminRevenueBars
             trend={data?.revenueTrend}
             timeRange={timeRange}
-            loading={loading || refreshing}
+            loading={isLoading}
+            onRangeChange={handleRangeChange}
           />
         </div>
 
-        {/* 4 Cols: Payment Breakdown & Action Center */}
-        <div className="lg:col-span-4 bg-white rounded-[24px] p-5 sm:p-6 border border-slate-200/80 shadow-sm flex flex-col justify-between">
-          <AdminPaymentBreakdown distribution={data?.paymentMethodDistribution} />
-          <AdminActionCenter
-            urgentActions={data?.urgentActions}
-            lowStockCount={data?.summary?.lowStockCount}
-            unmatchedTxCount={data?.summary?.unmatchedTransactionsCount}
+        <div className="lg:col-span-4 grid grid-cols-1 gap-5">
+          <AdminCustomersCard
+            totalCustomers={data?.summary?.totalCustomers}
+            trend={data?.newCustomersTrend}
+            loading={isLoading}
+          />
+          <AdminRevenueShareCard
+            periodRevenue={
+              timeRange === 'today'
+                ? data?.summary?.todayRevenue
+                : data?.summary?.periodRevenue
+            }
+            totalRevenue={data?.summary?.totalRevenue}
+            periodLabel={PERIOD_LABELS[timeRange]}
+            loading={isLoading}
           />
         </div>
       </div>
 
-      {/* BENTO ROW 3: RECENT ORDERS TABLE */}
+      {/* HÀNG 3: Top sản phẩm + Donut thanh toán + Card tối realtime */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <AdminTopProducts products={data?.topProducts} loading={isLoading} />
+
+        <div className="bg-white rounded-[24px] p-5 sm:p-6 border border-slate-200/80 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base font-extrabold text-slate-900 tracking-tight">Cơ cấu thanh toán</h3>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              {PERIOD_LABELS[timeRange]}
+            </span>
+          </div>
+          <AdminDonutChart distribution={data?.paymentMethodDistribution} loading={isLoading} />
+        </div>
+
+        <AdminRealtimeOrdersCard
+          totalOrders={data?.summary?.totalOrders}
+          todayOrders={data?.summary?.todayOrders}
+          todayRevenueGrowth={data?.summary?.todayRevenueGrowth}
+          trend={data?.revenueTrend}
+          loading={isLoading}
+        />
+      </div>
+
+      {/* HÀNG 4: Cảnh báo vận hành cần xử lý */}
+      <div className="bg-white rounded-[24px] p-5 sm:p-6 border border-slate-200/80 shadow-sm">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-base font-extrabold text-slate-900 tracking-tight">Cần xử lý ngay</h3>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            Cảnh báo tự động
+          </span>
+        </div>
+        <AdminActionCenter
+          urgentActions={data?.urgentActions}
+          lowStockCount={data?.summary?.lowStockCount}
+          unmatchedTxCount={data?.summary?.unmatchedTransactionsCount}
+        />
+      </div>
+
+      {/* HÀNG 5: Đơn hàng mới nhất */}
       <AdminRecentOrdersTable orders={data?.recentOrders} />
-
-      {/* BENTO ROW 4: QUICK OPERATIONAL ACCESS TILES */}
-      <div className="pt-2">
-        <h2 className="text-sm font-bold text-slate-900 mb-3 uppercase tracking-wider text-[11px] text-slate-400">
-          Phân hệ Nghiệp vụ Quản trị
-        </h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-          <Link
-            href="/admin/orders"
-            className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/70 hover:border-[#5433eb]/40 hover:shadow-md transition text-center group flex flex-col items-center justify-center"
-          >
-            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-              <Package className="w-5 h-5" />
-            </div>
-            <span className="text-xs font-bold text-slate-800 truncate w-full">Đơn hàng</span>
-          </Link>
-
-          <Link
-            href="/admin/shipments"
-            className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/70 hover:border-[#5433eb]/40 hover:shadow-md transition text-center group flex flex-col items-center justify-center"
-          >
-            <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-              <Truck className="w-5 h-5" />
-            </div>
-            <span className="text-xs font-bold text-slate-800 truncate w-full">Vận đơn GHN</span>
-          </Link>
-
-          <Link
-            href="/admin/transactions"
-            className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/70 hover:border-[#5433eb]/40 hover:shadow-md transition text-center group flex flex-col items-center justify-center"
-          >
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-              <CreditCard className="w-5 h-5" />
-            </div>
-            <span className="text-xs font-bold text-slate-800 truncate w-full">Đối soát VietQR</span>
-          </Link>
-
-          <Link
-            href="/admin/products"
-            className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/70 hover:border-[#5433eb]/40 hover:shadow-md transition text-center group flex flex-col items-center justify-center"
-          >
-            <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-              <ShoppingBag className="w-5 h-5" />
-            </div>
-            <span className="text-xs font-bold text-slate-800 truncate w-full">Sản phẩm</span>
-          </Link>
-
-          <Link
-            href="/admin/coupons"
-            className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/70 hover:border-[#5433eb]/40 hover:shadow-md transition text-center group flex flex-col items-center justify-center"
-          >
-            <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-              <Tag className="w-5 h-5" />
-            </div>
-            <span className="text-xs font-bold text-slate-800 truncate w-full">Mã giảm giá</span>
-          </Link>
-
-          <Link
-            href="/admin/customers"
-            className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/70 hover:border-[#5433eb]/40 hover:shadow-md transition text-center group flex flex-col items-center justify-center"
-          >
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-              <Users className="w-5 h-5" />
-            </div>
-            <span className="text-xs font-bold text-slate-800 truncate w-full">Khách & RBAC</span>
-          </Link>
-
-          <Link
-            href="/admin/chat"
-            className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/70 hover:border-[#5433eb]/40 hover:shadow-md transition text-center group flex flex-col items-center justify-center"
-          >
-            <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-              <MessageSquare className="w-5 h-5" />
-            </div>
-            <span className="text-xs font-bold text-slate-800 truncate w-full">CSKH Trực tuyến</span>
-          </Link>
-
-          <Link
-            href="/admin/reviews"
-            className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/70 hover:border-[#5433eb]/40 hover:shadow-md transition text-center group flex flex-col items-center justify-center"
-          >
-            <div className="w-10 h-10 rounded-xl bg-yellow-50 text-yellow-600 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-              <Star className="w-5 h-5" />
-            </div>
-            <span className="text-xs font-bold text-slate-800 truncate w-full">Đánh giá SP</span>
-          </Link>
-        </div>
-      </div>
     </div>
   );
 }

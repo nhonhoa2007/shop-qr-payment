@@ -43,6 +43,13 @@ export interface RevenueTrendItem {
   date: string;
   label: string;
   revenue: number;
+  /** Số đơn hàng PAID rơi vào bucket này (phục vụ tooltip biểu đồ) */
+  orders: number;
+}
+
+export interface CustomerTrendItem {
+  label: string;
+  count: number;
 }
 
 export interface AdminAnalyticsSummary {
@@ -72,6 +79,8 @@ export interface AdminAnalyticsResponse {
   summary: AdminAnalyticsSummary;
   ordersByStatus: Record<string, number>;
   revenueTrend: RevenueTrendItem[];
+  /** Số khách hàng mới đăng ký theo 12 tháng gần nhất (bucket tháng hiện tại ở cuối) */
+  newCustomersTrend: CustomerTrendItem[];
   paymentMethodDistribution: PaymentMethodDistribution;
   urgentActions: UrgentAction[];
   recentOrders: RecentOrderDto[];
@@ -244,28 +253,30 @@ export function buildRevenueTrend(
     return buildMonthlyRevenueTrend(referenceDate, paidOrders);
   }
 
-  const dailyRevenueMap = new Map<string, { label: string; revenue: number }>();
+  const dailyMap = new Map<string, { label: string; revenue: number; orders: number }>();
 
   for (let i = 0; i < 7; i++) {
     const d = new Date(referenceDate);
     d.setDate(d.getDate() + i);
     const dateKey = formatDateKey(d);
     const label = getVietnameseDayLabel(d);
-    dailyRevenueMap.set(dateKey, { label, revenue: 0 });
+    dailyMap.set(dateKey, { label, revenue: 0, orders: 0 });
   }
 
   for (const order of paidOrders) {
     const dateKey = formatDateKey(new Date(order.createdAt));
-    const item = dailyRevenueMap.get(dateKey);
+    const item = dailyMap.get(dateKey);
     if (item) {
       item.revenue += order.totalAmount;
+      item.orders += 1;
     }
   }
 
-  return Array.from(dailyRevenueMap.entries()).map(([date, item]) => ({
+  return Array.from(dailyMap.entries()).map(([date, item]) => ({
     date,
     label: item.label,
     revenue: item.revenue,
+    orders: item.orders,
   }));
 }
 
@@ -276,9 +287,9 @@ export function buildHourlyRevenueTrend(
   todayDate: Date,
   paidOrders: Array<{ totalAmount: number; createdAt: Date }>
 ): RevenueTrendItem[] {
-  const hourlyMap = new Map<number, number>();
+  const hourlyMap = new Map<number, { revenue: number; orders: number }>();
   for (let h = 0; h < 24; h++) {
-    hourlyMap.set(h, 0);
+    hourlyMap.set(h, { revenue: 0, orders: 0 });
   }
 
   const baseYear = todayDate.getFullYear();
@@ -289,17 +300,22 @@ export function buildHourlyRevenueTrend(
     const d = new Date(order.createdAt);
     if (d.getFullYear() === baseYear && d.getMonth() === baseMonth && d.getDate() === baseDay) {
       const h = d.getHours();
-      hourlyMap.set(h, (hourlyMap.get(h) || 0) + order.totalAmount);
+      const item = hourlyMap.get(h);
+      if (item) {
+        item.revenue += order.totalAmount;
+        item.orders += 1;
+      }
     }
   }
 
   const datePrefix = formatDateKey(todayDate);
-  return Array.from(hourlyMap.entries()).map(([hour, revenue]) => {
+  return Array.from(hourlyMap.entries()).map(([hour, item]) => {
     const hourStr = String(hour).padStart(2, '0');
     return {
       date: `${datePrefix}T${hourStr}:00:00`,
       label: `${hourStr}h`,
-      revenue,
+      revenue: item.revenue,
+      orders: item.orders,
     };
   });
 }
@@ -311,7 +327,7 @@ export function buildMonthlyRevenueTrend(
   startDate: Date,
   paidOrders: Array<{ totalAmount: number; createdAt: Date }>
 ): RevenueTrendItem[] {
-  const dailyRevenueMap = new Map<string, { label: string; revenue: number }>();
+  const dailyMap = new Map<string, { label: string; revenue: number; orders: number }>();
 
   for (let i = 0; i < 30; i++) {
     const d = new Date(startDate);
@@ -320,20 +336,52 @@ export function buildMonthlyRevenueTrend(
     const day = String(d.getDate()).padStart(2, '0');
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const label = `${day}/${month}`;
-    dailyRevenueMap.set(dateKey, { label, revenue: 0 });
+    dailyMap.set(dateKey, { label, revenue: 0, orders: 0 });
   }
 
   for (const order of paidOrders) {
     const dateKey = formatDateKey(new Date(order.createdAt));
-    const item = dailyRevenueMap.get(dateKey);
+    const item = dailyMap.get(dateKey);
     if (item) {
       item.revenue += order.totalAmount;
+      item.orders += 1;
     }
   }
 
-  return Array.from(dailyRevenueMap.entries()).map(([date, item]) => ({
+  return Array.from(dailyMap.entries()).map(([date, item]) => ({
     date,
     label: item.label,
     revenue: item.revenue,
+    orders: item.orders,
   }));
+}
+
+const VIETNAMESE_MONTH_LABELS = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12'];
+
+/**
+ * Tạo xu hướng khách hàng mới đăng ký theo 12 tháng gần nhất
+ * (bucket tháng cũ nhất đứng đầu, tháng hiện tại ở cuối)
+ */
+export function buildNewCustomersTrend(
+  referenceDate: Date,
+  customers: Array<{ createdAt: Date }>
+): CustomerTrendItem[] {
+  const monthlyMap = new Map<string, { label: string; count: number }>();
+
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(referenceDate.getFullYear(), referenceDate.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    monthlyMap.set(key, { label: VIETNAMESE_MONTH_LABELS[d.getMonth()] || `T${d.getMonth() + 1}`, count: 0 });
+  }
+
+  for (const customer of customers) {
+    const d = new Date(customer.createdAt);
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    const item = monthlyMap.get(key);
+    if (item) {
+      item.count += 1;
+    }
+  }
+
+  return Array.from(monthlyMap.values());
 }
