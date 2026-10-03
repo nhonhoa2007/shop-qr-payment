@@ -36,29 +36,8 @@ const GHN_BASE = process.env.GHN_API_BASE_URL || 'https://dev-online-gateway.ghn
 const TOKEN = process.env.GHN_TOKEN || '';
 const OUT_FILE = path.resolve(__dirname, '../src/shared/constants/vietnam-locations.ts');
 
-// Bản đồ ID tỉnh GHN → id ngắn dùng trong app (giữ nguyên các id hiện có để
-// không hỏng dữ liệu đơn hàng / geocode cũ)
-const KNOWN_PROVINCE_IDS = {
-  201: 'hcm', // TP. Hồ Chí Minh
-  202: 'hn', // Hà Nội
-  203: 'dn', // Đà Nẵng
-  190: 'ct', // Cần Thơ
-  194: 'hp', // Hải Phòng
-  220: 'bd', // Bình Dương
-  233: 'dnai', // Đồng Nai
-  228: 'vt', // Bà Rịa - Vũng Tàu
-  214: 'kh', // Khánh Hòa
-  217: 'ld', // Lâm Đồng
-  212: 'hue', // Thừa Thiên Huế
-  221: 'qn', // Quảng Ninh
-  218: 'bn', // Bắc Ninh
-  210: 'na', // Nghệ An
-  209: 'th', // Thanh Hóa
-  230: 'tg', // Tiền Giang
-  224: 'kg', // Kiên Giang
-};
-
-// So khớp phụ theo tên (phòng khi GHN đổi ProvinceID)
+// Ghép id ngắn dùng trong app theo TÊN tỉnh (GHN có renumber ProvinceID giữa các
+// giai đoạn nên không thể ghép theo số — tên tỉnh thì ổn định qua các đợt sáp nhập/đổi mã)
 function normalizeName(name) {
   return String(name || '')
     .normalize('NFD')
@@ -66,7 +45,7 @@ function normalizeName(name) {
     .replace(/đ/g, 'd')
     .replace(/Đ/g, 'D')
     .toLowerCase()
-    .replace(/^thanh pho|^tinh|^thi xa/, '')
+    .replace(/^(thanh pho|tinh|thi xa|tp)\.?\s*/, '')
     .replace(/[^a-z0-9]/g, '');
 }
 
@@ -117,7 +96,14 @@ async function main() {
   }
 
   console.log('⏳ Đang tải danh sách tỉnh/thành từ GHN Master-Data...');
-  const provinces = await ghnFetch('master-data/provinces');
+  // Gateway production chỉ có endpoint số ít `master-data/province`;
+  // gateway dev dùng số nhiều — thử lần lượt để chạy được với cả hai loại token.
+  let provinces;
+  try {
+    provinces = await ghnFetch('master-data/province');
+  } catch {
+    provinces = await ghnFetch('master-data/provinces');
+  }
   console.log(`   → ${provinces.length} tỉnh/thành`);
 
   console.log('⏳ Đang tải danh sách quận/huyện...');
@@ -130,23 +116,32 @@ async function main() {
     districtsByProvince.get(d.ProvinceID).push(d);
   }
 
-  console.log('⏳ Đang tải phường/xã theo từng quận (có thể mất 1-2 phút)...');
+  console.log('⏳ Đang tải phường/xã theo từng quận (chạy 5 luồng song song)...');
   const wardsByDistrict = new Map();
   let done = 0;
-  for (const d of districts) {
-    try {
-      const data = await ghnFetch('master-data/ward', {
-        method: 'POST',
-        body: JSON.stringify({ district_id: d.DistrictID }),
-      });
-      wardsByDistrict.set(d.DistrictID, data || []);
-    } catch (err) {
-      console.warn(`   ⚠️ Bỏ qua quận ${d.DistrictID} (${d.DistrictName}): ${err.message}`);
-      wardsByDistrict.set(d.DistrictID, []);
+  const districtList = [...districts];
+  const CONCURRENCY = 5;
+
+  async function worker() {
+    while (districtList.length > 0) {
+      const d = districtList.shift();
+      if (!d) break;
+      try {
+        const data = await ghnFetch('master-data/ward', {
+          method: 'POST',
+          body: JSON.stringify({ district_id: d.DistrictID }),
+        });
+        wardsByDistrict.set(d.DistrictID, data || []);
+      } catch (err) {
+        console.warn(`   ⚠️ Bỏ qua quận ${d.DistrictID} (${d.DistrictName}): ${err.message}`);
+        wardsByDistrict.set(d.DistrictID, []);
+      }
+      done += 1;
+      if (done % 50 === 0) console.log(`   ... ${done}/${districts.length}`);
     }
-    done += 1;
-    if (done % 50 === 0) console.log(`   ... ${done}/${districts.length}`);
   }
+
+  await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
 
   console.log('⏳ Đang sinh file vietnam-locations.ts...');
   const lines = [];
@@ -171,23 +166,31 @@ async function main() {
   lines.push('}');
   lines.push('');
   lines.push('export const VIETNAM_LOCATIONS: Province[] = [');
+  // Đảm bảo id ngắn không trùng: nếu hai tỉnh cùng khớp một key (trường hợp hiếm)
+  // thì tỉnh sau rơi về p{ProvinceID}
+  const usedShortIds = new Set();
+  const resolveShortId = (p) => {
+    const byName = LEGACY_ID_BY_NAME[normalizeName(p.ProvinceName)];
+    const candidate = byName || `p${p.ProvinceID}`;
+    if (usedShortIds.has(candidate)) return `p${p.ProvinceID}`;
+    usedShortIds.add(candidate);
+    return candidate;
+  };
   for (const p of provinces) {
-    const shortId =
-      KNOWN_PROVINCE_IDS[p.ProvinceID] ||
-      LEGACY_ID_BY_NAME[normalizeName(p.ProvinceName)] ||
-      `p${p.ProvinceID}`;
+    const shortId = resolveShortId(p);
     lines.push('  {');
     lines.push(`    id: '${shortId}',`);
-    lines.push(`    name: '${esc(p.NameExtension || p.ProvinceName)}',`);
+    // Gateway production trả NameExtension dạng mảng — dùng trường tên chính
+    lines.push(`    name: '${esc(p.ProvinceName || (Array.isArray(p.NameExtension) ? p.NameExtension[0] : p.ProvinceName))}',`);
     lines.push('    districts: [');
     for (const d of districtsByProvince.get(p.ProvinceID) || []) {
       const wards = wardsByDistrict.get(d.DistrictID) || [];
       lines.push('      {');
       lines.push(`        id: ${d.DistrictID},`);
-      lines.push(`        name: '${esc(d.NameExtension || d.DistrictName)}',`);
+      lines.push(`        name: '${esc(d.DistrictName || (Array.isArray(d.NameExtension) ? d.NameExtension[0] : d.DistrictName))}',`);
       lines.push('        wards: [');
       for (const w of wards) {
-        lines.push(`          { code: '${esc(w.WardCode)}', name: '${esc(w.NameExtension || w.WardName)}' },`);
+        lines.push(`          { code: '${esc(w.WardCode)}', name: '${esc(w.WardName || (Array.isArray(w.NameExtension) ? w.NameExtension[0] : w.WardName))}' },`);
       }
       lines.push('        ],');
       lines.push('      },');

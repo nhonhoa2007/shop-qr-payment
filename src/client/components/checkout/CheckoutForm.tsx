@@ -315,8 +315,13 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
         });
 
         const result = await res.json();
-        if (result.success && result.data) {
+        if (result.success && result.data?.isMatched) {
           applyDetectedLocation(result.data);
+        } else if (result.success && result.data && !result.data.isMatched) {
+          // Không nhận diện được khu vực hành chính — trung thực thay vì áp
+          // địa chỉ mặc định sai. Người dùng vẫn có thể chọn thủ công.
+          setLocating(false);
+          toast.info('Chưa nhận diện được địa chỉ chính xác từ GPS. Vui lòng chọn địa chỉ thủ công.');
         } else {
           toast.error(result.error || 'Không thể giải mã địa chỉ từ tọa độ GPS');
         }

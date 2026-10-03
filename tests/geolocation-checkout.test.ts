@@ -68,8 +68,8 @@ describe('Geolocation & Fast Address Reverse Geocoding', () => {
       const result = await reverseGeocodeCoordinates(lat, lon);
       assert.equal(result.isMatched, true);
       assert.equal(result.provinceId, 'hn');
-      assert.equal(result.districtId, 1482); // Quận Cầu Giấy
-      assert.equal(result.wardCode, '100102'); // Phường Dịch Vọng Hậu
+      assert.equal(result.districtId, 1485); // Quận Cầu Giấy (ID theo GHN Master-Data thật)
+      assert.equal(result.wardCode, '1A0602'); // Phường Dịch Vọng Hậu
       assert.match(result.specificAddress, /Xuân Thủy/);
     } finally {
       globalThis.fetch = originalFetch;
