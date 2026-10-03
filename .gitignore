@@ -52,3 +52,9 @@ next-env.d.ts
 # IDE tools
 .zcode/
 .zcodeignore
+
+# Tài liệu cá nhân & file tạm ngoài thư mục repo
+.~lock.*#
+*.tmp
+page_out-*.jpg
+de_cuong_do_an_*
