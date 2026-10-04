@@ -58,3 +58,9 @@ next-env.d.ts
 *.tmp
 page_out-*.jpg
 de_cuong_do_an_*
+improve.md
+res.md
+
+# Artifact của công cụ workflow (superpowers SDD)
+.superpowers/
+docs/superpowers/
