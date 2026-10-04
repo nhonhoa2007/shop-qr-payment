@@ -230,6 +230,13 @@ export interface UserWallet {
 
 export type UserRole = 'CUSTOMER' | 'STAFF' | 'ADMIN';
 
+export {
+  STAFF_PERMISSIONS,
+  PERMISSION_LABELS,
+  isStaffPermission,
+  type StaffPermission,
+} from '../constants/permissions';
+
 export interface UserAccount {
   id: string;
   email: string;
@@ -238,6 +245,7 @@ export interface UserAccount {
   avatar: string | null;
   address: string | null;
   role: UserRole;
+  permissions?: import('../constants/permissions').StaffPermission[];
   isVerified: boolean;
   isBlocked: boolean;
   createdAt: string;
@@ -339,7 +347,7 @@ export interface RecentOrderDto {
   totalAmount: number;
   status: OrderStatus;
   paymentStatus: PaymentStatus;
-  paymentMethod: 'VIETQR' | 'PAYOS' | 'COD' | 'WALLET';
+  paymentMethod: 'VIETQR' | 'COD' | 'WALLET';
   createdAt: string;
   itemsSummary: string;
 }
@@ -356,7 +364,6 @@ export interface TopProductDto {
 
 export interface PaymentMethodDistribution {
   vietqr: number;
-  payos: number;
   cod: number;
   wallet: number;
 }
@@ -507,10 +514,7 @@ export interface WalletTopupRequest {
 
 export interface WalletTopupResponse {
   topupCode: string;
-  orderCode: number;
   amount: number;
-  checkoutUrl?: string;
-  qrCode?: string;
   qrUrl?: string;
   bankInfo?: {
     bankName: string;
@@ -518,13 +522,11 @@ export interface WalletTopupResponse {
     accountNo: string;
     accountName: string;
   };
-  paymentLinkId?: string;
   idempotencyToken?: string;
 }
 
 export interface WalletTopupSession {
   topupCode: string;
-  orderCode: number;
   userId: string;
   amount: number;
   status: 'PENDING' | 'COMPLETED' | 'EXPIRED' | 'CANCELLED';

@@ -10,7 +10,6 @@ import {
   CheckCircle2,
   Copy,
   Check,
-  ExternalLink,
   Clock,
   ArrowRight,
   ArrowLeft,
@@ -216,7 +215,7 @@ export function WalletTopupModal({
     setCustomAmountInput(new Intl.NumberFormat('vi-VN').format(num));
   };
 
-  // Tạo phiên nạp tiền và nhận thông tin VietQR PayOS
+  // Tạo phiên nạp tiền và nhận thông tin VietQR (Casso)
   const handleCreateTopup = async () => {
     if (selectedAmount < 10_000) {
       toast.error('Số tiền nạp tối thiểu là 10.000đ');
@@ -266,26 +265,16 @@ export function WalletTopupModal({
   };
 
   // Mô phỏng thanh toán thành công (Sandbox/Dev helper)
-  // Chỉ khả dụng ở môi trường dev — tuyệt đối không gọi webhook thật từ client ở production
+  // Chỉ khả dụng ở môi trường dev — gọi endpoint dev-only tự vô hiệu ở production
   const isDevSandbox = process.env.NODE_ENV === 'development';
   const handleSimulatePayment = async () => {
     if (!topupData || !isDevSandbox) return;
     setSimulating(true);
     try {
-      const res = await fetch('/api/webhooks/payos', {
+      const res = await fetch('/api/wallet/topup/simulate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          code: '00',
-          desc: 'success',
-          data: {
-            orderCode: topupData.orderCode,
-            amount: topupData.amount,
-            description: topupData.topupCode,
-            reference: topupData.paymentLinkId || `PAYOS_TOPUP_${Date.now()}`,
-            paymentLinkId: topupData.paymentLinkId,
-          },
-        }),
+        body: JSON.stringify({ topupCode: topupData.topupCode }),
       });
 
       const resJson = await res.json();
@@ -298,9 +287,9 @@ export function WalletTopupModal({
         });
         setStep('SUCCESS');
         if (newBal !== undefined) onTopupSuccess?.(newBal);
-        toast.success('Mô phỏng thanh toán PayOS thành công!');
+        toast.success('Mô phỏng thanh toán thành công!');
       } else {
-        toast.error(resJson.message || 'Lỗi khi kích hoạt callback PayOS');
+        toast.error(resJson.message || 'Lỗi khi mô phỏng thanh toán');
       }
     } catch {
       toast.error('Lỗi kết nối mô phỏng');
@@ -344,7 +333,7 @@ export function WalletTopupModal({
                 {step === 'SUCCESS' && 'Nạp tiền thành công'}
               </h2>
               <p className="text-[11px] text-gray-500">
-                {step === 'SELECT_AMOUNT' && 'Cộng số dư tự động qua VietQR PayOS 24/7'}
+                {step === 'SELECT_AMOUNT' && 'Cộng số dư tự động qua VietQR 24/7'}
                 {step === 'QR_PAYMENT' && `Mã giao dịch: ${topupData?.topupCode}`}
                 {step === 'SUCCESS' && 'Giao dịch đã được xác nhận nguyên tử'}
               </p>
@@ -499,17 +488,7 @@ export function WalletTopupModal({
                   {topupData.qrUrl ? (
                     <Image
                       src={topupData.qrUrl}
-                      alt="VietQR PayOS Topup"
-                      width={220}
-                      height={220}
-                      className="w-52 h-52 sm:w-56 sm:h-56 rounded-xl object-contain"
-                      priority
-                      unoptimized
-                    />
-                  ) : topupData.qrCode && topupData.qrCode.startsWith('http') ? (
-                    <Image
-                      src={topupData.qrCode}
-                      alt="VietQR PayOS Topup"
+                      alt="VietQR Topup"
                       width={220}
                       height={220}
                       className="w-52 h-52 sm:w-56 sm:h-56 rounded-xl object-contain"
@@ -531,7 +510,7 @@ export function WalletTopupModal({
                   <div className="mt-2 text-center">
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold">
                       <Sparkles className="w-3 h-3" />
-                      PayOS VietQR Napas 24/7
+                      VietQR Napas 24/7
                     </span>
                   </div>
                 </div>
@@ -649,18 +628,6 @@ export function WalletTopupModal({
 
               {/* Actions Footer */}
               <div className="space-y-2 pt-1">
-                {topupData.checkoutUrl && (
-                  <a
-                    href={topupData.checkoutUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-semibold transition"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    <span>Mở trang thanh toán PayOS Gateway</span>
-                  </a>
-                )}
-
                 {/* Sandbox / Dev Test Helper Button — chỉ render ở môi trường dev */}
                 {isDevSandbox && (
                   <button

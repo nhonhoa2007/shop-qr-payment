@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { formatVND, formatDate } from '@shared/utils';
 import { pusherClient } from '@/lib/pusher-client';
-import { toast } from 'sonner';
 import {
   Wallet,
   ArrowUpRight,
@@ -52,45 +51,6 @@ export function WalletView({ initialWallet, userName, userId }: WalletViewProps)
     } catch (err) {
       console.error('[WalletView] Lỗi đồng bộ ví:', err);
     }
-  }, []);
-
-  // Xử lý chuyển hướng callback từ cổng thanh toán PayOS (?topup=success hoặc ?topup=cancelled)
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const params = new URLSearchParams(window.location.search);
-    const topupStatus = params.get('topup');
-    const topupCode = params.get('code');
-
-    if (!topupStatus) return;
-
-    let ignore = false;
-
-    if (topupStatus === 'success') {
-      toast.success(
-        topupCode
-          ? `Nạp tiền vào ví thành công (Mã GD: ${topupCode})!`
-          : 'Nạp tiền vào ví thành công!'
-      );
-      fetch('/api/wallet')
-        .then((res) => res.json())
-        .then((resData) => {
-          if (!ignore && resData?.success && resData.data) {
-            setTransactions(resData.data.transactions || []);
-            setBalance(resData.data.balance);
-          }
-        })
-        .catch((err) => console.error('[WalletView] Lỗi đồng bộ ví:', err));
-    } else if (topupStatus === 'cancelled') {
-      toast.info('Bạn đã hủy phiên nạp tiền VietQR PayOS');
-    }
-
-    const newUrl = window.location.pathname;
-    window.history.replaceState({}, '', newUrl);
-
-    return () => {
-      ignore = true;
-    };
   }, []);
 
   // Lắng nghe sự kiện Pusher realtime khi có nạp ví, hoàn tiền hoặc thanh toán
@@ -152,7 +112,7 @@ export function WalletView({ initialWallet, userName, userId }: WalletViewProps)
             </div>
 
             <p className="text-xs text-white/80 leading-relaxed">
-              Số dư ví được nạp nhanh qua VietQR PayOS 24/7 và hoàn tiền 100% tự động khi đơn hàng hủy,
+              Số dư ví được nạp nhanh qua VietQR 24/7 và hoàn tiền 100% tự động khi đơn hàng hủy,
               cho phép thanh toán 1-chạm tức thì cho mọi đơn hàng tiếp theo.
             </p>
           </div>
@@ -393,7 +353,7 @@ export function WalletView({ initialWallet, userName, userId }: WalletViewProps)
         )}
       </div>
 
-      {/* Modal Nạp tiền Ví điện tử VietQR PayOS */}
+      {/* Modal Nạp tiền Ví điện tử VietQR */}
       <WalletTopupModal
         isOpen={isTopupModalOpen}
         onClose={() => setIsTopupModalOpen(false)}

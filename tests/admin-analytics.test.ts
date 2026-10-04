@@ -66,7 +66,7 @@ describe('Admin Analytics - Payment Method Distribution', () => {
   it('should return 0% for all methods when there are no paid orders', () => {
     const result = calculatePaymentMethodDistribution([]);
     assert.deepEqual(result, {
-      payosQrPercentage: 0,
+      vietqrPercentage: 0,
       walletPercentage: 0,
       codPercentage: 0,
     });
@@ -74,10 +74,10 @@ describe('Admin Analytics - Payment Method Distribution', () => {
 
   it('should calculate accurate percentages for mixed payment channels', () => {
     const orders = [
-      // 3 VietQR / PayOS
-      { transaction: { bankName: 'PAYOS' } },
+      // 3 VietQR (Casso khớp tiền)
       { transaction: { bankName: 'Vietcombank' } },
       { transaction: { bankName: 'MBBank' } },
+      { transaction: { bankName: 'Techcombank' } },
       // 1 Wallet
       { transaction: { bankName: 'SHOP_WALLET' } },
       // 1 COD
@@ -86,7 +86,7 @@ describe('Admin Analytics - Payment Method Distribution', () => {
 
     const result = calculatePaymentMethodDistribution(orders);
     // 3/5 = 60%, 1/5 = 20%, 1/5 = 20%
-    assert.equal(result.payosQrPercentage, 60);
+    assert.equal(result.vietqrPercentage, 60);
     assert.equal(result.walletPercentage, 20);
     assert.equal(result.codPercentage, 20);
   });
@@ -97,7 +97,7 @@ describe('Admin Analytics - Payment Method Distribution', () => {
     ];
     const result = calculatePaymentMethodDistribution(orders);
     assert.equal(result.codPercentage, 100);
-    assert.equal(result.payosQrPercentage, 0);
+    assert.equal(result.vietqrPercentage, 0);
     assert.equal(result.walletPercentage, 0);
   });
 });
@@ -287,7 +287,7 @@ describe('Admin Analytics - Data Contract Conformance', () => {
         { date: '2026-09-12', label: 'T7', revenue: 1_200_000 },
       ],
       paymentMethodDistribution: {
-        payosQrPercentage: 68,
+        vietqrPercentage: 68,
         walletPercentage: 22,
         codPercentage: 10,
       },
@@ -327,7 +327,7 @@ describe('Admin Analytics - Data Contract Conformance', () => {
 
     assert.equal(sampleResponse.summary.todayRevenueGrowth, 14.2);
     assert.equal(sampleResponse.summary.qrMatchRate, 98.8);
-    assert.equal(sampleResponse.paymentMethodDistribution.payosQrPercentage, 68);
+    assert.equal(sampleResponse.paymentMethodDistribution.vietqrPercentage, 68);
     assert.equal(sampleResponse.recentOrders[0].itemsSummary, 'Áo Thun x 2');
   });
 });
@@ -467,7 +467,6 @@ describe('Admin Analytics - Pusher Admin Channel Authorization Guard', () => {
 describe('Admin Analytics - Real-time Event Contract & Validation', () => {
   it('should construct valid analytics-updated event payloads for all triggers', () => {
     const triggers = [
-      'PAYOS_PAYMENT',
       'CASSO_PAYMENT',
       'WALLET_PAYMENT',
       'MANUAL_RECONCILE',

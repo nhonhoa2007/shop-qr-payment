@@ -87,17 +87,12 @@ describe('Wallet Topup - Session Management', () => {
     assert.equal(session.amount, 100_000);
     assert.equal(session.status, 'PENDING');
     assert.match(session.topupCode, /^NAP/);
-    assert.equal(typeof session.orderCode, 'number');
     assert.equal(typeof session.idempotencyToken, 'string');
     assert.ok(session.idempotencyToken.length > 20);
 
     // Truy vấn lại theo topupCode
     const retrievedByCode = await getWalletTopupSession(session.topupCode);
     assert.deepEqual(retrievedByCode, session);
-
-    // Truy vấn lại theo orderCode số
-    const retrievedByOrderCode = await getWalletTopupSession(session.orderCode);
-    assert.deepEqual(retrievedByOrderCode, session);
 
     // Truy vấn lại theo idempotencyToken
     const retrievedByIdempotency = await getWalletTopupSessionByIdempotencyToken(session.idempotencyToken!);
@@ -110,7 +105,7 @@ describe('Wallet Topup - Session Management', () => {
       idempotencyToken: session.idempotencyToken,
     });
     assert.equal(duplicateSession.topupCode, session.topupCode);
-    assert.equal(duplicateSession.orderCode, session.orderCode);
+    assert.equal(duplicateSession.idempotencyToken, session.idempotencyToken);
   });
 });
 
@@ -332,7 +327,7 @@ describe('Wallet Topup - processWalletTopup Core Engine', () => {
 });
 
 describe('Wallet Topup - Payment Link Creation', () => {
-  it('should generate VietQR PayOS payment link parameters with valid topupCode', async () => {
+  it('should generate VietQR topup QR parameters with valid topupCode', async () => {
     const origEnv = process.env.NODE_ENV;
     try {
       process.env.NODE_ENV = 'test';
@@ -345,8 +340,8 @@ describe('Wallet Topup - Payment Link Creation', () => {
       assert.ok(res.data);
       assert.match(res.data!.topupCode, /^NAP/);
       assert.equal(res.data!.amount, 500_000);
-      assert.equal(typeof res.data!.orderCode, 'number');
-      assert.ok(res.data!.checkoutUrl);
+      assert.ok(res.data!.qrUrl);
+      assert.match(res.data!.qrUrl!, /img\.vietqr\.io/);
       assert.ok(res.data!.idempotencyToken);
     } finally {
       process.env.NODE_ENV = origEnv;

@@ -3,7 +3,7 @@
 import React from 'react';
 
 export interface DonutPaymentDistribution {
-  payosQrPercentage?: number;
+  vietqrPercentage?: number;
   walletPercentage?: number;
   codPercentage?: number;
 }
@@ -26,14 +26,14 @@ interface Segment {
  * cùng ngôn ngữ thị giác với mẫu dashboard tham chiếu (3 phân khúc + legend pill).
  */
 export function AdminDonutChart({ distribution, loading = false }: AdminDonutChartProps) {
-  const payos = distribution?.payosQrPercentage ?? 0;
+  const vietqr = distribution?.vietqrPercentage ?? 0;
   const wallet = distribution?.walletPercentage ?? 0;
   const cod = distribution?.codPercentage ?? 0;
-  const total = payos + wallet + cod;
+  const total = vietqr + wallet + cod;
   const hasData = total > 0;
 
   const segments: Segment[] = [
-    { key: 'payos', label: 'VietQR PayOS', value: payos, color: '#5433eb', trackColor: 'bg-[#5433eb]' },
+    { key: 'vietqr', label: 'VietQR chuyển khoản', value: vietqr, color: '#5433eb', trackColor: 'bg-[#5433eb]' },
     { key: 'wallet', label: 'Ví nội bộ Shop', value: wallet, color: '#10b981', trackColor: 'bg-emerald-500' },
     { key: 'cod', label: 'Thanh toán khi nhận', value: cod, color: '#f59e0b', trackColor: 'bg-amber-500' },
   ];

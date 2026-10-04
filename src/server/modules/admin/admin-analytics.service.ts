@@ -34,7 +34,7 @@ export interface TopProductDto {
 }
 
 export interface PaymentMethodDistribution {
-  payosQrPercentage: number;
+  vietqrPercentage: number;
   walletPercentage: number;
   codPercentage: number;
 }
@@ -113,7 +113,8 @@ export function calculateQrMatchRate(matchedCount: number, totalCount: number): 
 }
 
 /**
- * Phân bổ kênh thanh toán cho các đơn hàng đã thanh toán
+ * Phân bổ kênh thanh toán cho các đơn hàng đã thanh toán:
+ * VietQR/Casso (transaction ngân hàng), Ví Shop, COD.
  */
 export function calculatePaymentMethodDistribution(
   orders: Array<{
@@ -124,14 +125,14 @@ export function calculatePaymentMethodDistribution(
   const total = orders.length;
   if (total === 0) {
     return {
-      payosQrPercentage: 0,
+      vietqrPercentage: 0,
       walletPercentage: 0,
       codPercentage: 0,
     };
   }
 
   let walletCount = 0;
-  let payosQrCount = 0;
+  let vietqrCount = 0;
   let codCount = 0;
 
   for (const order of orders) {
@@ -140,14 +141,14 @@ export function calculatePaymentMethodDistribution(
     } else if (order.shipment && order.shipment.codAmount > 0 && !order.transaction) {
       codCount++;
     } else if (order.transaction) {
-      payosQrCount++;
+      vietqrCount++;
     } else {
       codCount++;
     }
   }
 
   return {
-    payosQrPercentage: Number(((payosQrCount / total) * 100).toFixed(1)),
+    vietqrPercentage: Number(((vietqrCount / total) * 100).toFixed(1)),
     walletPercentage: Number(((walletCount / total) * 100).toFixed(1)),
     codPercentage: Number(((codCount / total) * 100).toFixed(1)),
   };

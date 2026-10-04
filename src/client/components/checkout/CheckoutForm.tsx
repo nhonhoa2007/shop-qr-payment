@@ -15,7 +15,6 @@ import {
   MapPin,
   Loader2,
   QrCode,
-  CreditCard,
   Wallet,
   CheckCircle2,
   Navigation,
@@ -40,7 +39,7 @@ interface AppliedCoupon {
   maxDiscount: number | null;
 }
 
-type PaymentMethodType = 'VIETQR' | 'PAYOS' | 'WALLET';
+type PaymentMethodType = 'VIETQR' | 'WALLET';
 
 export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFormProps) {
   const router = useRouter();
@@ -501,21 +500,6 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
         return;
       }
 
-      if (paymentMethod === 'PAYOS') {
-        const linkRes = await fetch('/api/payment/payos/create-link', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orderId: data.orderId }),
-        });
-        const linkData = await linkRes.json();
-        if (linkRes.ok && linkData.data?.checkoutUrl) {
-          toast.success('Đang chuyển hướng sang cổng thanh toán PayOS...');
-          clearCart();
-          router.push(linkData.data.checkoutUrl);
-          return;
-        }
-      }
-
       // Mặc định: Chuyển sang trang hiển thị VietQR (Casso)
       toast.success('Đặt hàng thành công! Đang chuyển đến cổng thanh toán QR...');
       clearCart();
@@ -840,40 +824,7 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
             {paymentMethod === 'VIETQR' && <CheckCircle2 className="w-5 h-5 text-shop-violet shrink-0" />}
           </label>
 
-          {/* Option 2: PayOS */}
-          <label
-            onClick={() => setPaymentMethod('PAYOS')}
-            className={`flex items-start gap-4 p-4 rounded-[20px] border-2 cursor-pointer transition ${
-              paymentMethod === 'PAYOS'
-                ? 'border-shop-violet bg-shop-violet/5 ring-2 ring-shop-violet/10'
-                : 'border-gray-100 bg-canvas-mist hover:border-gray-200'
-            }`}
-          >
-            <input
-              type="radio"
-              name="paymentMethod"
-              checked={paymentMethod === 'PAYOS'}
-              onChange={() => setPaymentMethod('PAYOS')}
-              className="mt-1 accent-shop-violet"
-            />
-            <div className="w-10 h-10 rounded-xl bg-[#003B95]/10 text-[#003B95] flex items-center justify-center shrink-0">
-              <CreditCard className="w-5 h-5" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-xs text-gray-900">Cổng thanh toán PayOS</span>
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                  Napas 247 & Thẻ ATM
-                </span>
-              </div>
-              <p className="text-[11px] text-muted-gray mt-0.5 leading-relaxed">
-                Cổng thanh toán chính thức bảo mật HMAC-SHA256, tự sinh liên kết thanh toán và kiểm tra chữ ký tự động
-              </p>
-            </div>
-            {paymentMethod === 'PAYOS' && <CheckCircle2 className="w-5 h-5 text-shop-violet shrink-0" />}
-          </label>
-
-          {/* Option 3: Ví nội bộ Shop Wallet */}
+          {/* Option 2: Ví nội bộ Shop Wallet */}
           <label
             onClick={() => {
               if (isWalletEligible) setPaymentMethod('WALLET');
@@ -1023,12 +974,6 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
           <>
             <Wallet className="w-4 h-4" />
             <span>Thanh toán bằng Ví Shop ({formatVND(finalTotalAmount)})</span>
-            <ArrowRight className="w-4 h-4" />
-          </>
-        ) : paymentMethod === 'PAYOS' ? (
-          <>
-            <CreditCard className="w-4 h-4" />
-            <span>Chuyển sang Cổng PayOS ({formatVND(finalTotalAmount)})</span>
             <ArrowRight className="w-4 h-4" />
           </>
         ) : (

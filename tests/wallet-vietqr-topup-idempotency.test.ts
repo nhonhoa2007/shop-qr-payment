@@ -34,7 +34,7 @@ describe('VietQR Topup - Session Lifecycle & Payload Boundaries (Pillar 1 & 2)',
     }
   });
 
-  it('should create valid session with unique idempotencyToken, orderCode, and PENDING state', async () => {
+  it('should create valid session with unique idempotencyToken and PENDING state', async () => {
     const session = await createWalletTopupSession({
       userId: 'user_alpha_01',
       amount: 250000,
@@ -44,18 +44,12 @@ describe('VietQR Topup - Session Lifecycle & Payload Boundaries (Pillar 1 & 2)',
     assert.equal(session.amount, 250000);
     assert.equal(session.status, 'PENDING');
     assert.ok(session.topupCode.startsWith('NAP'));
-    assert.equal(typeof session.orderCode, 'number');
-    assert.ok(session.orderCode > 0);
     assert.equal(typeof session.idempotencyToken, 'string');
     assert.ok(session.idempotencyToken.length >= 32);
 
     // Retrieve via topupCode
     const byCode = await getWalletTopupSession(session.topupCode);
     assert.deepEqual(byCode, session);
-
-    // Retrieve via numeric orderCode
-    const byOrderCode = await getWalletTopupSession(session.orderCode);
-    assert.deepEqual(byOrderCode, session);
   });
 });
 
@@ -119,7 +113,6 @@ describe('VietQR Topup - Parser Robustness across Banking Networks (Pillar 2 & 4
 describe('VietQR Topup - Webhook Decision Matrix Verification (Pillar 1 & 4)', () => {
   const sampleSession = {
     topupCode: 'NAP123456789',
-    orderCode: 123456789,
     userId: 'user_test',
     amount: 100000,
     status: 'PENDING' as const,
