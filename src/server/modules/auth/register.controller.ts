@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@server/database/prisma';
-import { normalizeEmail, sendOtp } from './otp.service';
+import { normalizeEmail, sendOtp } from './otp.service.ts';
 import { checkDistributedRateLimit, getClientIp } from '@server/infrastructure/rate-limit';
 
 interface RegisterBody {

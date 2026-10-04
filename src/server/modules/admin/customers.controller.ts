@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@server/modules/auth/auth-options';
-import { AdminService } from './admin.service';
+import { AdminService } from './admin.service.ts';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,7 +39,7 @@ export async function PATCH(req: Request) {
 
     const body = await req.json();
     const userId = body.userId || body.id;
-    const { role, isBlocked, isVerified } = body;
+    const { role, isBlocked, isVerified, permissions } = body;
 
     if (!userId || typeof userId !== 'string') {
       return NextResponse.json({ error: 'Thiếu mã người dùng (userId)' }, { status: 400 });
@@ -49,6 +49,7 @@ export async function PATCH(req: Request) {
       adminId: session.user.id,
       userId,
       role,
+      permissions,
       isBlocked,
       isVerified,
     });

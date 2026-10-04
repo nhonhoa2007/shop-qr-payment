@@ -5,7 +5,7 @@ import { authOptions } from '@server/modules/auth/auth-options';
 import {
   validateReviewSubmissionInput,
   resolveReviewEligibility,
-} from './review.service';
+} from './review.service.ts';
 
 export async function GET(
   req: Request,

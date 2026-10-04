@@ -16,6 +16,7 @@ import {
   isPaymentStatus,
   validateOrderTransition,
 } from '@server/modules/orders/orders.fsm';
+import { resolveOperatorAccess } from '@server/modules/admin/guards';
 
 interface UpdateOrderBody {
   status?: unknown;
@@ -48,7 +49,8 @@ export async function GET(
       return NextResponse.json({ error: 'Không tìm thấy đơn hàng' }, { status: 404 });
     }
 
-    if (session.user.role !== 'ADMIN' && order.userId !== session.user.id) {
+    const isOperator = resolveOperatorAccess(session.user, 'orders');
+    if (!isOperator && order.userId !== session.user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -92,8 +94,9 @@ export async function PATCH(
     }
 
     const isAdmin = session.user.role === 'ADMIN';
+    const isOperator = resolveOperatorAccess(session.user, 'orders');
 
-    if (!isAdmin) {
+    if (!isOperator) {
       // 1. Phải là chủ nhân đơn hàng
       if (currentOrder.userId !== session.user.id) {
         return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 403 });
@@ -158,7 +161,11 @@ export async function PATCH(
         await refundOrderToWallet(
           tx,
           currentOrder.id,
-          isAdmin ? 'Hủy đơn hàng bởi Quản trị viên' : 'Hủy đơn hàng bởi khách hàng'
+          isAdmin
+            ? 'Hủy đơn hàng bởi Quản trị viên'
+            : isOperator
+            ? 'Hủy đơn hàng bởi Nhân viên vận hành'
+            : 'Hủy đơn hàng bởi khách hàng'
         );
       } else if (shouldReleaseStock) {
         await releaseOrderStock(tx, currentOrder.items);
@@ -279,6 +286,8 @@ export async function PATCH(
         sysMsg = nextStatus === 'CANCELLED'
           ? (isAdmin
               ? `Quản trị viên đã hủy đơn hàng ${currentOrder.orderCode}.`
+              : isOperator
+              ? `Nhân viên vận hành đã hủy đơn hàng ${currentOrder.orderCode}.`
               : `Khách hàng đã hủy đơn hàng ${currentOrder.orderCode}.`)
           : `Trạng thái đơn hàng cập nhật: ${nextStatus}`;
       }

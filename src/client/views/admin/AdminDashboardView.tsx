@@ -41,7 +41,20 @@ const PERIOD_LABELS: Record<RevenueBarRange, string> = {
   month: '30 ngày qua',
 };
 
-export function AdminDashboardView() {
+export interface AdminDashboardViewProps {
+  user?: {
+    id?: string;
+    name?: string | null;
+    email?: string | null;
+    role?: string;
+    permissions?: string[];
+  };
+}
+
+export function AdminDashboardView({ user }: AdminDashboardViewProps = {}) {
+  const isStaff = user?.role === 'STAFF';
+  const userPermissions = (user?.permissions || []) as string[];
+
   const [data, setData] = useState<AnalyticsPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -95,7 +108,11 @@ export function AdminDashboardView() {
         setRefreshing(true);
       }
 
-      fetch(`/api/admin/analytics?range=${range}`)
+      const endpoint = isStaff
+        ? '/api/admin/analytics/staff'
+        : `/api/admin/analytics?range=${range}`;
+
+      fetch(endpoint)
         .then((res) => {
           if (!res.ok) {
             throw new Error(`Analytics fetch failed with status ${res.status}`);
@@ -103,7 +120,7 @@ export function AdminDashboardView() {
           return res.json();
         })
         .then((resData) => {
-          applyAnalytics(resData);
+          applyAnalytics(isStaff ? { summary: resData, ...resData } : resData);
         })
         .catch((err) => {
           console.error('Failed to fetch analytics:', err);
@@ -114,7 +131,7 @@ export function AdminDashboardView() {
           setRefreshing(false);
         });
     },
-    [applyAnalytics]
+    [applyAnalytics, isStaff]
   );
 
   // Initial load — state khởi tạo đã ở loading=true, chỉ cập nhật bất đồng bộ
@@ -191,15 +208,17 @@ export function AdminDashboardView() {
         <div>
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-              {greeting}, Quản trị viên 👋
+              {greeting}, {isStaff ? (user?.name || 'Nhân viên vận hành') : 'Quản trị viên'} 👋
             </h1>
             <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#5433eb]/10 text-[#5433eb] text-[10px] font-bold">
               <Sparkles className="w-3 h-3" />
-              Realtime Workspace
+              {isStaff ? 'Operations Panel' : 'Realtime Workspace'}
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Toàn bộ số liệu kinh doanh và vận hành thanh toán QR được cập nhật tự động ({currentDateString})
+            {isStaff
+              ? `Báo cáo vận hành theo thời gian thực (${currentDateString})`
+              : `Toàn bộ số liệu kinh doanh và vận hành thanh toán QR được cập nhật tự động (${currentDateString})`}
           </p>
         </div>
 
@@ -215,36 +234,38 @@ export function AdminDashboardView() {
             </span>
           </div>
 
-          {/* Bộ chọn kỳ toàn cục (điều khiển KPI + chart) */}
-          <div className="flex items-center p-1 rounded-xl bg-white border border-slate-200/80 text-xs font-bold text-slate-700 shadow-sm">
-            <button
-              type="button"
-              onClick={() => handleRangeChange('today')}
-              className={`px-3 py-1 rounded-lg transition cursor-pointer ${
-                timeRange === 'today' ? 'bg-[#5433eb] text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              Hôm nay
-            </button>
-            <button
-              type="button"
-              onClick={() => handleRangeChange('7days')}
-              className={`px-3 py-1 rounded-lg transition cursor-pointer ${
-                timeRange === '7days' ? 'bg-[#5433eb] text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              7 ngày
-            </button>
-            <button
-              type="button"
-              onClick={() => handleRangeChange('month')}
-              className={`px-3 py-1 rounded-lg transition cursor-pointer ${
-                timeRange === 'month' ? 'bg-[#5433eb] text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              30 ngày
-            </button>
-          </div>
+          {/* Bộ chọn kỳ toàn cục (chỉ hiển thị cho ADMIN có xem chart doanh thu) */}
+          {!isStaff && (
+            <div className="flex items-center p-1 rounded-xl bg-white border border-slate-200/80 text-xs font-bold text-slate-700 shadow-sm">
+              <button
+                type="button"
+                onClick={() => handleRangeChange('today')}
+                className={`px-3 py-1 rounded-lg transition cursor-pointer ${
+                  timeRange === 'today' ? 'bg-[#5433eb] text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                Hôm nay
+              </button>
+              <button
+                type="button"
+                onClick={() => handleRangeChange('7days')}
+                className={`px-3 py-1 rounded-lg transition cursor-pointer ${
+                  timeRange === '7days' ? 'bg-[#5433eb] text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                7 ngày
+              </button>
+              <button
+                type="button"
+                onClick={() => handleRangeChange('month')}
+                className={`px-3 py-1 rounded-lg transition cursor-pointer ${
+                  timeRange === 'month' ? 'bg-[#5433eb] text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                30 ngày
+              </button>
+            </div>
+          )}
 
           <button
             type="button"
@@ -277,84 +298,161 @@ export function AdminDashboardView() {
         </div>
       )}
 
-      {/* HÀNG 1: 4 KPI CARDS với mini bar-strip + delta pill */}
-      <AdminKpiStrip
-        summary={data?.summary}
-        timeRange={timeRange}
-        loading={isLoading}
-        trend={data?.revenueTrend}
-      />
+      {isStaff ? (
+        <div className="space-y-6">
+          {/* HÀNG 1: THẺ CHỈ SỐ VẬN HÀNH DÀNH CHO NHÂN VIÊN */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {userPermissions.includes('orders') && (
+              <>
+                <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm">
+                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                    Đơn hàng hôm nay
+                  </div>
+                  <div className="text-3xl font-black text-slate-900 tracking-tight">
+                    {data?.summary?.todayOrders ?? 0}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">Đơn phát sinh trong ngày</p>
+                </div>
+                <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm">
+                  <div className="text-[11px] font-bold text-amber-600 uppercase tracking-wider mb-1">
+                    Đơn chờ xử lý
+                  </div>
+                  <div className="text-3xl font-black text-amber-700 tracking-tight">
+                    {data?.summary?.pendingOrdersCount ?? 0}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">Cần xác nhận đóng gói</p>
+                </div>
+              </>
+            )}
 
-      {/* HÀNG 2: Big bar chart texture chấm bi (8) + Khách hàng gradient & Doanh thu kỳ (4) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        <div className="lg:col-span-8 min-h-[320px]">
-          <AdminRevenueBars
-            trend={data?.revenueTrend}
+            {userPermissions.includes('shipments') && (
+              <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm">
+                <div className="text-[11px] font-bold text-blue-600 uppercase tracking-wider mb-1">
+                  Vận đơn đang giao
+                </div>
+                <div className="text-3xl font-black text-blue-700 tracking-tight">
+                  {data?.summary?.activeShipmentsCount ?? 0}
+                </div>
+                <p className="text-xs text-slate-500 mt-1">Đơn vị GHN đang vận chuyển</p>
+              </div>
+            )}
+
+            {userPermissions.includes('products') && (
+              <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm">
+                <div className="text-[11px] font-bold text-rose-600 uppercase tracking-wider mb-1">
+                  Cảnh báo tồn kho
+                </div>
+                <div className="text-3xl font-black text-rose-700 tracking-tight">
+                  {data?.summary?.lowStockCount ?? 0}
+                </div>
+                <p className="text-xs text-slate-500 mt-1">Sản phẩm tồn kho &le; 5</p>
+              </div>
+            )}
+          </div>
+
+          {/* HÀNG 2: CẢNH BÁO VẬN HÀNH CẦN XỬ LÝ NGAY */}
+          {data?.urgentActions && data.urgentActions.length > 0 && (
+            <div className="bg-white rounded-[24px] p-5 sm:p-6 border border-slate-200/80 shadow-sm">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-base font-extrabold text-slate-900 tracking-tight">Cần xử lý ngay</h3>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Cảnh báo tự động
+                </span>
+              </div>
+              <AdminActionCenter
+                urgentActions={data?.urgentActions}
+                lowStockCount={data?.summary?.lowStockCount}
+              />
+            </div>
+          )}
+
+          {/* HÀNG 3: ĐƠN HÀNG MỚI NHẤT */}
+          {userPermissions.includes('orders') && (
+            <AdminRecentOrdersTable orders={data?.recentOrders} />
+          )}
+        </div>
+      ) : (
+        <>
+          {/* HÀNG 1: 4 KPI CARDS với mini bar-strip + delta pill */}
+          <AdminKpiStrip
+            summary={data?.summary}
             timeRange={timeRange}
             loading={isLoading}
-            onRangeChange={handleRangeChange}
+            trend={data?.revenueTrend}
           />
-        </div>
 
-        <div className="lg:col-span-4 grid grid-cols-1 gap-5">
-          <AdminCustomersCard
-            totalCustomers={data?.summary?.totalCustomers}
-            trend={data?.newCustomersTrend}
-            loading={isLoading}
-          />
-          <AdminRevenueShareCard
-            periodRevenue={
-              timeRange === 'today'
-                ? data?.summary?.todayRevenue
-                : data?.summary?.periodRevenue
-            }
-            totalRevenue={data?.summary?.totalRevenue}
-            periodLabel={PERIOD_LABELS[timeRange]}
-            loading={isLoading}
-          />
-        </div>
-      </div>
+          {/* HÀNG 2: Big bar chart texture chấm bi (8) + Khách hàng gradient & Doanh thu kỳ (4) */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            <div className="lg:col-span-8 min-h-[320px]">
+              <AdminRevenueBars
+                trend={data?.revenueTrend}
+                timeRange={timeRange}
+                loading={isLoading}
+                onRangeChange={handleRangeChange}
+              />
+            </div>
 
-      {/* HÀNG 3: Top sản phẩm + Donut thanh toán + Card tối realtime */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        <AdminTopProducts products={data?.topProducts} loading={isLoading} />
-
-        <div className="bg-white rounded-[24px] p-5 sm:p-6 border border-slate-200/80 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base font-extrabold text-slate-900 tracking-tight">Cơ cấu thanh toán</h3>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              {PERIOD_LABELS[timeRange]}
-            </span>
+            <div className="lg:col-span-4 grid grid-cols-1 gap-5">
+              <AdminCustomersCard
+                totalCustomers={data?.summary?.totalCustomers}
+                trend={data?.newCustomersTrend}
+                loading={isLoading}
+              />
+              <AdminRevenueShareCard
+                periodRevenue={
+                  timeRange === 'today'
+                    ? data?.summary?.todayRevenue
+                    : data?.summary?.periodRevenue
+                }
+                totalRevenue={data?.summary?.totalRevenue}
+                periodLabel={PERIOD_LABELS[timeRange]}
+                loading={isLoading}
+              />
+            </div>
           </div>
-          <AdminDonutChart distribution={data?.paymentMethodDistribution} loading={isLoading} />
-        </div>
 
-        <AdminRealtimeOrdersCard
-          totalOrders={data?.summary?.totalOrders}
-          todayOrders={data?.summary?.todayOrders}
-          todayRevenueGrowth={data?.summary?.todayRevenueGrowth}
-          trend={data?.revenueTrend}
-          loading={isLoading}
-        />
-      </div>
+          {/* HÀNG 3: Top sản phẩm + Donut thanh toán + Card tối realtime */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <AdminTopProducts products={data?.topProducts} loading={isLoading} />
 
-      {/* HÀNG 4: Cảnh báo vận hành cần xử lý */}
-      <div className="bg-white rounded-[24px] p-5 sm:p-6 border border-slate-200/80 shadow-sm">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-base font-extrabold text-slate-900 tracking-tight">Cần xử lý ngay</h3>
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-            Cảnh báo tự động
-          </span>
-        </div>
-        <AdminActionCenter
-          urgentActions={data?.urgentActions}
-          lowStockCount={data?.summary?.lowStockCount}
-          unmatchedTxCount={data?.summary?.unmatchedTransactionsCount}
-        />
-      </div>
+            <div className="bg-white rounded-[24px] p-5 sm:p-6 border border-slate-200/80 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base font-extrabold text-slate-900 tracking-tight">Cơ cấu thanh toán</h3>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  {PERIOD_LABELS[timeRange]}
+                </span>
+              </div>
+              <AdminDonutChart distribution={data?.paymentMethodDistribution} loading={isLoading} />
+            </div>
 
-      {/* HÀNG 5: Đơn hàng mới nhất */}
-      <AdminRecentOrdersTable orders={data?.recentOrders} />
+            <AdminRealtimeOrdersCard
+              totalOrders={data?.summary?.totalOrders}
+              todayOrders={data?.summary?.todayOrders}
+              todayRevenueGrowth={data?.summary?.todayRevenueGrowth}
+              trend={data?.revenueTrend}
+              loading={isLoading}
+            />
+          </div>
+
+          {/* HÀNG 4: Cảnh báo vận hành cần xử lý */}
+          <div className="bg-white rounded-[24px] p-5 sm:p-6 border border-slate-200/80 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-base font-extrabold text-slate-900 tracking-tight">Cần xử lý ngay</h3>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                Cảnh báo tự động
+              </span>
+            </div>
+            <AdminActionCenter
+              urgentActions={data?.urgentActions}
+              lowStockCount={data?.summary?.lowStockCount}
+              unmatchedTxCount={data?.summary?.unmatchedTransactionsCount}
+            />
+          </div>
+
+          {/* HÀNG 5: Đơn hàng mới nhất */}
+          <AdminRecentOrdersTable orders={data?.recentOrders} />
+        </>
+      )}
     </div>
   );
 }

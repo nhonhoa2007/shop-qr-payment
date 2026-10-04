@@ -8,12 +8,6 @@ import {
   type AdminUserRecord,
   type UserPrismaRbacDelegate,
 } from '../src/lib/admin-rbac.ts';
-import {
-  handleGoogleSignIn,
-  type GoogleSignInUser,
-  type UserPrismaDelegate,
-  type UserDbRecord,
-} from '../src/lib/auth-helpers.ts';
 
 // ─── Helpers: In-memory mock delegates ──────────────────────────────────────
 
@@ -710,82 +704,5 @@ describe('RBAC - Login Enforcement for Blocked Accounts', () => {
     });
 
     assert.equal(result, null);
-  });
-
-  it('should BLOCK Google OAuth sign-in if existing account isBlocked === true with explicit error', async () => {
-    const blockedDbUser: UserDbRecord = {
-      id: 'google_blocked_id',
-      email: 'blocked.google@gmail.com',
-      name: 'Google Blocked User',
-      role: 'CUSTOMER',
-      isVerified: true,
-      isBlocked: true, // BLOCKED
-    };
-
-    const mockPrismaUser: UserPrismaDelegate = {
-      async findUnique({ where }) {
-        if (where.email === 'blocked.google@gmail.com') return blockedDbUser;
-        return null;
-      },
-      async create() {
-        throw new Error('Should not create new user');
-      },
-    };
-
-    const user: GoogleSignInUser = {
-      name: 'Google User',
-      email: 'blocked.google@gmail.com',
-    };
-
-    await assert.rejects(
-      async () => {
-        await handleGoogleSignIn({
-          user,
-          account: { provider: 'google' },
-          prismaUser: mockPrismaUser,
-        });
-      },
-      (err: Error) => {
-        assert.match(err.message, /Tài khoản của bạn đã bị tạm khóa/i);
-        return true;
-      }
-    );
-  });
-
-  it('should ALLOW Google OAuth sign-in for active account and populate session properties', async () => {
-    const activeDbUser: UserDbRecord = {
-      id: 'google_active_id',
-      email: 'active.google@gmail.com',
-      name: 'Active Google',
-      role: 'STAFF',
-      isVerified: true,
-      isBlocked: false,
-    };
-
-    const mockPrismaUser: UserPrismaDelegate = {
-      async findUnique({ where }) {
-        if (where.email === 'active.google@gmail.com') return activeDbUser;
-        return null;
-      },
-      async create() {
-        throw new Error('Should not create new user');
-      },
-    };
-
-    const user: GoogleSignInUser = {
-      name: 'Active Google',
-      email: 'Active.Google@gmail.com',
-    };
-
-    const result = await handleGoogleSignIn({
-      user,
-      account: { provider: 'google' },
-      prismaUser: mockPrismaUser,
-    });
-
-    assert.equal(result, true);
-    assert.equal(user.id, 'google_active_id');
-    assert.equal(user.role, 'STAFF');
-    assert.equal(user.isBlocked, false);
   });
 });

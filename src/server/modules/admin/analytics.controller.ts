@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { AdminService } from './admin.service';
+import { AdminService } from './admin.service.ts';
 import type { AdminAnalyticsResponse, AnalyticsRange } from '@shared/types';
 
 export const dynamic = 'force-dynamic';

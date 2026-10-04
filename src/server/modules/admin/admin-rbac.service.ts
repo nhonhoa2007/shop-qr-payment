@@ -1,4 +1,10 @@
 import bcrypt from 'bcryptjs';
+import {
+  filterValidPermissions,
+  setStaffPermissions,
+  clearStaffPermissions,
+  type StaffPermission,
+} from './permission.service.ts';
 
 export type Role = 'CUSTOMER' | 'STAFF' | 'ADMIN';
 
@@ -10,6 +16,7 @@ export interface AdminUserRecord {
   address?: string | null;
   avatar?: string | null;
   role: Role;
+  permissions?: StaffPermission[];
   isVerified: boolean;
   isBlocked: boolean;
   passwordHash?: string;
@@ -35,6 +42,7 @@ export interface UpdateUserParams {
   adminId: string;
   userId: string;
   role?: 'CUSTOMER' | 'STAFF' | 'ADMIN';
+  permissions?: string[];
   isBlocked?: boolean;
   isVerified?: boolean;
 }
@@ -46,6 +54,7 @@ export interface UpdateUserResult {
   user?: Omit<AdminUserRecord, 'createdAt' | 'updatedAt'> & {
     createdAt: string;
     updatedAt: string;
+    permissions?: StaffPermission[];
   };
 }
 
@@ -55,6 +64,7 @@ export function validateUserUpdatePayload(body: unknown): {
   data?: {
     userId: string;
     role?: 'CUSTOMER' | 'STAFF' | 'ADMIN';
+    permissions?: StaffPermission[];
     isBlocked?: boolean;
     isVerified?: boolean;
   };
@@ -63,12 +73,13 @@ export function validateUserUpdatePayload(body: unknown): {
     return { valid: false, error: 'Dữ liệu không hợp lệ' };
   }
 
-  const { userId, id, role, isBlocked, isVerified } = body as {
+  const { userId, id, role, isBlocked, isVerified, permissions } = body as {
     userId?: unknown;
     id?: unknown;
     role?: unknown;
     isBlocked?: unknown;
     isVerified?: unknown;
+    permissions?: unknown;
   };
 
   const resolvedId =
@@ -84,8 +95,12 @@ export function validateUserUpdatePayload(body: unknown): {
     return { valid: false, error: 'Vai trò không hợp lệ' };
   }
 
+  const parsedPermissions =
+    permissions !== undefined ? filterValidPermissions(Array.isArray(permissions) ? permissions : []) : undefined;
+
   if (
     role === undefined &&
+    parsedPermissions === undefined &&
     typeof isBlocked !== 'boolean' &&
     typeof isVerified !== 'boolean'
   ) {
@@ -97,6 +112,7 @@ export function validateUserUpdatePayload(body: unknown): {
     data: {
       userId: resolvedId,
       role: role as 'CUSTOMER' | 'STAFF' | 'ADMIN' | undefined,
+      permissions: parsedPermissions,
       isBlocked: typeof isBlocked === 'boolean' ? isBlocked : undefined,
       isVerified: typeof isVerified === 'boolean' ? isVerified : undefined,
     },
@@ -110,7 +126,7 @@ export async function updateUserRbac(
   params: UpdateUserParams,
   prismaUser: UserPrismaRbacDelegate
 ): Promise<UpdateUserResult> {
-  const { adminId, userId, role, isBlocked, isVerified } = params;
+  const { adminId, userId, role, permissions, isBlocked, isVerified } = params;
 
   const targetUser = await prismaUser.findUnique({
     where: { id: userId },
@@ -164,19 +180,39 @@ export async function updateUserRbac(
     updateData.isVerified = isVerified;
   }
 
-  if (Object.keys(updateData).length === 0) {
+  if (Object.keys(updateData).length === 0 && permissions === undefined) {
     return { success: false, error: 'Không có dữ liệu cập nhật', statusCode: 400 };
   }
 
-  const updated = await prismaUser.update({
-    where: { id: userId },
-    data: updateData,
-  });
+  const updated = Object.keys(updateData).length > 0
+    ? await prismaUser.update({
+        where: { id: userId },
+        data: updateData,
+      })
+    : targetUser;
+
+  const effectiveRole = role || targetUser.role;
+  let updatedPermissions: StaffPermission[] | undefined = undefined;
+
+  // Xử lý permissions khi đổi role hoặc cập nhật permissions
+  if (effectiveRole === 'STAFF') {
+    if (permissions !== undefined) {
+      updatedPermissions = await setStaffPermissions({
+        userId,
+        permissions,
+        grantedBy: adminId,
+      });
+    }
+  } else if (targetUser.role === 'STAFF') {
+    await clearStaffPermissions(userId);
+    updatedPermissions = [];
+  }
 
   return {
     success: true,
     user: {
       ...updated,
+      permissions: updatedPermissions,
       createdAt:
         updated.createdAt instanceof Date
           ? updated.createdAt.toISOString()

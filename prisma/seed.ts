@@ -8,6 +8,7 @@ async function main() {
 
   // 1. TẠO TÀI KHOẢN NGƯỜI DÙNG (USERS)
   const adminPassword = await bcrypt.hash('admin123', 12);
+  const staffPassword = await bcrypt.hash('staff123', 12);
   const userPassword = await bcrypt.hash('user123', 12);
 
   const admin = await prisma.user.upsert({
@@ -20,6 +21,30 @@ async function main() {
       role: 'ADMIN',
       isVerified: true,
     },
+  });
+
+  const staff = await prisma.user.upsert({
+    where: { email: 'staff@shop.com' },
+    update: {},
+    create: {
+      email: 'staff@shop.com',
+      passwordHash: staffPassword,
+      name: 'Nguyễn Văn Vận Hành',
+      role: 'STAFF',
+      isVerified: true,
+    },
+  });
+
+  // Gán permissions vận hành mặc định cho tài khoản Staff mẫu
+  await prisma.staffPermission.deleteMany({ where: { userId: staff.id } });
+  await prisma.staffPermission.createMany({
+    data: [
+      { userId: staff.id, permission: 'orders', grantedBy: admin.id },
+      { userId: staff.id, permission: 'products', grantedBy: admin.id },
+      { userId: staff.id, permission: 'shipments', grantedBy: admin.id },
+      { userId: staff.id, permission: 'chat', grantedBy: admin.id },
+      { userId: staff.id, permission: 'reviews', grantedBy: admin.id },
+    ],
   });
 
   const customer1 = await prisma.user.upsert({

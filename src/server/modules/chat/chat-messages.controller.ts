@@ -4,6 +4,7 @@ import { prisma } from '@server/database/prisma';
 import { pusherServer } from '@server/infrastructure/pusher';
 import { createNotification } from '@server/modules/notifications/notifications.service';
 import { authOptions } from '@server/modules/auth/auth-options';
+import { resolveOperatorAccess } from '@server/modules/admin/guards';
 
 export async function POST(req: Request) {
   try {
@@ -17,7 +18,7 @@ export async function POST(req: Request) {
       where: { roomId_userId: { roomId, userId: session.user.id } },
     });
     if (!participant) {
-      if (session.user.role === 'ADMIN') {
+      if (resolveOperatorAccess(session.user, 'chat')) {
         try {
           participant = await prisma.chatRoomParticipant.create({
             data: { roomId, userId: session.user.id },
@@ -86,7 +87,7 @@ export async function GET(req: Request) {
       where: { roomId_userId: { roomId, userId: session.user.id } },
     });
     if (!participant) {
-      if (session.user.role === 'ADMIN') {
+      if (resolveOperatorAccess(session.user, 'chat')) {
         try {
           participant = await prisma.chatRoomParticipant.create({
             data: { roomId, userId: session.user.id },

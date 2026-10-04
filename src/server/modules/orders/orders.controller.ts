@@ -12,6 +12,7 @@ import { validateCoupon } from '@server/modules/admin/coupon.service';
 import { calculateDiscount } from '@shared/utils/checkout';
 import { checkDistributedRateLimit, getClientIp } from '@server/infrastructure/rate-limit';
 import { pusherServer } from '@server/infrastructure/pusher';
+import { resolveOperatorAccess } from '@server/modules/admin/guards';
 
 interface CreateOrderBody {
   items?: unknown;
@@ -241,7 +242,8 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const where = session.user.role === 'ADMIN' ? {} : { userId: session.user.id };
+    const isOperator = resolveOperatorAccess(session.user, 'orders');
+    const where = isOperator ? {} : { userId: session.user.id };
     const orders = await prisma.order.findMany({
       where,
       include: { items: { include: { product: true } } },

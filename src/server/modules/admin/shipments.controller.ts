@@ -2,12 +2,13 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { prisma } from '@server/database/prisma';
 import { authOptions } from '@server/modules/auth/auth-options';
+import { resolveOperatorAccess } from './guards.ts';
 import type { ShipmentStatus } from '@/types';
 
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user || session.user.role !== 'ADMIN') {
+    if (!session?.user || !resolveOperatorAccess(session.user, 'shipments')) {
       return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 403 });
     }
 

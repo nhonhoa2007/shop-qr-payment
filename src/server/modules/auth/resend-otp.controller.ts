@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@server/database/prisma';
-import { sendOtp } from './otp.service';
+import { sendOtp } from './otp.service.ts';
 import { checkDistributedRateLimit, getClientIp } from '@server/infrastructure/rate-limit';
 
 interface ResendOtpBody {

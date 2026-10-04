@@ -1,6 +1,6 @@
 import { prisma } from '@server/database/prisma';
 import { Role } from '@prisma/client';
-import { updateUserRbac } from './admin-rbac.service';
+import { updateUserRbac } from './admin-rbac.service.ts';
 import { getCachedAnalytics, setCachedAnalytics } from '@server/infrastructure/redis';
 import {
   type AdminAnalyticsResponse,
@@ -14,7 +14,7 @@ import {
   buildHourlyRevenueTrend,
   buildMonthlyRevenueTrend,
   buildNewCustomersTrend,
-} from './admin-analytics.service';
+} from './admin-analytics.service.ts';
 
 export interface GetAdminCustomersOptions {
   search?: string;
@@ -60,6 +60,9 @@ export class AdminService {
     const users = await prisma.user.findMany({
       where,
       include: {
+        staffPermissions: {
+          select: { permission: true },
+        },
         orders: {
           select: {
             id: true,
@@ -87,6 +90,7 @@ export class AdminService {
         address: u.address,
         avatar: u.avatar,
         role: u.role,
+        permissions: (u.staffPermissions || []).map((sp) => sp.permission),
         isVerified: u.isVerified,
         isBlocked: u.isBlocked,
         createdAt: u.createdAt.toISOString(),
@@ -105,6 +109,7 @@ export class AdminService {
     adminId: string;
     userId: string;
     role?: 'CUSTOMER' | 'STAFF' | 'ADMIN';
+    permissions?: string[];
     isBlocked?: boolean;
     isVerified?: boolean;
   }) {

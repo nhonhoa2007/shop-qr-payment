@@ -1,4 +1,4 @@
-import { prisma } from '../../database/prisma';
+import { prisma } from '../../database/prisma.ts';
 import type { ChatRoom, Message } from '@/types';
 
 /**
