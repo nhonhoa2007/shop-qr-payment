@@ -3,7 +3,7 @@ flowchart LR
     Customer(["👤 Khách hàng (Customer)"])
     Staff(["👔 Nhân viên (Staff)"])
     Admin(["👑 Quản trị viên (Admin)"])
-    PayOS_Bank(["🏦 PayOS & Ngân hàng (NAPAS 247)"])
+    Bank(["🏦 Ngân hàng (NAPAS 247)"])
     GHN(["🚚 GHN Logistics"])
     SystemCron(["⏰ Hệ thống Quét Tự động"])
 
@@ -34,7 +34,7 @@ flowchart LR
 
     %% Background & Gateways
     subgraph Gateways ["⚡ Phân hệ Cổng Tích hợp Ngoài"]
-        UC18[18. Webhook Biến động Số dư (HMAC)]
+        UC18[18. Webhook Biến động Số dư (Secure Token)]
         UC19[19. Webhook Trạng thái Vận đơn GHN]
         UC20[20. Tự động Hủy đơn & Nhả kho quá hạn]
     end
@@ -66,7 +66,7 @@ flowchart LR
     Admin --> UC17
 
     %% External Systems Connections
-    PayOS_Bank --> UC18
+    Bank --> UC18
     UC18 -.->|Khớp tiền đơn hàng| UC4
     UC18 -.->|Khớp tiền nạp ví| UC5
     GHN --> UC19

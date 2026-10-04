@@ -1,0 +1,19 @@
+sequenceDiagram
+    autonumber
+    participant AD as 👑 Admin
+    participant API as ⚙️ order-detail.controller
+    participant GHN as 🚚 GHN OpenAPI v2
+    participant DB as 🗄️ Shipment + logs
+    participant KH as 👤 Khách hàng
+
+    AD->>API: Duyệt đơn → PROCESSING (chưa có shipment)
+    API->>GHN: POST v2/shipping-order/create<br/>client_order_code = mã đơn · COD nếu chưa trả
+    GHN-->>API: order_code tracking + phí + ngày giao dự kiến
+    API->>DB: Tạo Shipment READY_TO_PICK + log "Đã tạo vận đơn tự động"
+    Note over API,DB: Không có GHN_TOKEN → sinh mã mock GHN... chỉ để dev
+    GHN->>API: webhook ready_to_pick / picking → PROCESSING
+    GHN->>API: webhook transporting / delivering → SHIPPING
+    API-->>KH: Thông báo ORDER_SHIPPING + Pusher order-status-changed
+    GHN->>API: webhook delivered → COMPLETED
+    Note over API,DB: COD: paymentStatus UNPAID → PAID luôn (đối soát qua shipper)
+    GHN->>API: webhook cancelled / return → CANCELLED + releaseOrderStock

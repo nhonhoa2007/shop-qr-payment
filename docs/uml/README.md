@@ -1,49 +1,49 @@
-# BỘ 13 SƠ ĐỒ UML KIẾN TRÚC TOÀN DIỆN — DỰ ÁN SHOP-QR-PAYMENT (SHOP.)
+# BỘ 21 SƠ ĐỒ UML KIẾN TRÚC TOÀN DIỆN — DỰ ÁN SHOP-QR-PAYMENT (SHOP.)
 
-> **Tài liệu đặc tả kiến trúc kỹ thuật chuẩn UML 2.5**  
-> **Hệ thống:** Website Thương mại điện tử Bán lẻ Tích hợp Thanh toán VietQR Tự động & Quản trị SaaS Bento Grid  
-> **Chỉ huy kiến trúc:** Tech Lead & System Architect  
-> **Công nghệ cốt lõi:** Next.js 16 App Router, PostgreSQL (Prisma ORM), Upstash Redis, Pusher WebSockets, PayOS VietQR, Giao Hàng Nhanh (GHN) OpenAPI.
+> **Tài liệu đặc tả kiến trúc kỹ thuật chuẩn UML 2.5**
+> **Hệ thống:** Website Thương mại điện tử Bán lẻ Tích hợp Thanh toán VietQR Tự động & Quản trị SaaS Bento Grid
+> **Chỉ huy kiến trúc:** Tech Lead & System Architect
+> **Ngày cập nhật:** 4/10/2026
 
 ---
 
-## 📌 MỤC LỤC 13 BẢNG SƠ ĐỒ UML
+## MỤC LỤC 21 BẢNG SƠ ĐỒ UML
 
-### 1. Nhóm Sơ đồ Hành vi & Luồng Tương tác (Behavioral & Interaction Diagrams)
+### 1. Phân nhóm Sơ đồ Hành vi (Behavioral Diagrams)
 1. [UML 01: Sơ đồ Ca sử dụng (Use Case Diagram)](#uml-01-sơ-đồ-ca-sử-dụng-use-case-diagram)
-2. [UML 03: Sơ đồ Tuần tự 1 - Đặt hàng & Thanh toán VietQR](#uml-03-sơ-đồ-tuần-tự-1-đặt-hàng--thanh-toán-vietqr)
+2. [UML 03: Sơ đồ Tuần tự 1 - Thanh toán VietQR & Đối soát Tự động](#uml-03-sơ-đồ-tuần-tự-1-đặt-hàng--thanh-toán-vietqr)
 3. [UML 04: Sơ đồ Tuần tự 2 - Nạp tiền Ví nội bộ qua VietQR](#uml-04-sơ-đồ-tuần-tự-2-nạp-tiền-ví-nội-bộ-qua-vietqr)
 4. [UML 05: Sơ đồ Tuần tự 3 - Hủy đơn & Hoàn tiền Ví CAS Nguyên tử](#uml-05-sơ-đồ-tuần-tự-3-hủy-đơn--hoàn-tiền-ví-cas-nguyên-tử)
 5. [UML 06: Sơ đồ Tuần tự 4 - Chat Tư vấn Trực tuyến Real-time](#uml-06-sơ-đồ-tuần-tự-4-chat-tư-vấn-trực-tuyến-real-time)
-6. [UML 07: Sơ đồ Hoạt động 1 - Quy trình Đặt hàng & Giữ kho Nguyên tử](#uml-07-sơ-đồ-hoạt-động-1-quy-trình-đặt-hàng--giữ-kho-nguyên-tử)
+6. [UML 07: Sơ đồ Hoạt động 1 - Đặt hàng & Giữ kho Nguyên tử](#uml-07-sơ-đồ-hoạt-động-1-quy-trình-đặt-hàng--giữ-kho-nguyên-tử)
 7. [UML 08: Sơ đồ Hoạt động 2 - Bộ lọc An ninh & Đối soát Webhook Ngân hàng](#uml-08-sơ-đồ-hoạt-động-2-bộ-lọc-an-ninh--đối-soát-webhook-ngân-hàng)
 8. [UML 09: Sơ đồ Máy trạng thái 1 - Vòng đời Đơn hàng & Quản lý Kho hàng (Order FSM)](#uml-09-sơ-đồ-máy-trạng-thái-1-vòng-đời-đơn-hàng--quản-lý-kho-hàng)
 9. [UML 10: Sơ đồ Máy trạng thái 2 - Vòng đời Vận đơn Giao Hàng Nhanh (Logistics FSM)](#uml-10-sơ-đồ-máy-trạng-thái-2-vòng-đời-vận-đơn-giao-hàng-nhanh)
 
-### 2. Nhóm Sơ đồ Cấu trúc & Phân tầng Phần mềm (Structural & Architectural Diagrams)
+### 2. Phân nhóm Sơ đồ Cấu trúc (Structural Diagrams)
 10. [UML 02: Sơ đồ Lớp Thực thể & Miền Nghiệp vụ (Class & Domain Model)](#uml-02-sơ-đồ-lớp-thực-thể--miền-nghiệp-vụ-class--domain-model)
 11. [UML 11: Sơ đồ Thành phần Kiến trúc Phần mềm (Clean Architecture)](#uml-11-sơ-đồ-thành-phần-kiến-trúc-phần-mềm-clean-architecture)
 12. [UML 12: Sơ đồ Triển khai Hạ tầng Hệ thống (Deployment Architecture)](#uml-12-sơ-đồ-triển-khai-hạ-tầng-hệ-thống-deployment-architecture)
 13. [UML 13: Sơ đồ Gói & Cấu trúc Mô-đun (Package Diagram)](#uml-13-sơ-đồ-gói--cấu-trúc-mô-đun-package-diagram)
 
----
-
-## 🏛️ NGUYÊN TẮC BẤT BIẾN KIẾN TRÚC (ARCHITECTURAL INVARIANTS)
-
-Trước khi đi vào chi tiết từng sơ đồ, toàn bộ kỹ sư phát triển hệ thống phải tuân thủ 5 nguyên lý bất biến:
-1. **Zero-Server-Leakage:** Mã nguồn client (`@client`) tuyệt đối không bao giờ được phép trực tiếp import các module server (`@server`). Toàn bộ giao tiếp bắt buộc thông qua HTTP REST API với các DTO và Zod Schema xác thực tại `@shared`.
-2. **Atomic Inventory Reservation:** Việc giữ tồn kho khi tạo đơn (`reserveOrderStock`) và nhả tồn kho khi hủy đơn (`releaseOrderStock`) bắt buộc phải chạy trong cùng Database Transaction (`prisma.$transaction`) với trạng thái đơn hàng. Không bao giờ cho phép trừ kho ngoài transaction để chống race condition và overselling.
-3. **Fail-Closed Webhook Security:** Webhook ngân hàng và cổng thanh toán luôn ở chế độ Fail-Closed: nếu thiếu Webhook Secret trong môi trường Production, hệ thống từ chối lập tức với mã 500. Xác thực chữ ký số bắt buộc dùng `crypto.timingSafeEqual` để loại trừ tấn công vét cạn thời gian (Timing Attack).
-4. **Idempotency & Replay Attack Defense:** Mọi giao dịch ngân hàng đều được định danh qua `bankTransId`. Trước khi cộng tiền hoặc xác nhận đơn hàng, hệ thống bắt buộc kiểm tra xem giao dịch đã xử lý hay chưa để triệt tiêu lỗi cộng tiền trùng lặp khi cổng gửi lại webhook nhiều lần.
-5. **Compare-And-Swap (CAS) Atomic Wallet:** Việc hoàn tiền đơn hàng vào ví nội bộ sử dụng kỹ thuật nguyên tử có điều kiện: `updateMany(where: {id, paymentStatus: 'PAID'}, data: {paymentStatus: 'REFUNDED'})`. Nếu `count !== 1`, hệ thống abort ngay lập tức để ngăn ngừa lỗi double-refund.
+### 3. Phân nhóm Sơ đồ Luồng Nghiệp vụ Chi tiết (Deep-dive Flows)
+14. [UML 14: Sơ đồ Tuần tự 5 - Vòng đời đầy đủ Đơn hàng E2E](#uml-14-sơ-đồ-tuần-tự-5-vòng-đời-đầy-đủ-đơn-hàng--từ-giỏ-hàng-đến-giao-hàng)
+15. [UML 15: Sơ đồ Hoạt động 3 - Cây quyết định khớp tiền Webhook (8 cổng chặn)](#uml-15-sơ-đồ-hoạt-động-3-cây-quyết-định-khớp-tiền-webhook-8-cổng-chặn)
+16. [UML 16: Sơ đồ Tuần tự 6 - Hủy đơn: Hoàn kho, Thu hồi coupon & Hoàn tiền CAS](#uml-16-sơ-đồ-tuần-tự-6-hủy-đơn--hoàn-kho-thu-hồi-coupon--hoàn-tiền-cas)
+17. [UML 17: Sơ đồ Hoạt động 4 - Thanh toán Ví Shop 1-chạm CAS](#uml-17-sơ-đồ-hoạt-động-4-thanh-toán-ví-shop-1-chạm--cas-trừ-tiền-nguyên-tử)
+18. [UML 18: Sơ đồ Hoạt động 5 - Chuỗi dự phòng Định vị GPS → Địa chỉ GHN](#uml-18-sơ-đồ-hoạt-động-5-chuỗi-dự-phòng-định-vị-gps--địa-chỉ-ghn)
+19. [UML 19: Sơ đồ Tuần tự 7 - Vận đơn GHN tự động & Webhook đồng bộ](#uml-19-sơ-đồ-tuần-tự-7-vận-đơn-ghn--tự-động-tạo--webhook-đồng-bộ-trạng-thái)
+20. [UML 20: Sơ đồ Tuần tự 8 - Đăng ký & Xác thực OTP có giới hạn nghiêm ngặt](#uml-20-sơ-đồ-tuần-tự-8-đăng-ký--xác-thực-otp-có-giới-hạn-nghiêm-ngặt)
+21. [UML 21: Sơ đồ Kênh Realtime Pusher - Bản đồ sự kiện toàn hệ thống](#uml-21-sơ-đồ-kênh-realtime-pusher--bản-đồ-sự-kiện-toàn-hệ-thống)
 
 ---
 
 ### UML 01: Sơ đồ Ca sử dụng (Use Case Diagram)
 
-* **Phân loại UML:** `Use Case Diagram` (Hành vi)
+* **Phân loại UML:** `Use Case Diagram` (`Behavioral`)
 * **Mục đích:** Mô tả tổng quan các tác nhân (Actors) và các trường hợp sử dụng (Use Cases) trong toàn bộ hệ thống shop-qr-payment.
-* **Cơ chế kỹ thuật:** Phân tách ranh giới rõ ràng giữa Khách hàng (Storefront), Nhân viên & Quản trị viên (Admin SaaS Bento) và các Dịch vụ Nền / Cổng Tích hợp Ngoài (PayOS, GHN, Cron).
+* **Cơ chế & Bất biến:** Phân tách ranh giới rõ ràng giữa Khách hàng (Storefront), Nhân viên & Quản trị viên (Admin SaaS Bento) và các Dịch vụ Nền / Cổng Tích hợp Ngoài (Casso, GHN, Cron).
+* **Đường dẫn mã nguồn Mermaid:** `docs/uml/diagrams/01-use-case.mmd`
 
 #### Mã nguồn Mermaid:
 ```mermaid
@@ -52,7 +52,7 @@ flowchart LR
     Customer(["👤 Khách hàng (Customer)"])
     Staff(["👔 Nhân viên (Staff)"])
     Admin(["👑 Quản trị viên (Admin)"])
-    PayOS_Bank(["🏦 PayOS & Ngân hàng (NAPAS 247)"])
+    Bank(["🏦 Ngân hàng (NAPAS 247)"])
     GHN(["🚚 GHN Logistics"])
     SystemCron(["⏰ Hệ thống Quét Tự động"])
 
@@ -83,7 +83,7 @@ flowchart LR
 
     %% Background & Gateways
     subgraph Gateways ["⚡ Phân hệ Cổng Tích hợp Ngoài"]
-        UC18[18. Webhook Biến động Số dư (HMAC)]
+        UC18[18. Webhook Biến động Số dư (Secure Token)]
         UC19[19. Webhook Trạng thái Vận đơn GHN]
         UC20[20. Tự động Hủy đơn & Nhả kho quá hạn]
     end
@@ -115,7 +115,7 @@ flowchart LR
     Admin --> UC17
 
     %% External Systems Connections
-    PayOS_Bank --> UC18
+    Bank --> UC18
     UC18 -.->|Khớp tiền đơn hàng| UC4
     UC18 -.->|Khớp tiền nạp ví| UC5
     GHN --> UC19
@@ -127,9 +127,10 @@ flowchart LR
 
 ### UML 02: Sơ đồ Lớp Thực thể & Miền Nghiệp vụ (Class & Domain Model)
 
-* **Phân loại UML:** `Class Diagram` (Cấu trúc)
+* **Phân loại UML:** `Class Diagram` (`Structural`)
 * **Mục đích:** Cấu trúc các thực thể dữ liệu Prisma, quan hệ thực thể (ERD) và các dịch vụ nghiệp vụ chính (Domain Services).
-* **Cơ chế kỹ thuật:** Mô hình hóa toàn diện các thực thể quan hệ chặt chẽ: User, Order, Product, ProductVariant, Shipment, UserWallet, ChatRoom, Message, Review, Wishlist cùng các Domain Services chịu trách nhiệm thực thi các bất biến logic.
+* **Cơ chế & Bất biến:** Mô hình hóa toàn diện các thực thể quan hệ chặt chẽ: User, Order, Product, ProductVariant, Shipment, UserWallet, ChatRoom, Message, Review, Wishlist cùng các Domain Services chịu trách nhiệm thực thi các bất biến logic.
+* **Đường dẫn mã nguồn Mermaid:** `docs/uml/diagrams/02-class-domain.mmd`
 
 #### Mã nguồn Mermaid:
 ```mermaid
@@ -317,9 +318,9 @@ classDiagram
         +canShip(order)
     }
 
-    class PayOSService {
-        +createPaymentLink(data)
-        +verifyWebhookSignature(data)
+    class CassoWebhookService {
+        +verifySecureToken(token)
+        +processPaymentWebhook(payload)
     }
 
     class GHNService {
@@ -359,7 +360,7 @@ classDiagram
     InventoryService ..> Product : locks_and_updates
     InventoryService ..> ProductVariant : locks_and_updates
     OrderFSM ..> Order : guards_transitions
-    PayOSService ..> Transaction : reconciles
+    CassoWebhookService ..> Transaction : reconciles
     GHNService ..> Shipment : syncs_status
     ChatService ..> ChatRoom : orchestrates
 ```
@@ -368,9 +369,10 @@ classDiagram
 
 ### UML 03: Sơ đồ Tuần tự 1: Đặt hàng & Thanh toán VietQR
 
-* **Phân loại UML:** `Sequence Diagram` (Hành vi)
+* **Phân loại UML:** `Sequence Diagram` (`Behavioral`)
 * **Mục đích:** Quy trình tạo đơn, quét mã VietQR ngân hàng, nhận Webhook an toàn, tự động khớp tiền và đẩy sang GHN.
-* **Cơ chế kỹ thuật:** Sử dụng kỹ thuật Atomic Inventory Reservation trong Database Transaction và Verify Webhook HMAC timingSafeEqual ngăn chặn triệt để tấn công Replay Attack và Double-Spending.
+* **Cơ chế & Bất biến:** Sử dụng kỹ thuật Atomic Inventory Reservation trong Database Transaction và kiểm tra Secure Token timing-safe ngăn chặn triệt để tấn công Replay Attack và Double-Spending.
+* **Đường dẫn mã nguồn Mermaid:** `docs/uml/diagrams/03-sequence-vietqr-payment.mmd`
 
 #### Mã nguồn Mermaid:
 ```mermaid
@@ -380,7 +382,7 @@ sequenceDiagram
     participant UI as 🖥️ Storefront (Client)
     participant API as ⚙️ Order Controller
     participant Inv as 📦 Inventory Service
-    participant PayOS as 🏦 PayOS Gateway (VietQR)
+    participant Casso as 🏦 Casso Webhook (Cầu nối ngân hàng)
     participant BankApp as 📱 App Ngân hàng (NAPAS 247)
     participant Webhook as 🛡️ Webhook Controller
     participant DB as 🐘 PostgreSQL (Prisma)
@@ -393,19 +395,18 @@ sequenceDiagram
     API->>DB: Bắt đầu Database Transaction
     API->>Inv: reserveOrderStock(tx, items) [Trừ kho nguyên tử]
     Inv-->>API: Kho hợp lệ (OK)
-    API->>PayOS: createPaymentLink(orderCode, amount)
-    PayOS-->>API: Trả về qrContent & checkoutUrl
+    API->>API: Sinh QR VietQR tĩnh img.vietqr.io (amount + mã đơn)
     API->>DB: Lưu Order (status: PENDING, paymentStatus: UNPAID, expiresAt: +15m)
     API-->>UI: Trả về qrContent & orderCode
     deactivate API
 
     UI-->>Customer: Hiển thị mã QR ngân hàng kèm đồng hồ đếm ngược 15:00
     Customer->>BankApp: Quét mã VietQR & Xác nhận chuyển khoản NAPAS 247
-    BankApp->>PayOS: Xử lý giao dịch liên ngân hàng thành công
-    PayOS->>Webhook: POST /api/webhooks/payos (Payload kèm chữ ký HMAC-SHA256)
-    
+    BankApp-->>Casso: Giao dịch ghi có tài khoản shop thành công
+    Casso->>Webhook: POST /api/webhooks/payment (Header secure-token)
+
     activate Webhook
-    Webhook->>Webhook: verifyPayOSWebhookSignature(timingSafeEqual)
+    Webhook->>Webhook: So khớp secure-token (timing-safe)
     Webhook->>DB: Kiểm tra Idempotency (bankTransId đã xử lý chưa?)
     Webhook->>DB: Atomic Update Order (status: CONFIRMED, paymentStatus: PAID)
     Webhook->>DB: Lưu Transaction (bankTransId, amount, verified: true)
@@ -413,7 +414,7 @@ sequenceDiagram
     GHN-->>Webhook: Trả về trackingCode GHN
     Webhook->>DB: Lưu Shipment (trackingCode, status: READY_TO_PICK)
     Webhook->>Pusher: trigger("order-paid", "analytics-updated")
-    Webhook-->>PayOS: HTTP 200 OK (Ghi nhận thành công)
+    Webhook-->>Casso: HTTP 200 OK (Ghi nhận thành công)
     deactivate Webhook
 
     Pusher-->>UI: Bắn sự kiện "order-paid" qua WebSocket
@@ -424,9 +425,10 @@ sequenceDiagram
 
 ### UML 04: Sơ đồ Tuần tự 2: Nạp tiền Ví nội bộ qua VietQR
 
-* **Phân loại UML:** `Sequence Diagram` (Hành vi)
-* **Mục đích:** Quy trình khởi tạo phiên nạp tiền ví, quét mã QR VietQR PayOS và cộng tiền vào ví nguyên tử có đối soát Idempotent.
-* **Cơ chế kỹ thuật:** Sinh mã giao dịch duy nhất có tiền tố `NAPVI`, kiểm tra trùng lặp qua `bankTransId` và tăng số dư ví bằng Atomic CAS Transaction kết hợp bắn Pusher cập nhật UI ngay lập tức.
+* **Phân loại UML:** `Sequence Diagram` (`Behavioral`)
+* **Mục đích:** Quy trình khởi tạo phiên nạp tiền ví, quét mã QR VietQR tĩnh và cộng tiền vào ví nguyên tử có đối soát Idempotent.
+* **Cơ chế & Bất biến:** Sinh mã giao dịch duy nhất có tiền tố NAP, kiểm tra trùng lặp qua bankTransId và tăng số dư ví bằng Atomic CAS Transaction kết hợp bắn Pusher cập nhật UI ngay lập tức.
+* **Đường dẫn mã nguồn Mermaid:** `docs/uml/diagrams/04-sequence-wallet-topup.mmd`
 
 #### Mã nguồn Mermaid:
 ```mermaid
@@ -436,9 +438,9 @@ sequenceDiagram
     participant UI as 🖥️ Wallet UI (Client)
     participant Ctrl as ⚙️ WalletTopup Controller
     participant Svc as 💳 WalletTopup Service
-    participant PayOS as 🏦 PayOS Gateway (VietQR)
+    participant Casso as 🏦 Casso Webhook (Cầu nối ngân hàng)
     participant BankApp as 📱 App Ngân hàng (NAPAS 247)
-    participant Webhook as 🛡️ PayOS Webhook Controller
+    participant Webhook as 🛡️ Payment Webhook Controller
     participant DB as 🐘 PostgreSQL (Prisma)
     participant Pusher as 📡 Pusher Realtime Cloud
 
@@ -447,22 +449,20 @@ sequenceDiagram
     activate Ctrl
     Ctrl->>Ctrl: Rate Limit Check (15 req/phút per IP & User)
     Ctrl->>Svc: createWalletTopupPaymentLink(userId, amount)
-    Svc->>Svc: Sinh mã giao dịch duy nhất NAPVI{orderCode}
-    Svc->>PayOS: createPaymentLink(orderCode, amount, description)
-    PayOS-->>Svc: Trả về qrContent & checkoutUrl
+    Svc->>Svc: Sinh mã giao dịch duy nhất NAP{9 chữ số}
     Svc->>DB: Lưu Topup Session (PENDING, expiresAt: +15m)
     Svc-->>Ctrl: Dữ liệu VietQR
     Ctrl-->>UI: HTTP 200 OK (qrContent, checkoutUrl, topupCode)
     deactivate Ctrl
 
-    UI-->>Customer: Hiển thị mã VietQR Động kèm nội dung NAPVI{orderCode}
+    UI-->>Customer: Hiển thị mã QR VietQR kèm nội dung NAP...
     Customer->>BankApp: Mở App Ngân hàng quét QR & Chuyển tiền 24/7
-    BankApp->>PayOS: Giao dịch NAPAS 247 thành công
-    PayOS->>Webhook: POST /api/webhooks/payos (Kèm chữ ký HMAC-SHA256)
+    BankApp->>Casso: Chuyển khoản NAPAS 247 thành công
+    Casso->>Webhook: POST /api/webhooks/payment (Header secure-token)
 
     activate Webhook
-    Webhook->>Webhook: verifyPayOSWebhookSignature(timingSafeEqual)
-    Webhook->>Webhook: Phân tích mã nạp tiền NAPVI...
+    Webhook->>Webhook: So khớp secure-token (timing-safe)
+    Webhook->>Webhook: Phân tích mã nạp tiền NAP...
     Webhook->>DB: Bắt đầu Prisma Transaction
     Webhook->>DB: Kiểm tra Idempotency bankTransId (Chống cộng tiền trùng lặp)
     Webhook->>DB: Atomic CAS: UserWallet.balance += amount
@@ -470,7 +470,7 @@ sequenceDiagram
     Webhook->>DB: Tạo Notification (PAYMENT_RECEIVED)
     Webhook->>Pusher: trigger private-user-{userId} ('wallet-updated', 'payment-success')
     Webhook->>Pusher: trigger private-admin-channel ('analytics-updated')
-    Webhook-->>PayOS: HTTP 200 OK (Giao dịch nạp ví thành công)
+    Webhook-->>Casso: HTTP 200 OK (Giao dịch nạp ví thành công)
     deactivate Webhook
 
     Pusher-->>UI: Bắn sự kiện "wallet-updated" với số dư mới
@@ -481,9 +481,10 @@ sequenceDiagram
 
 ### UML 05: Sơ đồ Tuần tự 3: Hủy đơn & Hoàn tiền Ví CAS Nguyên tử
 
-* **Phân loại UML:** `Sequence Diagram` (Hành vi)
+* **Phân loại UML:** `Sequence Diagram` (`Behavioral`)
 * **Mục đích:** Quy trình hủy đơn hàng đã thanh toán với cơ chế Atomic CAS chống Double-Refund và tự động hoàn kho.
-* **Cơ chế kỹ thuật:** Áp dụng điều kiện `updateMany where: {id, paymentStatus: PAID}, set {paymentStatus: REFUNDED}`. Nếu `updateResult.count !== 1` sẽ rollback ngay lập tức, ngăn ngừa triệt để lỗi đua lệnh hoàn tiền kép.
+* **Cơ chế & Bất biến:** Áp dụng điều kiện updateMany where: {id, paymentStatus: PAID}, set {paymentStatus: REFUNDED}. Nếu updateResult.count !== 1 sẽ rollback ngay lập tức, ngăn ngừa triệt để lỗi đua lệnh hoàn tiền kép.
+* **Đường dẫn mã nguồn Mermaid:** `docs/uml/diagrams/05-sequence-wallet-refund.mmd`
 
 #### Mã nguồn Mermaid:
 ```mermaid
@@ -501,11 +502,11 @@ sequenceDiagram
     UI->>OrderCtrl: PATCH /api/orders/{id} (status: CANCELLED)
     activate OrderCtrl
     OrderCtrl->>WalletSvc: refundOrderToWallet(orderId)
-    
+
     activate WalletSvc
     WalletSvc->>DB: Bắt đầu prisma.$transaction
     WalletSvc->>DB: updateMany (where: {id, paymentStatus: PAID}, data: {paymentStatus: REFUNDED})
-    
+
     alt updateResult.count !== 1 (Đã hoàn tiền trước đó hoặc chưa thanh toán)
         DB-->>WalletSvc: count = 0 (Race Condition / Double Refund Blocked)
         WalletSvc-->>OrderCtrl: Throw Error: Đơn không ở trạng thái PAID
@@ -531,9 +532,10 @@ sequenceDiagram
 
 ### UML 06: Sơ đồ Tuần tự 4: Chat Tư vấn Trực tuyến Real-time
 
-* **Phân loại UML:** `Sequence Diagram` (Hành vi)
+* **Phân loại UML:** `Sequence Diagram` (`Behavioral`)
 * **Mục đích:** Quy trình giao tiếp thời gian thực giữa Khách hàng và Quản trị viên/Nhân viên thông qua Pusher WebSockets.
-* **Cơ chế kỹ thuật:** Xác thực kênh riêng tư (`private-chat-{roomId}`) qua API bảo mật, lưu trữ tin nhắn vào PostgreSQL, bắn event tức thời đến phòng chat và đồng bộ số tin chưa đọc.
+* **Cơ chế & Bất biến:** Xác thực kênh riêng tư (Pusher Private Channel) qua API bảo mật, lưu trữ tin nhắn vào PostgreSQL, bắn event tức thời đến phòng chat và đồng bộ số tin chưa đọc.
+* **Đường dẫn mã nguồn Mermaid:** `docs/uml/diagrams/06-sequence-realtime-chat.mmd`
 
 #### Mã nguồn Mermaid:
 ```mermaid
@@ -592,16 +594,17 @@ sequenceDiagram
 
 ### UML 07: Sơ đồ Hoạt động 1: Quy trình Đặt hàng & Giữ kho Nguyên tử
 
-* **Phân loại UML:** `Activity Diagram` (Hành vi)
+* **Phân loại UML:** `Activity Diagram` (`Behavioral`)
 * **Mục đích:** Quy trình kiểm tra tính hợp lệ, trừ kho nguyên tử (Atomic Inventory Reservation) và phân luồng thanh toán.
-* **Cơ chế kỹ thuật:** Đảm bảo tính toàn vẹn kho hàng giữa Product tổng và từng Biến thể SKU trong một ACID Database Transaction duy nhất, phân luồng thanh toán linh hoạt VietQR / Ví nội bộ / COD.
+* **Cơ chế & Bất biến:** Đảm bảo tính toàn vẹn kho hàng giữa Product tổng và từng Biến thể SKU trong một ACID Database Transaction duy nhất, phân luồng thanh toán linh hoạt VietQR / Ví nội bộ / COD.
+* **Đường dẫn mã nguồn Mermaid:** `docs/uml/diagrams/07-activity-order-placement.mmd`
 
 #### Mã nguồn Mermaid:
 ```mermaid
 flowchart TD
     Start([👤 Khách hàng nhấn 'Đặt hàng']) --> ValidateCart{Giỏ hàng có sản phẩm?}
     ValidateCart -- Trống --> ErrEmpty[Báo lỗi: Giỏ hàng rỗng] --> StopErr([Dừng xử lý])
-    
+
     ValidateCart -- Hợp lệ --> CheckCoupon{Có mã Coupon?}
     CheckCoupon -- Có --> ValidateCoupon[Kiểm tra HSD, Lượt dùng & Giá trị tối thiểu]
     ValidateCoupon --> ApplyDiscount[Tính giảm giá: FIXED / PERCENT / FREE_SHIPPING]
@@ -610,7 +613,7 @@ flowchart TD
 
     CalcShipping --> BeginTx[Bắt đầu Database Transaction]
     BeginTx --> CheckStock{Kiểm tra Tồn kho từng Sản phẩm & Biến thể SKU}
-    
+
     CheckStock -- Thiếu hàng / Không hoạt động --> RollbackTx[Rollback Transaction]
     RollbackTx --> ErrStock[Báo lỗi: Sản phẩm hoặc Biến thể SKU đã hết hàng] --> StopErr
 
@@ -619,14 +622,14 @@ flowchart TD
     CreateOrder --> CommitTx[Commit Transaction thành công]
 
     CommitTx --> ChoosePayment{Phương thức Thanh toán?}
-    
-    ChoosePayment -- VietQR / PayOS --> GenQR[Gọi API PayOS sinh chuỗi VietQR động]
+
+    ChoosePayment -- VietQR --> GenQR[Sinh QR VietQR tĩnh img.vietqr.io]
     GenQR --> ShowPaymentPage[Chuyển hướng đến màn hình Quét mã VietQR]
-    
+
     ChoosePayment -- Ví Shop --> CheckBalance{Số dư ví >= Tổng tiền đơn?}
     CheckBalance -- Thiếu tiền --> ErrWallet[Báo lỗi: Số dư ví không đủ] --> ShowPaymentPage
     CheckBalance -- Đủ tiền --> DeductWallet[Trừ ví nguyên tử & Xác nhận đơn PAID]
-    
+
     ChoosePayment -- COD --> MarkCOD[Đánh dấu đơn COD & Đẩy sang vận đơn GHN]
 
     ShowPaymentPage --> AwaitPayment([Chờ Webhook Ngân hàng khớp tiền])
@@ -638,33 +641,34 @@ flowchart TD
 
 ### UML 08: Sơ đồ Hoạt động 2: Bộ lọc An ninh & Đối soát Webhook Ngân hàng
 
-* **Phân loại UML:** `Activity Diagram` (Hành vi)
-* **Mục đích:** Quy trình xử lý bất biến an toàn (Fail-Closed, Timing-Safe HMAC, Idempotency) khi tiếp nhận dữ liệu ngân hàng.
-* **Cơ chế kỹ thuật:** Lọc an ninh 4 lớp: 1. Fail-closed secret check; 2. Timing-safe HMAC-SHA256; 3. Regex parser phân loại đơn hàng DHxxxx và nạp ví NAPVIxxxx; 4. Idempotency check theo bankTransId chống replay attack.
+* **Phân loại UML:** `Activity Diagram` (`Behavioral`)
+* **Mục đích:** Quy trình xử lý bất biến an toàn (Fail-Closed, Timing-Safe Secure Token, Idempotency) khi tiếp nhận dữ liệu ngân hàng.
+* **Cơ chế & Bất biến:** Lọc an ninh 4 lớp: 1. Fail-closed secret check; 2. Secure Token timing-safe; 3. Regex parser phân loại đơn hàng DHxxxx và nạp ví NAPxxxxx; 4. Idempotency check theo bankTransId chống replay attack.
+* **Đường dẫn mã nguồn Mermaid:** `docs/uml/diagrams/08-activity-webhook-security.mmd`
 
 #### Mã nguồn Mermaid:
 ```mermaid
 flowchart TD
-    Start([Nhận Request POST Webhook từ PayOS]) --> CheckEnv{Môi trường Production?}
-    
+    Start([Nhận Request POST Webhook từ Casso]) --> CheckEnv{Môi trường Production?}
+
     CheckEnv -- Có --> CheckSecretConfig{Có cấu hình Webhook Secret?}
     CheckSecretConfig -- Thiếu --> FailClosed500[Từ chối Fail-Closed 500: Missing Secret Key] --> StopErr([Dừng])
     CheckSecretConfig -- Có --> VerifySignature
-    
+
     CheckEnv -- Development --> DevWarning[Ghi log cảnh báo Dev Mode] --> VerifySignature
 
-    VerifySignature{Kiểm tra chữ ký HMAC-SHA256 timingSafeEqual?}
-    VerifySignature -- Chữ ký không khớp --> Reject401[Từ chối 401: Unauthorized / Tampered Request] --> StopErr
-    
-    VerifySignature -- Chữ ký hợp lệ --> ParseCode[Phân tích mã nội dung chuyển khoản bằng Regex]
-    
+    CheckToken{Kiểm tra Header secure-token timing-safe?}
+    CheckToken -- Token không khớp --> Reject401[Từ chối 401: Unauthorized / Tampered Request] --> StopErr
+
+    CheckToken -- Token hợp lệ --> ParseCode[Phân tích mã nội dung chuyển khoản bằng Regex]
+
     ParseCode --> CheckType{Loại giao dịch?}
 
     %% Nhánh 1: Nạp tiền Ví
-    CheckType -- Khớp NAPVIxxxx --> QueryTopup[Truy vấn Phiên Nạp tiền Ví]
+    CheckType -- Khớp NAPxxxxx --> QueryTopup[Truy vấn Phiên Nạp tiền Ví]
     QueryTopup --> CheckTopupExists{Tìm thấy phiên nạp ví?}
     CheckTopupExists -- Không --> LogUnmatched[Lưu Transaction: verified=false, UNMATCHED] --> Resp200[Trả về 200 OK để Ngân hàng không retry]
-    
+
     CheckTopupExists -- Có --> CheckTopupIdempotency{bankTransId đã xử lý trước đó?}
     CheckTopupIdempotency -- Đã xử lý (Replay) --> SkipDupTopup[Bỏ qua nạp trùng: Trả về thành công Idempotent] --> Resp200
     CheckTopupIdempotency -- Giao dịch mới --> AtomicTopup[Atomic CAS: Tăng UserWallet.balance & Tạo WalletTx TOPUP]
@@ -674,16 +678,16 @@ flowchart TD
     CheckType -- Khớp DHxxxx / OrderCode --> QueryOrder[Truy vấn Order trong PostgreSQL]
     QueryOrder --> OrderExists{Tìm thấy đơn hàng?}
     OrderExists -- Không --> LogUnmatched
-    
+
     OrderExists -- Tìm thấy đơn --> CheckOrderDuplicate{bankTransId đã tồn tại trong DB?}
     CheckOrderDuplicate -- Đã tồn tại (Replay Attack) --> SkipDupOrder[Bỏ qua: Tránh ghi nhận đơn trùng lặp] --> Resp200
-    
+
     CheckOrderDuplicate -- Giao dịch mới --> CheckOrderStatus{Trạng thái Đơn hiện tại?}
     CheckOrderStatus -- Đã PAID / CANCELLED / EXPIRED --> LogLateTx[Ghi nhận giao dịch kèm cảnh báo Admin xử lý thủ công] --> Resp200
-    
+
     CheckOrderStatus -- PENDING (Chờ tiền) --> CompareAmount{Số tiền nhận >= Tổng tiền đơn?}
     CompareAmount -- Thiếu tiền --> UnderpaidAlert[Lưu Transaction: Cảnh báo Khách chuyển thiếu tiền] --> Resp200
-    
+
     CompareAmount -- Đủ hoặc Thừa tiền --> AtomicUpdateOrder[Cập nhật Order: status=CONFIRMED, paymentStatus=PAID]
     AtomicUpdateOrder --> PushGHN[Tự động gọi GHN OpenAPI sinh Vận đơn Giao hàng]
     PushGHN --> BroadcastRealtime[Bắn WebSocket Pusher: 'order-paid' & 'analytics-updated']
@@ -694,9 +698,10 @@ flowchart TD
 
 ### UML 09: Sơ đồ Máy trạng thái 1: Vòng đời Đơn hàng & Quản lý Kho hàng
 
-* **Phân loại UML:** `State Machine Diagram` (Hành vi)
+* **Phân loại UML:** `State Machine Diagram` (`Behavioral`)
 * **Mục đích:** Cỗ máy hữu hạn trạng thái (Finite State Machine) quản lý tính nhất quán của Đơn hàng và Kho hàng.
-* **Cơ chế kỹ thuật:** Quy định các bước chuyển trạng thái hợp lệ, đồng bộ giữa OrderStatus và PaymentStatus, cam kết giải phóng kho khi đơn bị hủy (CANCELLED) hoặc quá hạn (EXPIRED).
+* **Cơ chế & Bất biến:** Quy định các bước chuyển trạng thái hợp lệ, đồng bộ giữa OrderStatus và PaymentStatus, cam kết giải phóng kho khi đơn bị hủy (CANCELLED) hoặc quá hạn (EXPIRED).
+* **Đường dẫn mã nguồn Mermaid:** `docs/uml/diagrams/09-state-machine-orders.mmd`
 
 #### Mã nguồn Mermaid:
 ```mermaid
@@ -745,9 +750,10 @@ stateDiagram-v2
 
 ### UML 10: Sơ đồ Máy trạng thái 2: Vòng đời Vận đơn Giao Hàng Nhanh
 
-* **Phân loại UML:** `State Machine Diagram` (Hành vi)
+* **Phân loại UML:** `State Machine Diagram` (`Behavioral`)
 * **Mục đích:** Cỗ máy trạng thái vận chuyển (Logistics FSM) đồng bộ với Giao Hàng Nhanh qua OpenAPI và Webhook.
-* **Cơ chế kỹ thuật:** Quản lý vòng đời kiện hàng từ lúc tạo phiếu READY_TO_PICK, shipper lấy hàng PICKING, trung chuyển DELIVERING, đến khi DELIVERED hoặc hoàn trả RETURNED.
+* **Cơ chế & Bất biến:** Quản lý vòng đời kiện hàng từ lúc tạo phiếu READY_TO_PICK, shipper lấy hàng PICKING, trung chuyển DELIVERING, đến khi DELIVERED hoặc hoàn trả RETURNED.
+* **Đường dẫn mã nguồn Mermaid:** `docs/uml/diagrams/10-state-machine-shipment.mmd`
 
 #### Mã nguồn Mermaid:
 ```mermaid
@@ -793,9 +799,10 @@ stateDiagram-v2
 
 ### UML 11: Sơ đồ Thành phần Kiến trúc Phần mềm (Clean Architecture)
 
-* **Phân loại UML:** `Component Diagram` (Cấu trúc)
+* **Phân loại UML:** `Component Diagram` (`Structural`)
 * **Mục đích:** Mô hình phân tầng kiến trúc nghiêm ngặt (@client, @server, @shared) bảo đảm Zero-Server-Leakage.
-* **Cơ chế kỹ thuật:** Quy tắc phân tầng Clean Architecture: Tầng Presentation (@client) tuyệt đối không import mã nội bộ của @server, chỉ chia sẻ types và contracts qua @shared và giao tiếp qua HTTP REST APIs.
+* **Cơ chế & Bất biến:** Quy tắc phân tầng Clean Architecture: Tầng Presentation (@client) tuyệt đối không import mã nội bộ của @server, chỉ chia sẻ types và contracts qua @shared và giao tiếp qua HTTP REST APIs.
+* **Đường dẫn mã nguồn Mermaid:** `docs/uml/diagrams/11-component-clean-architecture.mmd`
 
 #### Mã nguồn Mermaid:
 ```mermaid
@@ -816,16 +823,16 @@ flowchart TB
 
     subgraph ApplicationLayer ["⚙️ Tầng Ứng dụng & Dịch vụ (Application Layer - @server)"]
         OrderRoutes["Order & Checkout Route Handlers"]
-        WebhookRoutes["PayOS & GHN Webhook Handlers"]
+        WebhookRoutes["Casso & GHN Webhook Handlers"]
         WalletRoutes["Wallet Topup & Payment Controllers"]
         ChatRoutes["Chat Messages & Pusher Auth Handlers"]
         AdminRoutes["Analytics, Reconcile & Products Handlers"]
-        
+
         WalletService["WalletService (Atomic CAS Refund & Pay)"]
         WalletTopupService["WalletTopupService (VietQR Idempotency)"]
         InventoryService["InventoryService (Atomic Reservation & Release)"]
         OrderFSM["OrderFSM Engine (State Invariant Guard)"]
-        PayOSService["PayOSService (HMAC Gateway & Parsing)"]
+        VietQRService["VietQRService (QR Generator & Parser)"]
         GHNService["GHNService (Logistics OpenAPI & Fee Calc)"]
         ChatService["ChatService (Pusher Realtime Orchestration)"]
     end
@@ -842,7 +849,7 @@ flowchart TB
         PostgresDB[("🐘 PostgreSQL (Prisma ORM with Connection Pool)")]
         RedisCache[("⚡ Upstash Serverless Redis (Cache & Rate Limiting)")]
         PusherCloud["📡 Pusher Channels (WebSocket Realtime Cloud)"]
-        PayOSGateway["🏦 PayOS Gateway (VietQR & NAPAS 247)"]
+        CassoWebhook["🏦 Casso Webhook Engine (Đối soát ngân hàng)"]
         GHNCloud["🚚 GHN Logistics OpenAPI Server"]
         ResendEmail["✉️ Resend Cloud API (OTP & Password Reset)"]
         CloudinaryCDN["🖼️ Cloudinary CDN (Image Optimization)"]
@@ -857,7 +864,7 @@ flowchart TB
     ApplicationLayer --> PostgresDB
     ApplicationLayer --> RedisCache
     ApplicationLayer --> PusherCloud
-    ApplicationLayer --> PayOSGateway
+    ApplicationLayer --> CassoWebhook
     ApplicationLayer --> GHNCloud
     ApplicationLayer --> ResendEmail
     ApplicationLayer --> CloudinaryCDN
@@ -867,9 +874,10 @@ flowchart TB
 
 ### UML 12: Sơ đồ Triển khai Hạ tầng Hệ thống (Deployment Architecture)
 
-* **Phân loại UML:** `Deployment Diagram` (Cấu trúc)
+* **Phân loại UML:** `Deployment Diagram` (`Structural`)
 * **Mục đích:** Kiến trúc triển khai phân tán trên nền tảng Serverless, Managed Database và các Micro-SaaS API.
-* **Cơ chế kỹ thuật:** Hạ tầng triển khai 5 tầng: Client Tier -> Edge Tier (Cloudflare/Vercel) -> Compute Tier (Next.js 16 Serverless) -> Data Persistence Tier (Neon Postgres + Upstash Redis) -> External SaaS Tier.
+* **Cơ chế & Bất biến:** Hạ tầng triển khai 5 tầng: Client Tier -> Edge Tier (Cloudflare/Vercel) -> Compute Tier (Next.js 16 Serverless) -> Data Persistence Tier (Neon Postgres + Upstash Redis) -> External SaaS Tier.
+* **Đường dẫn mã nguồn Mermaid:** `docs/uml/diagrams/12-deployment-infrastructure.mmd`
 
 #### Mã nguồn Mermaid:
 ```mermaid
@@ -910,7 +918,7 @@ flowchart TB
 
     %% External SaaS Ecosystem
     subgraph ExternalSaaSTier ["🌐 Tầng Dịch vụ Đám mây Chuyên biệt (Third-party Cloud Ecosystem)"]
-        PayOSServer["🏦 Cổng PayOS / NAPAS 247 Switch (VietQR)"]
+        CassoServer["🏦 Casso Webhook Engine (Giám sát biến động số dư)"]
         GHNServer["🚚 Giao Hàng Nhanh API (Logistics OpenAPI)"]
         PusherServer["📡 Pusher Cloud Channels (WebSocket Gateway)"]
         ResendServer["✉️ Resend Cloud API (OTP & Password Reset Emails)"]
@@ -920,7 +928,7 @@ flowchart TB
     %% Connections
     DesktopBrowser -->|HTTPS / WSS| CloudflareEdge
     MobileBrowser -->|HTTPS / WSS| CloudflareEdge
-    BankAppDevice -->|Quét VietQR chuyển tiền NAPAS| PayOSServer
+    BankAppDevice -->|Quét VietQR chuyển khoản NAPAS| CassoServer
 
     CloudflareEdge --> NodeRuntime
     NodeRuntime -->|Prisma TCP / SSL| PostgresInstance
@@ -929,8 +937,7 @@ flowchart TB
     PusherServer -.->|WSS Push Notifications| DesktopBrowser
     PusherServer -.->|WSS Push Notifications| MobileBrowser
 
-    NodeRuntime -->|Create Payment Link| PayOSServer
-    PayOSServer -->|Webhook POST with HMAC| NodeRuntime
+    CassoServer -->|Webhook POST secure-token| NodeRuntime
 
     NodeRuntime -->|Create Order & Calc Fee| GHNServer
     GHNServer -->|Webhook Tracking Update| NodeRuntime
@@ -943,16 +950,17 @@ flowchart TB
 
 ### UML 13: Sơ đồ Gói & Cấu trúc Mô-đun (Package Diagram)
 
-* **Phân loại UML:** `Package Diagram` (Cấu trúc)
+* **Phân loại UML:** `Package Diagram` (`Structural`)
 * **Mục đích:** Cấu trúc các gói mã nguồn, quy ước phân vùng trách nhiệm và ranh giới mô-đun trong dự án.
-* **Cơ chế kỹ thuật:** Kiểm soát tính độc lập của từng package, tách rời hoàn toàn Presentation (@client), Domain (@server) và Kernel (@shared), đi kèm 250+ unit/integration tests bảo vệ kiến trúc.
+* **Cơ chế & Bất biến:** Kiểm soát tính độc lập của từng package, tách rời hoàn toàn Presentation (@client), Domain (@server) và Kernel (@shared), đi kèm 250+ unit/integration tests bảo vệ kiến trúc.
+* **Đường dẫn mã nguồn Mermaid:** `docs/uml/diagrams/13-package-modularity.mmd`
 
 #### Mã nguồn Mermaid:
 ```mermaid
 flowchart TB
     %% Root Packages
     subgraph RootProject ["📁 shop-qr-payment (Dự án Gốc)"]
-        
+
         subgraph PkgClient ["📦 @client (src/client)"]
             direction TB
             ClientComponents["components/
@@ -986,7 +994,7 @@ flowchart TB
 ├── inventory/ (inventory.service, reservation-engine)
 ├── notifications/ (notifications.service)
 ├── orders/ (orders.controller, customer-orders, orders.fsm)
-├── payment/ (payos.service, casso, vietqr-parser)
+├── payment/ (vietqr.service, casso-webhook, vietqr-parser)
 ├── products/ (product.service, variant-sync)
 ├── reviews/ (product-reviews.controller)
 ├── shipping/ (ghn.service, ghn-webhook.controller)
@@ -1044,3 +1052,301 @@ flowchart TB
     PkgTests --> PkgServer
     PkgTests --> PkgShared
 ```
+
+---
+
+### UML 14: Sơ đồ Tuần tự 5: Vòng đời đầy đủ Đơn hàng — từ Giỏ hàng đến Giao hàng
+
+* **Phân loại UML:** `Sequence Diagram` (`Behavioral`)
+* **Mục đích:** Hành trình trọn vẹn một đơn hàng: giữ kho nguyên tử 15 phút → quét QR → webhook khớp tiền tự động → admin duyệt → GHN giao → COMPLETED.
+* **Cơ chế & Bất biến:** Mọi bước ghi dữ liệu nằm trong prisma.$transaction với điều kiện CAS; tiền về là sự kiện đẩy (Pusher) chứ không phải polling; đơn hết hạn tự nhả kho qua cron.
+* **Đường dẫn mã nguồn Mermaid:** `docs/uml/diagrams/14-sequence-order-e2e.mmd`
+
+#### Mã nguồn Mermaid:
+```mermaid
+sequenceDiagram
+    autonumber
+    actor KH as 👤 Khách hàng
+    participant FE as 🖥️ CheckoutForm
+    participant API as ⚙️ orders.controller
+    participant DB as 🗄️ PostgreSQL
+    participant BANK as 🏦 Ngân hàng (Casso)
+    participant AD as 👑 Admin
+
+    KH->>FE: Giỏ hàng + địa chỉ (GPS 1-chạm) + coupon
+    FE->>API: POST /api/orders
+    API->>API: Rate limit 10/phút · re-validate giá & kho từ DB
+    API->>DB: BEGIN TRANSACTION
+    API->>DB: reserveOrderStock (CAS stock >= qty, trừ variant + đồng bộ gốc)
+    API->>DB: Tạo Order (DHyyMMddxxx, expiresAt +15 phút, qrContent)
+    API->>DB: coupon.usedCount++ + couponUsage (nếu đăng nhập)
+    API->>DB: COMMIT — lỗi 1 bước là ROLLBACK toàn bộ
+    API-->>KH: QR VietQR + mã đơn + hạn 15 phút
+    KH->>BANK: Quét QR chuyển khoản đúng số tiền
+    BANK->>API: POST /api/webhooks/payment (secure-token)
+    API->>API: 8 cổng chặn parser (dup/sai tiền/trả thiếu/hết hạn...)
+    API->>DB: PAID + CONFIRMED + Transaction(verified) — idempotent
+    API-->>KH: Pusher payment-success → màn hình Đã thanh toán ngay
+    API-->>AD: Thông báo + analytics-updated
+    AD->>API: PATCH → PROCESSING
+    API->>DB: Tự tạo vận đơn GHN (READY_TO_PICK)
+    BANK->>API: GHN webhook delivering → SHIPPING
+    BANK->>API: GHN webhook delivered → COMPLETED (COD thì PAID luôn)
+```
+
+---
+
+### UML 15: Sơ đồ Hoạt động 3: Cây quyết định khớp tiền Webhook (8 cổng chặn)
+
+* **Phân loại UML:** `Activity Diagram` (`Behavioral`)
+* **Mục đích:** Chi tiết bộ não đối soát: mọi giao dịch ngân hàng đi vào đều được chấm điểm PROCESS/SKIP với lý do rõ ràng, hỗ trợ cả nạp ví và thanh toán đơn.
+* **Cơ chế & Bất biến:** Fail-closed auth (timing-safe) → idempotency bankTransId @unique (nuốt lỗi P2002) → 8 cổng chặn tuần tự → chỉ PROCESS khi đủ tiền, đúng đơn, còn hiệu lực.
+* **Đường dẫn mã nguồn Mermaid:** `docs/uml/diagrams/15-flowchart-webhook-decision.mmd`
+
+#### Mã nguồn Mermaid:
+```mermaid
+flowchart TD
+    WH["📩 Webhook ngân hàng vào /api/webhooks/payment"] --> AUTH{"Header secure-token khớp<br/>CASSO_WEBHOOK_SECRET?"}
+    AUTH -- "Sai hoặc thiếu" --> REJ["❌ 401 fail-closed"]
+    AUTH -- "Đúng" --> PARSE["Parser: tách nội dung CK + số tiền tuyệt đối"]
+    PARSE --> TYPE{"Mã nhận diện được?"}
+    TYPE -- "NAP mã..." --> TOPUP["Nhánh NẠP VÍ → processWalletTopup<br/>chống cộng trùng 4 lớp"]
+    TYPE -- "DH mã đơn" --> G1{"bankTransId đã ghi nhận?"}
+    G1 -- "Rồi" --> S1["SKIP · DUPLICATE_TRANSACTION"]
+    G1 -- "Chưa" --> G2{"Có mã đơn trong nội dung?"}
+    G2 -- "Không" --> S2["SKIP · NO_ORDER_CODE"]
+    G2 -- "Có" --> G3{"Số tiền hợp lệ?"}
+    G3 -- "Không" --> S3["SKIP · INVALID_AMOUNT"]
+    G3 -- "Có" --> G4{"Tìm thấy đơn theo orderCode?"}
+    G4 -- "Không" --> S4["SKIP · ORDER_NOT_FOUND"]
+    G4 -- "Có" --> G5{"Đơn đã PAID?"}
+    G5 -- "Rồi" --> S5["SKIP · ALREADY_PAID"]
+    G5 -- "Chưa" --> G6{"Đơn EXPIRED hoặc CANCELLED?"}
+    G6 -- "Có" --> S6["SKIP · ORDER_EXPIRED / ORDER_CANCELLED"]
+    G6 -- "Không" --> G7{"amount nhỏ hơn totalAmount?"}
+    G7 -- "Có" --> S7["SKIP · UNDERPAID — không chấp nhận trả thiếu"]
+    G7 -- "Đủ tiền" --> OK["✅ PROCESS trong 1 transaction:<br/>PAID + CONFIRMED + Transaction verified"]
+    OK --> FX["Pusher payment-success cho khách<br/>thông báo khách + mọi admin<br/>tin SYSTEM vào chat đơn · analytics-updated"]
+    OK -. "webhook trùng gửi lại → lỗi P2002 được nuốt" .-> S1
+```
+
+---
+
+### UML 16: Sơ đồ Tuần tự 6: Hủy đơn — Hoàn kho, Thu hồi coupon & Hoàn tiền CAS
+
+* **Phân loại UML:** `Sequence Diagram` (`Behavioral`)
+* **Mục đích:** Hai nhánh hủy đơn: đã thanh toán (hoàn 100% vào ví với chống hoàn kép) và chưa thanh toán (chỉ hoàn kho + thu hồi coupon).
+* **Cơ chế & Bất biến:** CAS updateMany trên paymentStatus quyết định ai được hoàn — hai request hủy song song chỉ có một thắng count===1; hoàn kho luôn đồng bộ variant và sản phẩm gốc.
+* **Đường dẫn mã nguồn Mermaid:** `docs/uml/diagrams/16-sequence-cancel-refund.mmd`
+
+#### Mã nguồn Mermaid:
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as 👤 Người gọi (khách hoặc admin)
+    participant API as ⚙️ PATCH /api/orders/[id]
+    participant FSM as 🚦 orders.fsm
+    participant DB as 🗄️ prisma.$transaction
+    participant W as 💰 refundOrderToWallet
+
+    U->>API: Yêu cầu hủy đơn
+    API->>FSM: validateOrderTransition + canCustomerCancelOrder
+    Note over FSM: Khách: chỉ đơn MÌNH, chỉ khi PENDING<br/>Admin: mọi chuyển hợp lệ · CANCELLED là trạng thái chốt
+    alt Đơn đã PAID
+        API->>DB: Bắt đầu transaction hủy
+        DB->>W: CAS updateMany WHERE paymentStatus = PAID<br/>SET REFUNDED + CANCELLED
+        Note over W: count === 1 mới được hoàn tiền<br/>→ hai lời gọi song song chỉ một thắng
+        W->>DB: releaseOrderStock (variant + sản phẩm gốc)
+        W->>DB: balance.increment(100% tổng đơn) + WalletTransaction REFUND
+        Note over DB: Guest chưa đăng nhập → isGuest true,<br/>xử lý hoàn ngoài hệ thống
+    else Chưa PAID
+        API->>DB: releaseOrderStock (hoàn variant + gốc)
+        API->>DB: coupon.usedCount giảm + xóa couponUsage của đơn
+    end
+    API-->>U: Thông báo hủy + hoàn tiền · Pusher order-status-changed / wallet-updated
+```
+
+---
+
+### UML 17: Sơ đồ Hoạt động 4: Thanh toán Ví Shop 1-chạm — CAS trừ tiền nguyên tử
+
+* **Phân loại UML:** `Activity Diagram` (`Behavioral`)
+* **Mục đích:** Toàn bộ thanh toán bằng ví chạy trong đúng một database transaction: kiểm tra, trừ tiền bằng CAS, ghi lịch sử và đánh dấu đơn đã trả.
+* **Cơ chế & Bất biến:** CAS updateMany với điều kiện balance >= totalAmount — race condition chỉ làm một lời gọi thắng; không bao giờ trừ âm ví dù gửi hàng trăm request song song.
+* **Đường dẫn mã nguồn Mermaid:** `docs/uml/diagrams/17-activity-wallet-pay.mmd`
+
+#### Mã nguồn Mermaid:
+```mermaid
+flowchart TD
+    START["🟣 Khách chọn Thanh toán bằng Ví Shop"] --> AUTH{"Đã đăng nhập?"}
+    AUTH -- "Không" --> HIDE["Kênh Ví bị ẩn ở checkout"]
+    AUTH -- "Có" --> TX["Vào prisma.$transaction duy nhất"]
+    TX --> OWN{"Sở hữu đơn này?"}
+    OWN -- "Không" --> E1["❌ 403"]
+    OWN -- "Có" --> G1{"Đơn PAID / CANCELLED / đã hết hạn?"}
+    G1 -- "Có" --> E2["❌ Từ chối thanh toán"]
+    G1 -- "Không" --> G2{"balance >= totalAmount?"}
+    G2 -- "Không" --> E3["❌ Số dư không đủ"]
+    G2 -- "Đủ" --> CAS["CAS updateMany:<br/>trừ totalAmount WHERE balance >= totalAmount"]
+    CAS --> CNT{"count === 1?"}
+    CNT -- "0 — số dư vừa bị đổi (race)" --> E4["❌ 'Số dư ví đã thay đổi, vui lòng thử lại'"]
+    CNT -- "1 — thắng" --> OK["WalletTransaction PURCHASE_PAYMENT âm<br/>Đơn PAID + CONFIRMED<br/>Transaction bankName SHOP_WALLET"]
+    OK --> FX["Pusher payment-success + wallet-updated<br/>thông báo khách + analytics-updated cho admin"]
+```
+
+---
+
+### UML 18: Sơ đồ Hoạt động 5: Chuỗi dự phòng Định vị GPS → Địa chỉ GHN
+
+* **Phân loại UML:** `Activity Diagram` (`Behavioral`)
+* **Mục đích:** Ba tầng dự phòng Client (GPS high → low → watchdog → IP) và hai tầng Server (Nominatim → BigDataCloud), kết thúc bằng so khớp trung thực — không đoán mù.
+* **Cơ chế & Bất biến:** Watchdog 20s chống treo callback; chuẩn hóa chỉ strip tiền tố đầu chuỗi (tránh false positive "Hà Tĩnh"→"ha"); suy luận ngược Phường → Quận cha; thất bại trả isMatched:false.
+* **Đường dẫn mã nguồn Mermaid:** `docs/uml/diagrams/18-flowchart-geolocation.mmd`
+
+#### Mã nguồn Mermaid:
+```mermaid
+flowchart TD
+    BTN["📍 Khách bấm Lấy vị trí hiện tại 1-chạm"] --> SEC{"Nguồn bảo mật?<br/>(HTTPS hoặc localhost)"}
+    SEC -- "Không — mở qua LAN thường" --> IPF["Bỏ GPS, đi thẳng định vị theo IP"]
+    SEC -- "Đủ" --> H{"enableHighAccuracy<br/>timeout 5s"}
+    H -- "Có tọa độ" --> SEND
+    H -- "Lỗi unavailable / timeout" --> L{"Low accuracy, timeout 8s"}
+    L -- "Có tọa độ" --> SEND["POST /api/shipping/geocode/reverse"]
+    L -- "Treo vĩnh viễn (OS thiếu dịch vụ vị trí)" --> WD["⏰ Watchdog 20s ép fallback"]
+    WD --> IPF
+    IPF["🌐 ip-api.com theo IP của khách — chính xác cấp thành phố"] --> MATCH
+    SEND --> GEO{"Server giải mã tọa độ"}
+    GEO --> NOM["1️⃣ Nominatim OpenStreetMap<br/>chính xác đến đường và phường"]
+    NOM -- "Lỗi / DNS bị chặn" --> BDC["2️⃣ BigDataCloud dự phòng"]
+    BDC --> MATCH
+    NOM --> MATCH
+    MATCH["Chuẩn hóa địa danh: bỏ dấu +<br/>chỉ strip tiền tố ĐẦU chuỗi"] --> P{"Khớp Tỉnh/Thành?"}
+    P -- "Không" --> HONEST["Trả isMatched:false — KHÔNG đoán mù districts đầu tiên"]
+    P -- "Có" --> D{"Khớp Quận/Huyện trực tiếp?"}
+    D -- "Không" --> WI{"Suy luận ngược:<br/>tên Phường thuộc quận cha nào?"}
+    WI -- "Tìm ra" --> APPLY
+    WI -- "Không ra" --> HONEST
+    D -- "Có" --> APPLY["Áp Tỉnh/Quận/Phường +<br/>tính lại phí GHN tự động"]
+    HONEST --> TOAST["Client: Vui lòng chọn địa chỉ thủ công<br/>tuyệt đối không áp địa chỉ sai"]
+```
+
+---
+
+### UML 19: Sơ đồ Tuần tự 7: Vận đơn GHN — Tự động tạo & Webhook đồng bộ trạng thái
+
+* **Phân loại UML:** `Sequence Diagram` (`Behavioral`)
+* **Mục đích:** Admin duyệt đơn là vận đơn tự sinh; GHN đẩy từng bước giao hàng về qua webhook; COD delivered đồng thời đánh dấu đơn đã trả tiền.
+* **Cơ chế & Bất biến:** Shipment gắn client_order_code = mã đơn; mỗi webhook nối 1 shippingLog vào timeline khách xem; cancelled/return tự hoàn kho; token fail-closed ở production.
+* **Đường dẫn mã nguồn Mermaid:** `docs/uml/diagrams/19-sequence-ghn-shipment.mmd`
+
+#### Mã nguồn Mermaid:
+```mermaid
+sequenceDiagram
+    autonumber
+    participant AD as 👑 Admin
+    participant API as ⚙️ order-detail.controller
+    participant GHN as 🚚 GHN OpenAPI v2
+    participant DB as 🗄️ Shipment + logs
+    participant KH as 👤 Khách hàng
+
+    AD->>API: Duyệt đơn → PROCESSING (chưa có shipment)
+    API->>GHN: POST v2/shipping-order/create<br/>client_order_code = mã đơn · COD nếu chưa trả
+    GHN-->>API: order_code tracking + phí + ngày giao dự kiến
+    API->>DB: Tạo Shipment READY_TO_PICK + log "Đã tạo vận đơn tự động"
+    Note over API,DB: Không có GHN_TOKEN → sinh mã mock GHN... chỉ để dev
+    GHN->>API: webhook ready_to_pick / picking → PROCESSING
+    GHN->>API: webhook transporting / delivering → SHIPPING
+    API-->>KH: Thông báo ORDER_SHIPPING + Pusher order-status-changed
+    GHN->>API: webhook delivered → COMPLETED
+    Note over API,DB: COD: paymentStatus UNPAID → PAID luôn (đối soát qua shipper)
+    GHN->>API: webhook cancelled / return → CANCELLED + releaseOrderStock
+```
+
+---
+
+### UML 20: Sơ đồ Tuần tự 8: Đăng ký & Xác thực OTP có Giới hạn nghiêm ngặt
+
+* **Phân loại UML:** `Sequence Diagram` (`Behavioral`)
+* **Mục đích:** OTP 6 số lưu bcrypt-hash (rò DB cũng không lộ mã), TTL 5 phút, cooldown 60 giây giữa hai lần gửi, tối đa 5 lần nhập sai, tự dọn mã cũ.
+* **Cơ chế & Bất biến:** Cùng một OTP engine phục vụ đăng ký và quên mật khẩu (loại PASSWORD_RESET); verify thành công mới bật isVerified; rate limit ở tầng route.
+* **Đường dẫn mã nguồn Mermaid:** `docs/uml/diagrams/20-sequence-auth-otp.mmd`
+
+#### Mã nguồn Mermaid:
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as 👤 Người dùng
+    participant REG as ⚙️ /api/auth/register
+    participant OTP as 🔐 password-reset.service
+    participant R as 📧 Resend
+    participant DB as 🗄️ OtpCode + User
+
+    U->>REG: Đăng ký email + mật khẩu
+    REG->>REG: Rate limit 5/phút · bcrypt cost 12
+    REG->>OTP: sendOtp REGISTRATION
+    OTP->>DB: Dọn code hết hạn / đã dùng · kiểm cooldown 60 giây
+    OTP->>DB: Lưu mã 6 số dạng bcrypt-hash · TTL 5 phút · attempts = 0
+    OTP->>R: Gửi email Mã xác thực (dev chỉ log console)
+    U->>OTP: POST /api/auth/verify-otp
+    OTP->>OTP: attempts nhỏ hơn 5? · bcrypt compare
+    alt Nhập đúng
+        OTP->>DB: used = true · user.isVerified = true
+        OTP-->>U: Thông báo chào mừng → đăng nhập được
+    else Sai quá 5 lần hoặc hết hạn
+        OTP-->>U: Từ chối · gửi lại chỉ được sau cooldown 60 giây
+    end
+    Note over U,DB: Quên mật khẩu tái dùng engine này<br/>với loại PASSWORD_RESET → reset-password (bcrypt 10)
+```
+
+---
+
+### UML 21: Sơ đồ Kênh Realtime Pusher — Bản đồ sự kiện toàn hệ thống
+
+* **Phân loại UML:** `Flowchart Diagram` (`Behavioral`)
+* **Mục đích:** Bản đồ ai phát sự kiện nào lên kênh nào và ai đang lắng nghe — lý giải vì sao giao diện cập nhật tức thì không cần F5.
+* **Cơ chế & Bất biến:** Mọi kênh private đều được cấp quyền tại /api/pusher/auth: admin channel cần role ADMIN, chat channel cần participant, user channel phải khớp session id.
+* **Đường dẫn mã nguồn Mermaid:** `docs/uml/diagrams/21-flowchart-pusher-events.mmd`
+
+#### Mã nguồn Mermaid:
+```mermaid
+flowchart LR
+    subgraph PUB ["📤 Nguồn phát sự kiện"]
+        ORD["orders.controller<br/>tạo đơn · đổi trạng thái"]
+        CASSO["casso-webhook<br/>tiền về"]
+        WALLET["wallet-pay · wallet-topup"]
+        GHNW["ghn-webhook · vận chuyển"]
+        CHAT["chat-messages.controller"]
+        REC["reconcile.controller"]
+    end
+
+    subgraph CH ["📡 Kênh private (auth qua /api/pusher/auth)"]
+        U["private-user-trừ-id<br/>new-notification · payment-success<br/>wallet-updated · order-status-changed"]
+        A["private-admin-channel<br/>analytics-updated"]
+        C["private-chat-theo-roomId<br/>new-message"]
+    end
+
+    subgraph SUB ["🖥️ Người lắng nghe"]
+        QRP["QRPayment — đổi màn hình Đã thanh toán ngay"]
+        DASH["AdminDashboard — refetch 21 KPI"]
+        BELL["useNotifications + NotificationBell"]
+        CW["ChatWindow + AdminChatView"]
+    end
+
+    CASSO --> U
+    WALLET --> U
+    ORD --> U
+    GHNW --> U
+    REC --> U
+    ORD --> A
+    CASSO --> A
+    WALLET --> A
+    REC --> A
+    CHAT --> C
+    CHAT --> U
+    U --> QRP
+    U --> BELL
+    A --> DASH
+    C --> CW
+```
+
+---

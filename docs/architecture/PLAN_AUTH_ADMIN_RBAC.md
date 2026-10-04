@@ -1,5 +1,9 @@
 # KẾ HOẠCH TRIỂN KHAI: QUÊN MẬT KHẨU & PHÂN QUYỀN ADMIN (PLAN_AUTH_ADMIN_RBAC.md)
 
+> ✅ **TRẠNG THÁI: HOÀN THÀNH** — Quên/đặt lại mật khẩu (OTP `PASSWORD_RESET`) và quản trị
+> phân quyền đã chạy, mở rộng thêm **Ma trận phân quyền STAFF** (`StaffPermission`) so với kế hoạch gốc.
+> Test tương ứng: `password-reset.test.ts`, `rbac-user-management.test.ts`, `permissions.test.ts`, `admin-rbac-permissions.test.ts`.
+
 Dự án: **Shop QR Payment**  
 Điều phối: **Tech Lead / System Architect**  
 Mục tiêu: Phân rã nhiệm vụ cho 3 subagents: `be-coder`, `fe-coder`, `tester`.

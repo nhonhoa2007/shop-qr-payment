@@ -1,0 +1,23 @@
+flowchart TD
+    WH["📩 Webhook ngân hàng vào /api/webhooks/payment"] --> AUTH{"Header secure-token khớp<br/>CASSO_WEBHOOK_SECRET?"}
+    AUTH -- "Sai hoặc thiếu" --> REJ["❌ 401 fail-closed"]
+    AUTH -- "Đúng" --> PARSE["Parser: tách nội dung CK + số tiền tuyệt đối"]
+    PARSE --> TYPE{"Mã nhận diện được?"}
+    TYPE -- "NAP mã..." --> TOPUP["Nhánh NẠP VÍ → processWalletTopup<br/>chống cộng trùng 4 lớp"]
+    TYPE -- "DH mã đơn" --> G1{"bankTransId đã ghi nhận?"}
+    G1 -- "Rồi" --> S1["SKIP · DUPLICATE_TRANSACTION"]
+    G1 -- "Chưa" --> G2{"Có mã đơn trong nội dung?"}
+    G2 -- "Không" --> S2["SKIP · NO_ORDER_CODE"]
+    G2 -- "Có" --> G3{"Số tiền hợp lệ?"}
+    G3 -- "Không" --> S3["SKIP · INVALID_AMOUNT"]
+    G3 -- "Có" --> G4{"Tìm thấy đơn theo orderCode?"}
+    G4 -- "Không" --> S4["SKIP · ORDER_NOT_FOUND"]
+    G4 -- "Có" --> G5{"Đơn đã PAID?"}
+    G5 -- "Rồi" --> S5["SKIP · ALREADY_PAID"]
+    G5 -- "Chưa" --> G6{"Đơn EXPIRED hoặc CANCELLED?"}
+    G6 -- "Có" --> S6["SKIP · ORDER_EXPIRED / ORDER_CANCELLED"]
+    G6 -- "Không" --> G7{"amount nhỏ hơn totalAmount?"}
+    G7 -- "Có" --> S7["SKIP · UNDERPAID — không chấp nhận trả thiếu"]
+    G7 -- "Đủ tiền" --> OK["✅ PROCESS trong 1 transaction:<br/>PAID + CONFIRMED + Transaction verified"]
+    OK --> FX["Pusher payment-success cho khách<br/>thông báo khách + mọi admin<br/>tin SYSTEM vào chat đơn · analytics-updated"]
+    OK -. "webhook trùng gửi lại → lỗi P2002 được nuốt" .-> S1

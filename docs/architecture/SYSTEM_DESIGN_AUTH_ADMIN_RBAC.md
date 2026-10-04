@@ -1,5 +1,7 @@
 # THIẾT KẾ HỆ THỐNG: QUÊN MẬT KHẨU & QUẢN LÝ PHÂN QUYỀN ADMIN (RBAC)
 
+> ✅ **Đã triển khai** — đặc tả này mô tả hiện trạng (kèm mở rộng Ma trận phân quyền STAFF `StaffPermission`).
+
 Dự án: **Shop QR Payment**  
 Tác giả: **Tech Lead / System Architect**  
 Thời điểm: Tháng 09/2026  

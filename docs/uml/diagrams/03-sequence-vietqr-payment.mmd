@@ -4,7 +4,7 @@ sequenceDiagram
     participant UI as 🖥️ Storefront (Client)
     participant API as ⚙️ Order Controller
     participant Inv as 📦 Inventory Service
-    participant PayOS as 🏦 PayOS Gateway (VietQR)
+    participant Casso as 🏦 Casso Webhook (Cầu nối ngân hàng)
     participant BankApp as 📱 App Ngân hàng (NAPAS 247)
     participant Webhook as 🛡️ Webhook Controller
     participant DB as 🐘 PostgreSQL (Prisma)
@@ -17,19 +17,18 @@ sequenceDiagram
     API->>DB: Bắt đầu Database Transaction
     API->>Inv: reserveOrderStock(tx, items) [Trừ kho nguyên tử]
     Inv-->>API: Kho hợp lệ (OK)
-    API->>PayOS: createPaymentLink(orderCode, amount)
-    PayOS-->>API: Trả về qrContent & checkoutUrl
+    API->>API: Sinh QR VietQR tĩnh img.vietqr.io (amount + mã đơn)
     API->>DB: Lưu Order (status: PENDING, paymentStatus: UNPAID, expiresAt: +15m)
     API-->>UI: Trả về qrContent & orderCode
     deactivate API
 
     UI-->>Customer: Hiển thị mã QR ngân hàng kèm đồng hồ đếm ngược 15:00
     Customer->>BankApp: Quét mã VietQR & Xác nhận chuyển khoản NAPAS 247
-    BankApp->>PayOS: Xử lý giao dịch liên ngân hàng thành công
-    PayOS->>Webhook: POST /api/webhooks/payos (Payload kèm chữ ký HMAC-SHA256)
+    BankApp-->>Casso: Giao dịch ghi có tài khoản shop thành công
+    Casso->>Webhook: POST /api/webhooks/payment (Header secure-token)
 
     activate Webhook
-    Webhook->>Webhook: verifyPayOSWebhookSignature(timingSafeEqual)
+    Webhook->>Webhook: So khớp secure-token (timing-safe)
     Webhook->>DB: Kiểm tra Idempotency (bankTransId đã xử lý chưa?)
     Webhook->>DB: Atomic Update Order (status: CONFIRMED, paymentStatus: PAID)
     Webhook->>DB: Lưu Transaction (bankTransId, amount, verified: true)
@@ -37,7 +36,7 @@ sequenceDiagram
     GHN-->>Webhook: Trả về trackingCode GHN
     Webhook->>DB: Lưu Shipment (trackingCode, status: READY_TO_PICK)
     Webhook->>Pusher: trigger("order-paid", "analytics-updated")
-    Webhook-->>PayOS: HTTP 200 OK (Ghi nhận thành công)
+    Webhook-->>Casso: HTTP 200 OK (Ghi nhận thành công)
     deactivate Webhook
 
     Pusher-->>UI: Bắn sự kiện "order-paid" qua WebSocket

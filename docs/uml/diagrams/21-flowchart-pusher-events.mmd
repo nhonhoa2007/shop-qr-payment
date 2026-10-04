@@ -1,0 +1,38 @@
+flowchart LR
+    subgraph PUB ["📤 Nguồn phát sự kiện"]
+        ORD["orders.controller<br/>tạo đơn · đổi trạng thái"]
+        CASSO["casso-webhook<br/>tiền về"]
+        WALLET["wallet-pay · wallet-topup"]
+        GHNW["ghn-webhook · vận chuyển"]
+        CHAT["chat-messages.controller"]
+        REC["reconcile.controller"]
+    end
+
+    subgraph CH ["📡 Kênh private (auth qua /api/pusher/auth)"]
+        U["private-user-trừ-id<br/>new-notification · payment-success<br/>wallet-updated · order-status-changed"]
+        A["private-admin-channel<br/>analytics-updated"]
+        C["private-chat-theo-roomId<br/>new-message"]
+    end
+
+    subgraph SUB ["🖥️ Người lắng nghe"]
+        QRP["QRPayment — đổi màn hình Đã thanh toán ngay"]
+        DASH["AdminDashboard — refetch 21 KPI"]
+        BELL["useNotifications + NotificationBell"]
+        CW["ChatWindow + AdminChatView"]
+    end
+
+    CASSO --> U
+    WALLET --> U
+    ORD --> U
+    GHNW --> U
+    REC --> U
+    ORD --> A
+    CASSO --> A
+    WALLET --> A
+    REC --> A
+    CHAT --> C
+    CHAT --> U
+    U --> QRP
+    U --> BELL
+    A --> DASH
+    C --> CW

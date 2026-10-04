@@ -15,7 +15,7 @@ flowchart TB
 
     subgraph ApplicationLayer ["⚙️ Tầng Ứng dụng & Dịch vụ (Application Layer - @server)"]
         OrderRoutes["Order & Checkout Route Handlers"]
-        WebhookRoutes["PayOS & GHN Webhook Handlers"]
+        WebhookRoutes["Casso & GHN Webhook Handlers"]
         WalletRoutes["Wallet Topup & Payment Controllers"]
         ChatRoutes["Chat Messages & Pusher Auth Handlers"]
         AdminRoutes["Analytics, Reconcile & Products Handlers"]
@@ -24,7 +24,7 @@ flowchart TB
         WalletTopupService["WalletTopupService (VietQR Idempotency)"]
         InventoryService["InventoryService (Atomic Reservation & Release)"]
         OrderFSM["OrderFSM Engine (State Invariant Guard)"]
-        PayOSService["PayOSService (HMAC Gateway & Parsing)"]
+        VietQRService["VietQRService (QR Generator & Parser)"]
         GHNService["GHNService (Logistics OpenAPI & Fee Calc)"]
         ChatService["ChatService (Pusher Realtime Orchestration)"]
     end
@@ -41,7 +41,7 @@ flowchart TB
         PostgresDB[("🐘 PostgreSQL (Prisma ORM with Connection Pool)")]
         RedisCache[("⚡ Upstash Serverless Redis (Cache & Rate Limiting)")]
         PusherCloud["📡 Pusher Channels (WebSocket Realtime Cloud)"]
-        PayOSGateway["🏦 PayOS Gateway (VietQR & NAPAS 247)"]
+        CassoWebhook["🏦 Casso Webhook Engine (Đối soát ngân hàng)"]
         GHNCloud["🚚 GHN Logistics OpenAPI Server"]
         ResendEmail["✉️ Resend Cloud API (OTP & Password Reset)"]
         CloudinaryCDN["🖼️ Cloudinary CDN (Image Optimization)"]
@@ -56,7 +56,7 @@ flowchart TB
     ApplicationLayer --> PostgresDB
     ApplicationLayer --> RedisCache
     ApplicationLayer --> PusherCloud
-    ApplicationLayer --> PayOSGateway
+    ApplicationLayer --> CassoWebhook
     ApplicationLayer --> GHNCloud
     ApplicationLayer --> ResendEmail
     ApplicationLayer --> CloudinaryCDN

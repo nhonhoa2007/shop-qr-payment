@@ -1,0 +1,23 @@
+sequenceDiagram
+    autonumber
+    actor U as 👤 Người dùng
+    participant REG as ⚙️ /api/auth/register
+    participant OTP as 🔐 password-reset.service
+    participant R as 📧 Resend
+    participant DB as 🗄️ OtpCode + User
+
+    U->>REG: Đăng ký email + mật khẩu
+    REG->>REG: Rate limit 5/phút · bcrypt cost 12
+    REG->>OTP: sendOtp REGISTRATION
+    OTP->>DB: Dọn code hết hạn / đã dùng · kiểm cooldown 60 giây
+    OTP->>DB: Lưu mã 6 số dạng bcrypt-hash · TTL 5 phút · attempts = 0
+    OTP->>R: Gửi email Mã xác thực (dev chỉ log console)
+    U->>OTP: POST /api/auth/verify-otp
+    OTP->>OTP: attempts nhỏ hơn 5? · bcrypt compare
+    alt Nhập đúng
+        OTP->>DB: used = true · user.isVerified = true
+        OTP-->>U: Thông báo chào mừng → đăng nhập được
+    else Sai quá 5 lần hoặc hết hạn
+        OTP-->>U: Từ chối · gửi lại chỉ được sau cooldown 60 giây
+    end
+    Note over U,DB: Quên mật khẩu tái dùng engine này<br/>với loại PASSWORD_RESET → reset-password (bcrypt 10)

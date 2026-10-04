@@ -20,7 +20,7 @@ flowchart TD
 
     CommitTx --> ChoosePayment{Phương thức Thanh toán?}
 
-    ChoosePayment -- VietQR / PayOS --> GenQR[Gọi API PayOS sinh chuỗi VietQR động]
+    ChoosePayment -- VietQR --> GenQR[Sinh QR VietQR tĩnh img.vietqr.io]
     GenQR --> ShowPaymentPage[Chuyển hướng đến màn hình Quét mã VietQR]
 
     ChoosePayment -- Ví Shop --> CheckBalance{Số dư ví >= Tổng tiền đơn?}

@@ -1,0 +1,23 @@
+flowchart TD
+    BTN["📍 Khách bấm Lấy vị trí hiện tại 1-chạm"] --> SEC{"Nguồn bảo mật?<br/>(HTTPS hoặc localhost)"}
+    SEC -- "Không — mở qua LAN thường" --> IPF["Bỏ GPS, đi thẳng định vị theo IP"]
+    SEC -- "Đủ" --> H{"enableHighAccuracy<br/>timeout 5s"}
+    H -- "Có tọa độ" --> SEND
+    H -- "Lỗi unavailable / timeout" --> L{"Low accuracy, timeout 8s"}
+    L -- "Có tọa độ" --> SEND["POST /api/shipping/geocode/reverse"]
+    L -- "Treo vĩnh viễn (OS thiếu dịch vụ vị trí)" --> WD["⏰ Watchdog 20s ép fallback"]
+    WD --> IPF
+    IPF["🌐 ip-api.com theo IP của khách — chính xác cấp thành phố"] --> MATCH
+    SEND --> GEO{"Server giải mã tọa độ"}
+    GEO --> NOM["1️⃣ Nominatim OpenStreetMap<br/>chính xác đến đường và phường"]
+    NOM -- "Lỗi / DNS bị chặn" --> BDC["2️⃣ BigDataCloud dự phòng"]
+    BDC --> MATCH
+    NOM --> MATCH
+    MATCH["Chuẩn hóa địa danh: bỏ dấu +<br/>chỉ strip tiền tố ĐẦU chuỗi"] --> P{"Khớp Tỉnh/Thành?"}
+    P -- "Không" --> HONEST["Trả isMatched:false — KHÔNG đoán mù districts đầu tiên"]
+    P -- "Có" --> D{"Khớp Quận/Huyện trực tiếp?"}
+    D -- "Không" --> WI{"Suy luận ngược:<br/>tên Phường thuộc quận cha nào?"}
+    WI -- "Tìm ra" --> APPLY
+    WI -- "Không ra" --> HONEST
+    D -- "Có" --> APPLY["Áp Tỉnh/Quận/Phường +<br/>tính lại phí GHN tự động"]
+    HONEST --> TOAST["Client: Vui lòng chọn địa chỉ thủ công<br/>tuyệt đối không áp địa chỉ sai"]
