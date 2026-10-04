@@ -1,8 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import bcrypt from 'bcryptjs';
-import {
-  validateForgotPasswordInput,
+import { validateForgotPasswordInput,
   validateResetPasswordInput,
   sendOtpCore,
   verifyOtpCore,
@@ -12,8 +11,7 @@ import {
   type OtpCodeRecord,
   type OtpPrismaDelegate,
   type UserResetDbRecord,
-  type UserResetPrismaDelegate,
-} from '../src/lib/password-reset.ts';
+  type UserResetPrismaDelegate, } from '@server/modules/auth/password-reset.service';
 
 // ─── Helpers: In-memory mock delegates ──────────────────────────────────────
 

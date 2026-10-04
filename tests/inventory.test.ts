@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { reserveOrderStock, releaseOrderStock } from '../src/lib/inventory.ts';
+import { reserveOrderStock, releaseOrderStock } from '@server/modules/inventory/inventory.service';
 
 type TxClient = Parameters<typeof reserveOrderStock>[0];
 

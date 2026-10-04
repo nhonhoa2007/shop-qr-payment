@@ -1,10 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  getOrCreateWallet,
-  refundOrderToWallet,
-  payOrderWithWallet,
-} from '../src/lib/wallet.ts';
+import { getOrCreateWallet, refundOrderToWallet, payOrderWithWallet } from '@server/modules/wallet/wallet.service';
 
 type TxClient = Parameters<typeof getOrCreateWallet>[0];
 

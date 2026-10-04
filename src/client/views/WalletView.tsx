@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { formatVND, formatDate } from '@shared/utils';
-import { pusherClient } from '@/lib/pusher-client';
+import { pusherClient } from '@client/infrastructure/pusher-client';
 import {
   Wallet,
   ArrowUpRight,

@@ -30,13 +30,6 @@ module.exports = {
       from: { path: '^src/shared' },
       to: { path: '^src/(client|server)' },
     },
-    {
-      name: 'lib-shims-only-forward',
-      comment: 'src/lib là shim tương thích ngược: chỉ được trỏ vào các layer trong src.',
-      severity: 'warn',
-      from: { path: '^src/lib' },
-      to: { pathNot: '^src/(client|server|shared|lib)' },
-    },
   ],
   options: {
     doNotFollow: { path: 'node_modules' },

@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeEmail, generateOtp } from '../src/lib/otp-utils.ts';
+import { normalizeEmail, generateOtp } from '@server/modules/auth/password-reset.service';
 
 describe('OTP Helper Logic', () => {
   it('should normalize email strings correctly', () => {

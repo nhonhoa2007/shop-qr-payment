@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { checkRateLimit, checkDistributedRateLimit, getClientIp } from '../src/lib/rate-limit.ts';
+import { checkRateLimit, checkDistributedRateLimit, getClientIp } from '@server/infrastructure/rate-limit';
 
 describe('Rate Limiting Logic - Synchronous In-Memory', () => {
   it('should allow requests within limit', () => {

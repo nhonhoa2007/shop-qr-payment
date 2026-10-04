@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { pusherClient } from '@/lib/pusher-client';
+import { pusherClient } from '@client/infrastructure/pusher-client';
 import { formatVND, formatCountdown } from '@shared/utils';
 import { AlertTriangle, CheckCircle, Clock } from 'lucide-react';
 import type { QRPaymentData } from '@shared/types';

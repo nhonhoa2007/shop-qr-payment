@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
-import { validateReconcileInput, canReconcileOrder } from '../src/lib/reconciliation.ts';
+import { validateReconcileInput, canReconcileOrder } from '@server/modules/admin/reconciliation.service';
 
 describe('Manual Payment Reconciliation Logic', () => {
   it('should reject when both orderId and orderCode are missing', () => {

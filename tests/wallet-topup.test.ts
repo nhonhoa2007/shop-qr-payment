@@ -1,19 +1,10 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { generateTopupCode } from '../src/shared/utils/index.ts';
-import {
-  parseTopupCodeFromDescription,
+import { parseTopupCodeFromDescription,
   safeCompare,
-  evaluateTopupWebhookDecision,
-} from '../src/lib/payment-parser.ts';
-import {
-  createWalletTopupSession,
-  getWalletTopupSession,
-  getWalletTopupSessionByIdempotencyToken,
-  processWalletTopup,
-  createWalletTopupPaymentLink,
-  inFlightTopupLocks,
-} from '../src/lib/wallet.ts';
+  evaluateTopupWebhookDecision, } from '@server/modules/payment/vietqr-parser.service';
+import { createWalletTopupSession, getWalletTopupSession, getWalletTopupSessionByIdempotencyToken, processWalletTopup, createWalletTopupPaymentLink, inFlightTopupLocks } from '@server/modules/wallet/wallet-topup.service';
 
 type TxClient = Parameters<typeof processWalletTopup>[0];
 

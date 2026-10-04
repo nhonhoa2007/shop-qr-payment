@@ -1,13 +1,11 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  RedisClient,
+import { RedisClient,
   buildProductCacheKey,
   getCachedProductList,
   setCachedProductList,
   invalidateProductCache,
-  redis,
-} from '../src/lib/redis.ts';
+  redis, } from '@server/infrastructure/redis';
 
 describe('Distributed Redis Client - In-memory and Operations', () => {
   beforeEach(async () => {

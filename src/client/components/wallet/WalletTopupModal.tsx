@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import { pusherClient } from '@/lib/pusher-client';
+import { pusherClient } from '@client/infrastructure/pusher-client';
 import { formatVND, formatCountdown } from '@shared/utils';
 import { toast } from 'sonner';
 import {

@@ -53,13 +53,12 @@ src/
 ├── server/   (@server/*)  -> Application & Domain logic (Controllers, Services, Infrastructure)
 ├── shared/   (@shared/*)  -> Shared Kernel (DTOs, Domain Types, Enums, Utils, Constants)
 ├── app/                   -> Next.js 16 App Router (Thin routing facade & Server Components)
-└── lib/                   -> Backward-compatibility re-export shims (forwarding to @server & @shared)
+└── types/                 -> Ambient type declarations (next-auth session augmentation)
 ```
 
 ### Import Conventions
-- **Always use path aliases for workspace imports** (`@client/*`, `@server/*`, `@shared/*`, `@/*`) — in app code, tests, and scripts alike.
+- **Always use path aliases for workspace imports** (`@client/*`, `@server/*`, `@shared/*`, `@/*`) — in app code, tests, and scripts alike. No relative imports for workspace modules, and no re-export shim layers.
 - The Node.js test runner cannot resolve `tsconfig.json` paths on its own, so `npm run test` loads `tests/register-alias.mjs`, a resolve hook mapping the same aliases. Tests may therefore import any module by alias, exactly like application code does.
-- Relative imports with an explicit `.ts` extension remain valid (used by `src/lib/*` shims); avoid adding new ones outside the shims.
 - Boundaries are enforced, not just documented — `npm run arch:check` (dependency-cruiser, config in `.dependency-cruiser.cjs`) fails on: `@client` → `@server`, `@client` → `@prisma/client`, and any dependency from `@shared` back into `@client`/`@server`.
 
 ### Layer Responsibilities & Rules

@@ -1,13 +1,11 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import bcrypt from 'bcryptjs';
-import {
-  validateUserUpdatePayload,
+import { validateUserUpdatePayload,
   updateUserRbac,
   authorizeCredentialsLogin,
   type AdminUserRecord,
-  type UserPrismaRbacDelegate,
-} from '../src/lib/admin-rbac.ts';
+  type UserPrismaRbacDelegate, } from '@server/modules/admin/admin-rbac.service';
 
 // ─── Helpers: In-memory mock delegates ──────────────────────────────────────
 

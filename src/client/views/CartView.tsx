@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useHydrated } from '@/lib/hydration';
+import { useHydrated } from '@client/hooks/useHydrated';
 import { useCartStore } from '@client/stores/cart-store';
 import { CartItem } from '@client/components/cart/CartItem';
 import { CartSummary } from '@client/components/cart/CartSummary';

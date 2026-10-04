@@ -115,7 +115,7 @@ Hệ thống từng tích hợp cổng PayOS làm kênh thanh toán thứ hai (k
 
 **Thanh toán bằng ví:** `POST /api/wallet/pay` → toàn bộ chạy trong **một transaction**: sở hữu đơn → chưa PAID → chưa hết hạn → **CAS trừ tiền** `updateMany({ where: { balance: { gte: totalAmount } } })` (count≠1 = số dư đã đổi, báo lỗi) → đơn PAID + CONFIRMED. Ý nghĩa: thanh toán tức thì không cần quét QR, và không bao giờ trừ âm ví.
 
-**Hoàn tiền:** `refundOrderToWallet` (`src/lib/wallet.ts`) — khi hủy đơn đã PAID:
+**Hoàn tiền:** `refundOrderToWallet` (`src/server/modules/wallet/wallet.service.ts`) — khi hủy đơn đã PAID:
 - **CAS `updateMany({ where: { paymentStatus: 'PAID' } })`**: chỉ người thắng count===1 được hoàn → hủy 2 lần song song chỉ hoàn 1 lần (chống double-refund).
 - Hoàn **100%** `totalAmount` vào ví + giao dịch `REFUND` + **tự động hoàn kho** (`releaseOrderStock`).
 - Khách vãng lai (guest, không có ví) → đánh dấu `isGuest` để xử lý ngoài hệ thống.

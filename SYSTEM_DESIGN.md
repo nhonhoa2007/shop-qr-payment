@@ -488,7 +488,7 @@ enum CarrierName {
 
 > ⚠️ **Cập nhật 10/2026:** Phân hệ **PayOS đã được GỠ BỎ hoàn toàn** khỏi mã nguồn (cùng Google OAuth)
 > để tập trung 2 kênh cốt lõi VietQR/Casso + Ví Shop — phần thiết kế PayOS dưới đây chỉ còn giá trị lịch sử.
-> **Còn vận hành:** Ví Shop + Refund Engine tại `src/server/modules/wallet/` + `src/lib/wallet.ts` — CAS chống bán âm ví /
+> **Còn vận hành:** Ví Shop + Refund Engine tại `src/server/modules/wallet/` — CAS chống bán âm ví /
 > chống hoàn kép · Nạp ví qua QR VietQR tĩnh, idempotent 4 lớp `wallet-topup.service` · Tests: `wallet`, `wallet-topup`,
 > `wallet-vietqr-topup-idempotency` · VNPAY chưa tích hợp.
 

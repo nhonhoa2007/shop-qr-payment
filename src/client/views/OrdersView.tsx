@@ -35,7 +35,7 @@ import type {
   SerializedShipment,
   SerializedShipmentLog,
 } from '@shared/types';
-import { pusherClient } from '@/lib/pusher-client';
+import { pusherClient } from '@client/infrastructure/pusher-client';
 
 export type {
   SerializedOrder,

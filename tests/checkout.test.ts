@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateCheckoutTotals, FREE_SHIPPING_THRESHOLD, STANDARD_SHIPPING_FEE } from '../src/lib/checkout.ts';
+import { calculateCheckoutTotals, FREE_SHIPPING_THRESHOLD, STANDARD_SHIPPING_FEE } from '@shared/utils/checkout';
 
 describe('Checkout Calculation Logic', () => {
   it('should add standard shipping fee when subtotal is below threshold', () => {

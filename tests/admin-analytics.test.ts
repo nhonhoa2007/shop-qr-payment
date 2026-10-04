@@ -1,7 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  calculateRevenueGrowth,
+import { calculateRevenueGrowth,
   calculateQrMatchRate,
   calculatePaymentMethodDistribution,
   buildUrgentActions,
@@ -12,8 +11,7 @@ import {
   buildHourlyRevenueTrend,
   buildMonthlyRevenueTrend,
   type AdminAnalyticsResponse,
-  type AnalyticsRange,
-} from '../src/lib/admin-analytics.ts';
+  type AnalyticsRange, } from '@server/modules/admin/admin-analytics.service';
 
 describe('Admin Analytics - Revenue Growth Calculation', () => {
   it('should calculate positive revenue growth percentage rounded to 1 decimal place', () => {

@@ -2,7 +2,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { PaymentView } from '@client/views/PaymentView';
 import { CustomerOrderService } from '@/server/modules/orders/customer-orders.service';
-import { getBankInfo } from '@/lib/vietqr';
+import { getBankInfo } from '@server/modules/payment/vietqr.service';
 import { notFound } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';

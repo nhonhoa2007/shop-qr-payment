@@ -1,9 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  evaluateWebhookDecision,
-  type BankTransactionPayload,
-} from '../src/lib/payment-parser.ts';
+import { evaluateWebhookDecision,
+  type BankTransactionPayload, } from '@server/modules/payment/vietqr-parser.service';
 
 // ─── Helpers ────────────────────────────────────────────────
 function makeTxn(overrides: Partial<BankTransactionPayload> = {}): BankTransactionPayload {

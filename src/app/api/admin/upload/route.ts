@@ -4,13 +4,11 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { resolveOperatorAccess } from '@server/modules/admin/guards';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import {
-  validateImageFile,
+import { validateImageFile,
   verifyImageMagicBytes,
   getCloudinaryConfig,
   generateCloudinarySignature,
-  generateSafeUploadFilename,
-} from '@/lib/upload-utils';
+  generateSafeUploadFilename, } from '@server/modules/upload/upload.service';
 
 export const runtime = 'nodejs';
 

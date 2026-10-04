@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
-import { validateReviewModeration } from '../src/lib/review-moderation.ts';
+import { validateReviewModeration } from '@server/modules/reviews/review.service';
 
 describe('Review Moderation Logic', () => {
   it('should reject invalid or non-object input', () => {

@@ -1,18 +1,14 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  canCustomerCancelOrder,
+import { canCustomerCancelOrder,
   validateOrderTransition,
   isOrderStatus,
-  isPaymentStatus,
-} from '../src/lib/order-transitions.ts';
+  isPaymentStatus, } from '@server/modules/orders/orders.fsm';
 import {
   releaseOrderStock,
   type OrderStockItem,
 } from '../src/server/modules/inventory/inventory.service.ts';
-import {
-  refundOrderToWallet,
-} from '../src/lib/wallet.ts';
+import { refundOrderToWallet } from '@server/modules/wallet/wallet.service';
 
 type TxClient = Parameters<typeof releaseOrderStock>[0];
 

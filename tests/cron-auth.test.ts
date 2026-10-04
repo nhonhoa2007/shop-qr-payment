@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { verifyCronAuth } from '../src/lib/cron-auth.ts';
+import { verifyCronAuth } from '@server/infrastructure/cron-auth';
 
 describe('Cron Auth Verification', () => {
   const secret = 'super-secret-cron-key';
