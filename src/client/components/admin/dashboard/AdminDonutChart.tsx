@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 
 export interface DonutPaymentDistribution {
   vietqrPercentage?: number;
@@ -18,114 +18,147 @@ interface Segment {
   label: string;
   value: number;
   color: string;
-  trackColor: string;
 }
 
-/**
- * Donut chart cơ cấu kênh thanh toán — SVG stroke-dasharray thuần,
- * cùng ngôn ngữ thị giác với mẫu dashboard tham chiếu (3 phân khúc + legend pill).
- */
 export function AdminDonutChart({ distribution, loading = false }: AdminDonutChartProps) {
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
+
   const vietqr = distribution?.vietqrPercentage ?? 0;
   const wallet = distribution?.walletPercentage ?? 0;
   const cod = distribution?.codPercentage ?? 0;
   const total = vietqr + wallet + cod;
   const hasData = total > 0;
 
+  // Màu sắc theo Aurora design system
   const segments: Segment[] = [
-    { key: 'vietqr', label: 'VietQR chuyển khoản', value: vietqr, color: '#5433eb', trackColor: 'bg-[#5433eb]' },
-    { key: 'wallet', label: 'Ví nội bộ Shop', value: wallet, color: '#10b981', trackColor: 'bg-emerald-500' },
-    { key: 'cod', label: 'Thanh toán khi nhận', value: cod, color: '#f59e0b', trackColor: 'bg-amber-500' },
+    { key: 'vietqr', label: 'VietQR Chuyển khoản', value: vietqr, color: '#2f54eb' },
+    { key: 'wallet', label: 'Ví nội bộ Shop', value: wallet, color: '#0e7490' },
+    { key: 'cod', label: 'Thanh toán COD', value: cod, color: '#7c3aed' },
   ];
 
-  // Donut SVG: 3 cung stroke-dasharray trên đường tròn r=54, chu vi ≈ 339.3
-  const R = 54;
-  const CIRC = 2 * Math.PI * R;
-  const STROKE = 16;
+  const size = 180;
+  const sw = 22; // stroke width
+  const r = (size - sw) / 2;
+  const circ = 2 * Math.PI * r;
+  const cx = size / 2;
+  const cy = size / 2;
 
   let offsetAcc = 0;
   const arcs = segments.map((seg) => {
     const frac = hasData ? seg.value / total : 0;
+    const len = frac * circ;
     const arc = {
       ...seg,
-      dash: frac * CIRC,
-      offset: offsetAcc * CIRC,
-      frac,
+      len,
+      offset: offsetAcc,
     };
-    offsetAcc += frac;
+    offsetAcc += len;
     return arc;
   });
 
-  // Phân khúc lớn nhất hiển thị ở tâm
   const dominant = [...segments].sort((a, b) => b.value - a.value)[0];
+  const activeSegment = hoveredKey ? segments.find((s) => s.key === hoveredKey) || dominant : dominant;
 
   return (
-    <div className="flex flex-col items-center gap-4">
+    <div className="flex flex-col items-center justify-between h-full gap-4">
       {loading && !distribution ? (
-        <div className="w-[124px] h-[124px] rounded-full bg-slate-100 animate-pulse mt-2" aria-hidden="true" />
+        <div className="w-[150px] h-[150px] rounded-full bg-slate-100 animate-pulse my-2" aria-hidden="true" />
       ) : (
-        <div className="relative w-[124px] h-[124px]" role="img" aria-label="Biểu đồ tròn cơ cấu kênh thanh toán">
-          <svg viewBox="0 0 140 140" className="w-full h-full -rotate-90">
-            {/* Track nền */}
-            <circle cx="70" cy="70" r={R} fill="none" stroke="#f1f5f9" strokeWidth={STROKE} />
+        <div
+          className="relative w-[160px] h-[160px] flex items-center justify-center"
+          role="img"
+          aria-label="Biểu đồ phân bố phương thức thanh toán"
+        >
+          <svg viewBox={`0 0 ${size} ${size}`} className="w-full h-full">
+            {/* Vòng nền mờ */}
+            <circle
+              cx={cx}
+              cy={cy}
+              r={r}
+              fill="none"
+              stroke="#eef1f5"
+              strokeWidth={sw}
+            />
+
+            {/* Các lát cắt stroke-dasharray */}
             {hasData &&
-              arcs.map((arc) =>
-                arc.dash > 0 ? (
+              arcs.map((arc) => {
+                if (arc.len <= 0) return null;
+                const isHovered = hoveredKey === arc.key;
+                return (
                   <circle
                     key={arc.key}
-                    cx="70"
-                    cy="70"
-                    r={R}
+                    cx={cx}
+                    cy={cy}
+                    r={r}
                     fill="none"
                     stroke={arc.color}
-                    strokeWidth={STROKE}
-                    strokeDasharray={`${Math.max(arc.dash - 2, 0.5)} ${CIRC - Math.max(arc.dash - 2, 0.5)}`}
+                    strokeWidth={isHovered ? sw + 4 : sw}
+                    strokeDasharray={`${Math.max(arc.len - 2, 0.5)} ${circ - Math.max(arc.len - 2, 0.5)}`}
                     strokeDashoffset={-arc.offset}
-                    strokeLinecap="round"
-                    className="transition-all duration-700"
+                    transform={`rotate(-90 ${cx} ${cy})`}
+                    className="transition-all duration-300 cursor-pointer"
+                    onMouseEnter={() => setHoveredKey(arc.key)}
+                    onMouseLeave={() => setHoveredKey(null)}
                   />
-                ) : null
-              )}
+                );
+              })}
+
+            {/* Nhãn chính giữa tâm theo chuẩn Aurora */}
+            <text
+              x={cx}
+              y={cy - 2}
+              textAnchor="middle"
+              className="font-extrabold fill-slate-900 text-[26px] tracking-tight select-none"
+            >
+              {hasData ? `${activeSegment.value}%` : '0%'}
+            </text>
+            <text
+              x={cx}
+              y={cy + 18}
+              textAnchor="middle"
+              className="text-[11px] font-semibold fill-slate-400 select-none uppercase tracking-wider"
+            >
+              {hasData ? activeSegment.label.split(' ')[0] : 'Chưa có'}
+            </text>
           </svg>
-          {/* Nhãn tâm: phân khúc lớn nhất */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-            {hasData ? (
-              <>
-                <span className="text-lg font-black text-slate-900 leading-none">{dominant.value}%</span>
-                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide mt-0.5 max-w-[80px] leading-tight">
-                  {dominant.label}
-                </span>
-              </>
-            ) : (
-              <span className="text-[10px] font-bold text-slate-400 px-3">Chưa có giao dịch</span>
-            )}
-          </div>
         </div>
       )}
 
-      {/* Legend với pill % */}
-      <div className="w-full space-y-2">
-        {segments.map((seg) => (
-          <div key={seg.key} className="flex items-center justify-between gap-2 text-xs">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: seg.color }} />
-              <span className="font-semibold text-slate-600 truncate">{seg.label}</span>
-            </div>
-            {loading && !distribution ? (
-              <span className="w-10 h-4 rounded bg-slate-100 animate-pulse" aria-hidden="true" />
-            ) : (
+      {/* Danh sách chú giải (Legend) chuẩn Aurora */}
+      <div className="w-full space-y-2 pt-2 border-t border-slate-100">
+        {segments.map((seg) => {
+          const isDominant = seg.key === dominant.key && hasData;
+          const isHov = hoveredKey === seg.key;
+
+          return (
+            <div
+              key={seg.key}
+              onMouseEnter={() => setHoveredKey(seg.key)}
+              onMouseLeave={() => setHoveredKey(null)}
+              className={`flex items-center justify-between gap-3 text-xs p-1.5 rounded-lg transition-colors cursor-pointer ${
+                isHov ? 'bg-slate-50' : ''
+              }`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span
+                  className="w-2.5 h-2.5 rounded-[3px] shrink-0"
+                  style={{ backgroundColor: seg.color }}
+                />
+                <span className={`font-semibold truncate ${isHov ? 'text-slate-900' : 'text-slate-600'}`}>
+                  {seg.label}
+                </span>
+              </div>
               <span
-                className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                  seg.value === dominant.value && hasData
-                    ? 'bg-slate-900 text-white'
-                    : 'bg-slate-100 text-slate-600'
+                className={`font-mono text-xs font-bold shrink-0 ${
+                  isDominant ? 'text-[#2f54eb]' : 'text-slate-800'
                 }`}
               >
                 {seg.value}%
               </span>
-            )}
-          </div>
-        ))}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
