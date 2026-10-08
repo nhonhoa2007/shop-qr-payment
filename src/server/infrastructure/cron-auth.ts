@@ -1,19 +1,10 @@
-import crypto from 'node:crypto';
+import crypto from "node:crypto";
 
-/**
- * Verifies if an incoming request is authorized to execute cron jobs.
- * Supports:
- * 1. Authorization header: "Bearer [CRON_SECRET]"
- * 2. URL query param: "?secret=[CRON_SECRET]"
- *
- * Fail-closed: CRON_SECRET must be explicitly configured, otherwise denies all.
- * Uses timing-safe string comparison.
- */
 export function verifyCronAuth(
   req: Request,
-  cronSecret: string | undefined = process.env.CRON_SECRET
+  cronSecret: string | undefined = process.env.CRON_SECRET,
 ): boolean {
-  if (!cronSecret || cronSecret.trim() === '') {
+  if (!cronSecret || cronSecret.trim() === "") {
     return false;
   }
 
@@ -25,8 +16,8 @@ export function verifyCronAuth(
   };
 
   // 1. Check Authorization: Bearer ***
-  const authHeader = req.headers.get('authorization');
-  if (authHeader && authHeader.startsWith('Bearer ')) {
+  const authHeader = req.headers.get("authorization");
+  if (authHeader && authHeader.startsWith("Bearer ")) {
     const token = authHeader.substring(7).trim();
     if (safeCompare(token, cronSecret)) {
       return true;
@@ -35,8 +26,8 @@ export function verifyCronAuth(
 
   // 2. Check query param: ?secret=[secret]
   try {
-    const url = new URL(req.url, 'http://localhost');
-    const querySecret = url.searchParams.get('secret');
+    const url = new URL(req.url, "http://localhost");
+    const querySecret = url.searchParams.get("secret");
     if (querySecret && safeCompare(querySecret, cronSecret)) {
       return true;
     }

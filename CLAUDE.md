@@ -135,5 +135,5 @@ src/
 8. **Authentication, RBAC & Rate Limiting (`src/server/modules/auth/`, `src/server/modules/admin/`)**:
    - NextAuth.js JWT session strategy with `CUSTOMER`, `STAFF`, and `ADMIN` roles.
    - **Staff Permission Matrix**: `StaffPermission` model mapping granular operator privileges (`orders`, `products`, `shipments`, `chat`, `reviews`). Helper `requireOperatorPermission(permission)` and `resolveOperatorAccess()` enforce least-privilege access for STAFF while ADMIN automatically bypasses checks. Financial metrics, VietQR reconciliation, coupon creation, user role changes, and permanent deletions remain strictly restricted to ADMIN.
-   - BCrypt password and OTP hashing (cost 12); OTP expiration (5 min) with 60-second cooldown and 5-attempt lockout.
+   - Argon2id password and OTP hashing (@node-rs/argon2, memoryCost 19 MiB, timeCost 2); OTP expiration (5 min) with 60-second cooldown and 5-attempt lockout.
    - Sliding-window rate limiters on sensitive endpoints: order creation (10/min), auth OTP (3-5/min), wallet topup (15/min).

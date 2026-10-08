@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs';
+import { hashPassword } from '@server/modules/auth/password-hash.service';
 import { prisma } from '@server/database/prisma';
 import { normalizeEmail, verifyOtp } from './otp.service.ts';
 import { checkDistributedRateLimit, getClientIp } from '@server/infrastructure/rate-limit';
@@ -64,7 +64,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const passwordHash = await bcrypt.hash(newPassword, 10);
+    const passwordHash = await hashPassword(newPassword);
 
     await prisma.user.update({
       where: { email },

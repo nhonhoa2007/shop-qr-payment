@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import bcrypt from 'bcryptjs';
+import { hashPassword } from '@server/modules/auth/password-hash.service';
 import { validateUserUpdatePayload,
   updateUserRbac,
   authorizeCredentialsLogin,
@@ -598,7 +598,7 @@ describe('RBAC - Safety Rules & Invariants', () => {
 
 describe('RBAC - Login Enforcement for Blocked Accounts', () => {
   it('should BLOCK credentials login if user isBlocked === true with explicit error', async () => {
-    const hash = await bcrypt.hash('SecretPass123', 10);
+    const hash = await hashPassword('SecretPass123');
     const blockedUser: AdminUserRecord = {
       id: 'blocked_user_id',
       email: 'blocked@shop.vn',
@@ -628,7 +628,7 @@ describe('RBAC - Login Enforcement for Blocked Accounts', () => {
   });
 
   it('should ALLOW credentials login if user isBlocked === false and password is valid', async () => {
-    const hash = await bcrypt.hash('CorrectPassword123', 10);
+    const hash = await hashPassword('CorrectPassword123');
     const activeUser: AdminUserRecord = {
       id: 'active_user_id',
       email: 'active@shop.vn',
@@ -657,7 +657,7 @@ describe('RBAC - Login Enforcement for Blocked Accounts', () => {
   });
 
   it('should REJECT credentials login if user is not verified (isVerified === false)', async () => {
-    const hash = await bcrypt.hash('SomePassword', 10);
+    const hash = await hashPassword('SomePassword');
     const unverifiedUser: AdminUserRecord = {
       id: 'unverified_id',
       email: 'unverified@shop.vn',
@@ -681,7 +681,7 @@ describe('RBAC - Login Enforcement for Blocked Accounts', () => {
   });
 
   it('should REJECT credentials login if password does not match', async () => {
-    const hash = await bcrypt.hash('RealPassword123', 10);
+    const hash = await hashPassword('RealPassword123');
     const activeUser: AdminUserRecord = {
       id: 'user_active',
       email: 'user@shop.vn',

@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import bcrypt from 'bcryptjs';
+import { verifyOtp as verifyArgon2Otp } from '@server/modules/auth/password-hash.service';
 import { validateForgotPasswordInput,
   validateResetPasswordInput,
   sendOtpCore,
@@ -182,9 +182,10 @@ describe('Password Reset - sendOtp Core Logic (PASSWORD_RESET)', () => {
     // TTL check: 5 minutes = 300,000ms
     assert.equal(record.expiresAt.getTime() - fixedNow.getTime(), 5 * 60 * 1000);
 
-    // Verify stored code is a valid bcrypt hash
-    const isCodeHashed = await bcrypt.compare(result.otp, record.code);
+    // Verify stored code is a valid argon2id hash
+    const isCodeHashed = await verifyArgon2Otp(result.otp, record.code);
     assert.equal(isCodeHashed, true);
+    assert.ok(record.code.startsWith('$argon2id$'));
   });
 
   it('should enforce 60s cooldown and reject send requests within 60s', async () => {
@@ -459,14 +460,13 @@ describe('Password Reset - verifyOtp Core Logic (PASSWORD_RESET)', () => {
   });
 });
 
-describe('Password Reset - Bcryptjs Hashing & Security', () => {
-  it('should generate valid bcrypt hash with salt prefix $2a$ or $2b$', async () => {
+describe('Password Reset - Argon2id Hashing & Security', () => {
+  it('should generate valid argon2id hash with prefix $argon2id$', async () => {
     const rawPassword = 'SecretPassword123!';
     const hash = await hashPassword(rawPassword);
 
-    assert.ok(hash.startsWith('$2a$') || hash.startsWith('$2b$'));
+    assert.ok(hash.startsWith('$argon2id$'));
     assert.notEqual(hash, rawPassword);
-    assert.equal(hash.length, 60);
   });
 
   it('should generate different hashes for the same password due to random salt', async () => {

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs';
+import { hashPassword } from '@server/modules/auth/password-hash.service';
 import { prisma } from '@server/database/prisma';
 import { normalizeEmail, sendOtp } from './otp.service.ts';
 import { checkDistributedRateLimit, getClientIp } from '@server/infrastructure/rate-limit';
@@ -42,7 +42,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Email đã được sử dụng' }, { status: 409 });
     }
 
-    const passwordHash = await bcrypt.hash(password, 12);
+    const passwordHash = await hashPassword(password);
     await prisma.user.upsert({
       where: { email },
       update: { passwordHash, name },

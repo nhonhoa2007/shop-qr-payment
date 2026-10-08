@@ -1,4 +1,4 @@
-import bcrypt from 'bcryptjs';
+import { verifyPassword } from '@server/modules/auth/password-hash.service';
 import {
   filterValidPermissions,
   setStaffPermissions,
@@ -231,7 +231,7 @@ export async function updateUserRbac(
 export async function authorizeCredentialsLogin({
   credentials,
   prismaUser,
-  comparePassword = bcrypt.compare,
+  comparePassword = verifyPassword,
 }: {
   credentials?: { email?: string; password?: string } | null;
   prismaUser: {

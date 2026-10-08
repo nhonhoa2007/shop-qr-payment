@@ -12,7 +12,7 @@
  * phản ánh dữ liệu mới ngay lập tức.
  */
 import { PrismaClient } from '@prisma/client';
-import bcrypt from 'bcryptjs';
+import { hashPassword } from '../src/server/modules/auth/password-hash.service.ts';
 import { redis, invalidateAnalyticsCache } from '../src/server/infrastructure/redis.ts';
 
 const prisma = new PrismaClient();
@@ -94,7 +94,7 @@ async function main() {
   console.log('🌱 SEED DEMO DATA — bắt đầu (chạy cộng dồn, không xóa dữ liệu cũ)...');
 
   // ═══ 1. KHÁCH HÀNG TRẢI 12 THÁNG ═══
-  const userPassword = await bcrypt.hash('user123', 12);
+  const userPassword = await hashPassword('user123');
   const now = new Date();
   const existingEmails = new Set(
     (await prisma.user.findMany({ select: { email: true } })).map((u) => u.email)

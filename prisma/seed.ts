@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import bcrypt from 'bcryptjs';
+import { hashPassword } from '../src/server/modules/auth/password-hash.service.ts';
 
 const prisma = new PrismaClient();
 
@@ -7,9 +7,9 @@ async function main() {
   console.log('🌱 Bắt đầu khởi tạo dữ liệu mẫu phong phú cho hệ thống...');
 
   // 1. TẠO TÀI KHOẢN NGƯỜI DÙNG (USERS)
-  const adminPassword = await bcrypt.hash('admin123', 12);
-  const staffPassword = await bcrypt.hash('staff123', 12);
-  const userPassword = await bcrypt.hash('user123', 12);
+  const adminPassword = await hashPassword('admin123');
+  const staffPassword = await hashPassword('staff123');
+  const userPassword = await hashPassword('user123');
 
   const admin = await prisma.user.upsert({
     where: { email: 'admin@shop.com' },
