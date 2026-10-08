@@ -38,34 +38,34 @@ const diagrams = [
 
     %% Storefront Subsystem
     subgraph Storefront ["🛒 Phân hệ Mua sắm & Khách hàng"]
-        UC1[1. Xem & Tìm kiếm Sản phẩm]
-        UC2[2. Chọn Biến thể Màu / Kích thước (SKU)]
-        UC3[3. Quản lý Giỏ hàng & Áp Coupon]
-        UC4[4. Đặt hàng & Nhận mã VietQR Động]
-        UC5[5. Nạp tiền Ví nội bộ qua VietQR]
-        UC6[6. Thanh toán Đơn bằng Ví Shop]
-        UC7[7. Hủy đơn & Hoàn tiền vào Ví]
-        UC8[8. Chat Tư vấn Trực tuyến Real-time]
-        UC9[9. Đánh giá & Gửi nhận xét Sản phẩm]
-        UC10[10. Quản lý Danh sách Yêu thích Wishlist]
+        UC1["1. Xem & Tìm kiếm Sản phẩm"]
+        UC2["2. Chọn Biến thể Màu / Kích thước (SKU)"]
+        UC3["3. Quản lý Giỏ hàng & Áp Coupon"]
+        UC4["4. Đặt hàng & Nhận mã VietQR Động"]
+        UC5["5. Nạp tiền Ví nội bộ qua VietQR"]
+        UC6["6. Thanh toán Đơn bằng Ví Shop"]
+        UC7["7. Hủy đơn & Hoàn tiền vào Ví"]
+        UC8["8. Chat Tư vấn Trực tuyến Real-time"]
+        UC9["9. Đánh giá & Gửi nhận xét Sản phẩm"]
+        UC10["10. Quản lý Danh sách Yêu thích Wishlist"]
     end
 
     %% Admin Subsystem
     subgraph AdminPortal ["📊 Phân hệ Quản trị SaaS Bento"]
-        UC11[11. Giám sát Doanh thu Realtime]
-        UC12[12. Đối soát Giao dịch VietQR]
-        UC13[13. Quản lý Đơn & Đẩy vận đơn GHN]
-        UC14[14. Quản lý Sản phẩm, Biến thể & Kho]
-        UC15[15. Tư vấn Khách hàng qua Chat Room]
-        UC16[16. Kiểm duyệt Đánh giá Review]
-        UC17[17. Phân quyền RBAC & Khóa tài khoản]
+        UC11["11. Giám sát Doanh thu Realtime"]
+        UC12["12. Đối soát Giao dịch VietQR"]
+        UC13["13. Quản lý Đơn & Đẩy vận đơn GHN"]
+        UC14["14. Quản lý Sản phẩm, Biến thể & Kho"]
+        UC15["15. Tư vấn Khách hàng qua Chat Room"]
+        UC16["16. Kiểm duyệt Đánh giá Review"]
+        UC17["17. Phân quyền RBAC & Khóa tài khoản"]
     end
 
     %% Background & Gateways
     subgraph Gateways ["⚡ Phân hệ Cổng Tích hợp Ngoài"]
-        UC18[18. Webhook Biến động Số dư (Secure Token)]
-        UC19[19. Webhook Trạng thái Vận đơn GHN]
-        UC20[20. Tự động Hủy đơn & Nhả kho quá hạn]
+        UC18["18. Webhook Biến động Số dư (Secure Token)"]
+        UC19["19. Webhook Trạng thái Vận đơn GHN"]
+        UC20["20. Tự động Hủy đơn & Nhả kho quá hạn"]
     end
 
     %% Customer Connections
@@ -789,7 +789,7 @@ const diagrams = [
     PresentationLayer --> SharedLayer
     ApplicationLayer --> SharedLayer
     PresentationLayer -->|Fetch JSON REST APIs| ApplicationLayer
-    PresentationLayer -.->|❌ NGHIÊM CẤM IMPORT TRỰC TIẾP (Zero-Leakage)| ApplicationLayer
+    PresentationLayer -.->|"❌ NGHIÊM CẤM IMPORT TRỰC TIẾP (Zero-Leakage)"| ApplicationLayer
 
     ApplicationLayer --> PostgresDB
     ApplicationLayer --> RedisCache
@@ -1156,7 +1156,7 @@ const diagrams = [
     title: 'Sơ đồ Tuần tự 8: Đăng ký & Xác thực OTP có Giới hạn nghiêm ngặt',
     type: 'Sequence',
     category: 'Behavioral',
-    description: 'OTP 6 số lưu bcrypt-hash (rò DB cũng không lộ mã), TTL 5 phút, cooldown 60 giây giữa hai lần gửi, tối đa 5 lần nhập sai, tự dọn mã cũ.',
+    description: 'OTP 6 số lưu argon2id-hash (rò DB cũng không lộ mã), TTL 5 phút, cooldown 60 giây giữa hai lần gửi, tối đa 5 lần nhập sai, tự dọn mã cũ.',
     mechanism: 'Cùng một OTP engine phục vụ đăng ký và quên mật khẩu (loại PASSWORD_RESET); verify thành công mới bật isVerified; rate limit ở tầng route.',
     mermaid: `sequenceDiagram
     autonumber
@@ -1167,20 +1167,20 @@ const diagrams = [
     participant DB as 🗄️ OtpCode + User
 
     U->>REG: Đăng ký email + mật khẩu
-    REG->>REG: Rate limit 5/phút · bcrypt cost 12
+    REG->>REG: Rate limit 5/phút · Argon2id
     REG->>OTP: sendOtp REGISTRATION
     OTP->>DB: Dọn code hết hạn / đã dùng · kiểm cooldown 60 giây
-    OTP->>DB: Lưu mã 6 số dạng bcrypt-hash · TTL 5 phút · attempts = 0
+    OTP->>DB: Lưu mã 6 số dạng argon2id-hash · TTL 5 phút · attempts = 0
     OTP->>R: Gửi email Mã xác thực (dev chỉ log console)
     U->>OTP: POST /api/auth/verify-otp
-    OTP->>OTP: attempts nhỏ hơn 5? · bcrypt compare
+    OTP->>OTP: attempts nhỏ hơn 5? · argon2id verify
     alt Nhập đúng
         OTP->>DB: used = true · user.isVerified = true
         OTP-->>U: Thông báo chào mừng → đăng nhập được
     else Sai quá 5 lần hoặc hết hạn
         OTP-->>U: Từ chối · gửi lại chỉ được sau cooldown 60 giây
     end
-    Note over U,DB: Quên mật khẩu tái dùng engine này<br/>với loại PASSWORD_RESET → reset-password (bcrypt 10)`
+    Note over U,DB: Quên mật khẩu tái dùng engine này<br/>với loại PASSWORD_RESET → reset-password (argon2id)`
   },
   {
     id: '21-flowchart-pusher-events',

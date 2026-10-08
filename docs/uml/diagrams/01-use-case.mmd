@@ -9,34 +9,34 @@ flowchart LR
 
     %% Storefront Subsystem
     subgraph Storefront ["🛒 Phân hệ Mua sắm & Khách hàng"]
-        UC1[1. Xem & Tìm kiếm Sản phẩm]
-        UC2[2. Chọn Biến thể Màu / Kích thước (SKU)]
-        UC3[3. Quản lý Giỏ hàng & Áp Coupon]
-        UC4[4. Đặt hàng & Nhận mã VietQR Động]
-        UC5[5. Nạp tiền Ví nội bộ qua VietQR]
-        UC6[6. Thanh toán Đơn bằng Ví Shop]
-        UC7[7. Hủy đơn & Hoàn tiền vào Ví]
-        UC8[8. Chat Tư vấn Trực tuyến Real-time]
-        UC9[9. Đánh giá & Gửi nhận xét Sản phẩm]
-        UC10[10. Quản lý Danh sách Yêu thích Wishlist]
+        UC1["1. Xem & Tìm kiếm Sản phẩm"]
+        UC2["2. Chọn Biến thể Màu / Kích thước (SKU)"]
+        UC3["3. Quản lý Giỏ hàng & Áp Coupon"]
+        UC4["4. Đặt hàng & Nhận mã VietQR Động"]
+        UC5["5. Nạp tiền Ví nội bộ qua VietQR"]
+        UC6["6. Thanh toán Đơn bằng Ví Shop"]
+        UC7["7. Hủy đơn & Hoàn tiền vào Ví"]
+        UC8["8. Chat Tư vấn Trực tuyến Real-time"]
+        UC9["9. Đánh giá & Gửi nhận xét Sản phẩm"]
+        UC10["10. Quản lý Danh sách Yêu thích Wishlist"]
     end
 
     %% Admin Subsystem
     subgraph AdminPortal ["📊 Phân hệ Quản trị SaaS Bento"]
-        UC11[11. Giám sát Doanh thu Realtime]
-        UC12[12. Đối soát Giao dịch VietQR]
-        UC13[13. Quản lý Đơn & Đẩy vận đơn GHN]
-        UC14[14. Quản lý Sản phẩm, Biến thể & Kho]
-        UC15[15. Tư vấn Khách hàng qua Chat Room]
-        UC16[16. Kiểm duyệt Đánh giá Review]
-        UC17[17. Phân quyền RBAC & Khóa tài khoản]
+        UC11["11. Giám sát Doanh thu Realtime"]
+        UC12["12. Đối soát Giao dịch VietQR"]
+        UC13["13. Quản lý Đơn & Đẩy vận đơn GHN"]
+        UC14["14. Quản lý Sản phẩm, Biến thể & Kho"]
+        UC15["15. Tư vấn Khách hàng qua Chat Room"]
+        UC16["16. Kiểm duyệt Đánh giá Review"]
+        UC17["17. Phân quyền RBAC & Khóa tài khoản"]
     end
 
     %% Background & Gateways
     subgraph Gateways ["⚡ Phân hệ Cổng Tích hợp Ngoài"]
-        UC18[18. Webhook Biến động Số dư (Secure Token)]
-        UC19[19. Webhook Trạng thái Vận đơn GHN]
-        UC20[20. Tự động Hủy đơn & Nhả kho quá hạn]
+        UC18["18. Webhook Biến động Số dư (Secure Token)"]
+        UC19["19. Webhook Trạng thái Vận đơn GHN"]
+        UC20["20. Tự động Hủy đơn & Nhả kho quá hạn"]
     end
 
     %% Customer Connections

@@ -51,7 +51,7 @@ flowchart TB
     PresentationLayer --> SharedLayer
     ApplicationLayer --> SharedLayer
     PresentationLayer -->|Fetch JSON REST APIs| ApplicationLayer
-    PresentationLayer -.->|❌ NGHIÊM CẤM IMPORT TRỰC TIẾP (Zero-Leakage)| ApplicationLayer
+    PresentationLayer -.->|"❌ NGHIÊM CẤM IMPORT TRỰC TIẾP (Zero-Leakage)"| ApplicationLayer
 
     ApplicationLayer --> PostgresDB
     ApplicationLayer --> RedisCache
