@@ -66,4 +66,5 @@ plan-30d.md
 
 # Artifact của công cụ workflow (superpowers SDD)
 .superpowers/
-docs/superpowers/
+docs/superpowers/*
+!docs/superpowers/specs/
