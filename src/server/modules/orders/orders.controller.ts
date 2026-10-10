@@ -13,6 +13,7 @@ import { calculateDiscount } from '@shared/utils/checkout';
 import { checkDistributedRateLimit, getClientIp } from '@server/infrastructure/rate-limit';
 import { pusherServer } from '@server/infrastructure/pusher';
 import { resolveOperatorAccess } from '@server/modules/admin/guards';
+import { formatNewOrderMessage, sendTelegramMessage } from '@server/infrastructure/telegram';
 
 interface CreateOrderBody {
   items?: unknown;
@@ -210,6 +211,32 @@ export async function POST(req: Request) {
       });
     } catch (pusherErr) {
       console.error('[Orders] Pusher admin trigger error:', pusherErr);
+    }
+
+    // Bắn thông báo Telegram cho Admin (non-blocking)
+    try {
+      const telegramPayload = formatNewOrderMessage({
+        orderCode,
+        customerName,
+        customerPhone,
+        customerAddress,
+        subtotal: validated.subtotal!,
+        shippingFee: validated.shippingFee!,
+        discountAmount,
+        couponCode: couponRecord?.code || null,
+        totalAmount: finalTotalAmount,
+        items: order.items.map((item) => ({
+          name: item.product.name,
+          quantity: item.quantity,
+          price: item.price,
+          variantTitle: item.variantTitle,
+        })),
+      });
+      void sendTelegramMessage(telegramPayload).catch((err) => {
+        console.error('[Orders] Telegram notification error:', err);
+      });
+    } catch (telegramErr) {
+      console.error('[Orders] Telegram format error:', telegramErr);
     }
 
     return NextResponse.json({
