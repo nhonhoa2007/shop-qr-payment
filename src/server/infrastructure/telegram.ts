@@ -183,7 +183,7 @@ export function formatApprovedOrderMessage(order: ApprovedOrderMessageParams): {
 💳 <b>Phương thức:</b> ${escapeTelegramHtml(method)}
 ⚡ <b>Trạng thái:</b> Đã xác nhận tiền về tài khoản
 ━━━━━━━━━━━━━━━━━━━━
-✅ <b>ĐÃ DUYỆT & TẠO VẬN ĐƠN GHN</b>
+✅ <b>ĐÃ DUYỆT &amp; TẠO VẬN ĐƠN GHN</b>
 📦 <b>Mã vận đơn:</b> <code>${escapeTelegramHtml(order.trackingCode)}</code>
 🚚 <b>Cước GHN:</b> ${order.shippingFee.toLocaleString('vi-VN')}đ
 📅 <b>Dự kiến giao:</b> ${dateFormatted}`;
