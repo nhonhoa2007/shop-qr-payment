@@ -30,6 +30,12 @@ function resolveAlias(specifier) {
 }
 
 export function resolve(specifier, context, nextResolve) {
+  if (specifier === 'next/server') {
+    return {
+      url: pathToFileURL(path.join(PROJECT_ROOT, 'node_modules/next/server.js')).href,
+      shortCircuit: true,
+    };
+  }
   const resolved = resolveAlias(specifier);
   if (resolved) {
     return { url: resolved, shortCircuit: true };
