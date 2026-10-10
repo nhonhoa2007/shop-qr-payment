@@ -68,3 +68,4 @@ plan-30d.md
 .superpowers/
 docs/superpowers/*
 !docs/superpowers/specs/
+!docs/superpowers/plans/
