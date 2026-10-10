@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useCartStore } from '@client/stores/cart-store';
 import { useWishlistStore } from '@client/stores/wishlist-store';
-import { useHydrated } from '@/lib/hydration';
+import { useHydrated } from '@client/hooks/useHydrated';
 import { formatVND } from '@shared/utils';
 import { Star, Plus, SlidersHorizontal, Heart } from 'lucide-react';
 import { toast } from 'sonner';

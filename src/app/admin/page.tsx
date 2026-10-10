@@ -7,7 +7,12 @@ export const dynamic = 'force-dynamic';
 
 export default async function AdminPage() {
   const session = await getServerSession(authOptions);
-  if (!session?.user || session.user.role !== 'ADMIN') redirect('/');
+  if (
+    !session?.user ||
+    (session.user.role !== 'ADMIN' && session.user.role !== 'STAFF')
+  ) {
+    redirect('/');
+  }
 
-  return <AdminDashboardView />;
+  return <AdminDashboardView user={session.user} />;
 }

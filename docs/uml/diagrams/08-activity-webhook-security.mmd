@@ -1,5 +1,5 @@
 flowchart TD
-    Start([Nhận Request POST Webhook từ PayOS]) --> CheckEnv{Môi trường Production?}
+    Start([Nhận Request POST Webhook từ Casso]) --> CheckEnv{Môi trường Production?}
 
     CheckEnv -- Có --> CheckSecretConfig{Có cấu hình Webhook Secret?}
     CheckSecretConfig -- Thiếu --> FailClosed500[Từ chối Fail-Closed 500: Missing Secret Key] --> StopErr([Dừng])
@@ -7,15 +7,15 @@ flowchart TD
 
     CheckEnv -- Development --> DevWarning[Ghi log cảnh báo Dev Mode] --> VerifySignature
 
-    VerifySignature{Kiểm tra chữ ký HMAC-SHA256 timingSafeEqual?}
-    VerifySignature -- Chữ ký không khớp --> Reject401[Từ chối 401: Unauthorized / Tampered Request] --> StopErr
+    CheckToken{Kiểm tra Header secure-token timing-safe?}
+    CheckToken -- Token không khớp --> Reject401[Từ chối 401: Unauthorized / Tampered Request] --> StopErr
 
-    VerifySignature -- Chữ ký hợp lệ --> ParseCode[Phân tích mã nội dung chuyển khoản bằng Regex]
+    CheckToken -- Token hợp lệ --> ParseCode[Phân tích mã nội dung chuyển khoản bằng Regex]
 
     ParseCode --> CheckType{Loại giao dịch?}
 
     %% Nhánh 1: Nạp tiền Ví
-    CheckType -- Khớp NAPVIxxxx --> QueryTopup[Truy vấn Phiên Nạp tiền Ví]
+    CheckType -- Khớp NAPxxxxx --> QueryTopup[Truy vấn Phiên Nạp tiền Ví]
     QueryTopup --> CheckTopupExists{Tìm thấy phiên nạp ví?}
     CheckTopupExists -- Không --> LogUnmatched[Lưu Transaction: verified=false, UNMATCHED] --> Resp200[Trả về 200 OK để Ngân hàng không retry]
 

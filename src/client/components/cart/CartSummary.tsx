@@ -2,7 +2,7 @@
 
 import { useCartStore } from '@client/stores/cart-store';
 import { formatVND } from '@shared/utils';
-import { calculateCheckoutTotals, FREE_SHIPPING_THRESHOLD } from '@/lib/checkout';
+import { calculateCheckoutTotals, FREE_SHIPPING_THRESHOLD } from '@shared/utils/checkout';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 

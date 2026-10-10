@@ -182,9 +182,9 @@ classDiagram
         +canShip(order)
     }
 
-    class PayOSService {
-        +createPaymentLink(data)
-        +verifyWebhookSignature(data)
+    class CassoWebhookService {
+        +verifySecureToken(token)
+        +processPaymentWebhook(payload)
     }
 
     class GHNService {
@@ -224,6 +224,6 @@ classDiagram
     InventoryService ..> Product : locks_and_updates
     InventoryService ..> ProductVariant : locks_and_updates
     OrderFSM ..> Order : guards_transitions
-    PayOSService ..> Transaction : reconciles
+    CassoWebhookService ..> Transaction : reconciles
     GHNService ..> Shipment : syncs_status
     ChatService ..> ChatRoom : orchestrates

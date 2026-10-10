@@ -13,6 +13,7 @@ import {
   evaluateWebhookDecision,
 } from '@server/modules/payment/vietqr-parser.service';
 import { processWalletTopup } from '@server/modules/wallet/wallet-topup.service';
+import { formatPaidOrderMessage, sendTelegramMessage } from '@server/infrastructure/telegram';
 
 interface CassoWebhookBody {
   data?: BankTransactionPayload[];
@@ -198,6 +199,22 @@ export async function POST(req: Request) {
         });
       } catch (pusherErr) {
         console.error('[Casso Webhook] Pusher admin trigger error:', pusherErr);
+      }
+
+      // Bắn thông báo Telegram cho Admin khi đơn hàng được thanh toán VietQR (non-blocking)
+      try {
+        const paidTelegramPayload = formatPaidOrderMessage({
+          id: order.id,
+          orderCode: order.orderCode,
+          customerName: order.customerName,
+          totalAmount: order.totalAmount,
+          paymentMethod: 'Chuyển khoản VietQR',
+        });
+        void sendTelegramMessage(paidTelegramPayload).catch((err) => {
+          console.error('[Casso Webhook] Telegram notification error:', err);
+        });
+      } catch (telegramErr) {
+        console.error('[Casso Webhook] Telegram format error:', telegramErr);
       }
     }
 

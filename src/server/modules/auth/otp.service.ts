@@ -8,7 +8,7 @@ import {
   sendOtpCore,
   verifyOtpCore,
   type OtpType,
-} from './password-reset.service';
+} from './password-reset.service.ts';
 
 export { normalizeEmail, generateOtp };
 export type { OtpType };

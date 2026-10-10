@@ -99,8 +99,8 @@ describe('Wallet Topup UI - Amount Input Validation (Pillar 2)', () => {
   });
 });
 
-describe('Wallet Topup UI - PayOS VietQR Link & Response Contract (Pillar 3)', () => {
-  it('should generate VietQR URL, BankInfo, and PayOS checkout parameters', async () => {
+describe('Wallet Topup UI - VietQR Link & Response Contract (Pillar 3)', () => {
+  it('should generate VietQR URL and BankInfo for topup session', async () => {
     const origEnv = process.env.NODE_ENV;
     try {
       process.env.NODE_ENV = 'test';
@@ -113,7 +113,6 @@ describe('Wallet Topup UI - PayOS VietQR Link & Response Contract (Pillar 3)', (
       assert.ok(result.data);
       assert.match(result.data.topupCode, /^NAP\d{9}$/);
       assert.equal(result.data.amount, 200_000);
-      assert.ok(result.data.checkoutUrl);
       assert.ok(result.data.qrUrl);
       assert.match(result.data.qrUrl, /img\.vietqr\.io/);
       assert.ok(result.data.bankInfo);
@@ -141,7 +140,7 @@ describe('Wallet Topup UI - Transaction Filtering & Classification (Pillar 4)', 
       type: 'TOPUP',
       amount: 200_000,
       orderId: 'NAP260924001',
-      description: 'Nạp ví qua VietQR PayOS NAP260924001',
+      description: 'Nạp ví qua VietQR NAP260924001',
       createdAt: '2026-09-24T10:00:00.000Z',
     },
     {

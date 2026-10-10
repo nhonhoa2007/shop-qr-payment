@@ -5,48 +5,62 @@ import Link from 'next/link';
 import { useHydrated } from '@client/hooks/useHydrated';
 import { pusherClient } from '@client/infrastructure/pusher-client';
 import { AdminKpiStrip, KpiSummaryData } from '@client/components/admin/dashboard/AdminKpiStrip';
-import { AdminRevenueChart, RevenueTrendPoint } from '@client/components/admin/dashboard/AdminRevenueChart';
-import { AdminPaymentBreakdown, PaymentMethodDistribution } from '@client/components/admin/dashboard/AdminPaymentBreakdown';
+import { AdminRevenueBars, RevenueBarRange, RevenueBarPoint } from '@client/components/admin/dashboard/AdminRevenueBars';
+import { AdminDonutChart, DonutPaymentDistribution } from '@client/components/admin/dashboard/AdminDonutChart';
+import { AdminTopProducts, TopProductItem } from '@client/components/admin/dashboard/AdminTopProducts';
+import { AdminCustomersCard, CustomerTrendPoint } from '@client/components/admin/dashboard/AdminCustomersCard';
+import { AdminRevenueShareCard } from '@client/components/admin/dashboard/AdminRevenueShareCard';
+import { AdminRealtimeOrdersCard } from '@client/components/admin/dashboard/AdminRealtimeOrdersCard';
 import { AdminActionCenter, UrgentActionItem } from '@client/components/admin/dashboard/AdminActionCenter';
 import { AdminRecentOrdersTable, RecentOrderItem } from '@client/components/admin/dashboard/AdminRecentOrdersTable';
-import {
-  AlertTriangle,
-  Package,
-  Truck,
-  CreditCard,
-  ShoppingBag,
-  Tag,
-  Star,
-  Users,
-  MessageSquare,
-  RefreshCw,
-  Sparkles,
-} from 'lucide-react';
+import { AlertTriangle, RefreshCw, Sparkles, Plus } from 'lucide-react';
 
 interface AnalyticsPayload {
   error?: boolean;
   summary?: KpiSummaryData;
   ordersByStatus?: Record<string, number>;
-  revenueTrend?: RevenueTrendPoint[];
-  paymentMethodDistribution?: PaymentMethodDistribution;
+  revenueTrend?: RevenueBarPoint[];
+  newCustomersTrend?: CustomerTrendPoint[];
+  paymentMethodDistribution?: DonutPaymentDistribution;
   urgentActions?: UrgentActionItem[];
   recentOrders?: RecentOrderItem[];
-  topProducts?: Array<{
-    productId: string;
-    name: string;
-    price: number;
-    image: string | null;
-    category?: string | null;
-    totalSold: number;
-  }>;
+  topProducts?: TopProductItem[];
 }
 
-export function AdminDashboardView() {
+/** Lời chào theo giờ trong ngày (chỉ chạy phía client sau khi hydrate) */
+function getGreeting(): string {
+  if (typeof window === 'undefined') return 'Xin chào';
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Chào buổi sáng';
+  if (hour < 18) return 'Chào buổi chiều';
+  return 'Chào buổi tối';
+}
+
+const PERIOD_LABELS: Record<RevenueBarRange, string> = {
+  today: 'hôm nay',
+  '7days': '7 ngày qua',
+  month: '30 ngày qua',
+};
+
+export interface AdminDashboardViewProps {
+  user?: {
+    id?: string;
+    name?: string | null;
+    email?: string | null;
+    role?: string;
+    permissions?: string[];
+  };
+}
+
+export function AdminDashboardView({ user }: AdminDashboardViewProps = {}) {
+  const isStaff = user?.role === 'STAFF';
+  const userPermissions = (user?.permissions || []) as string[];
+
   const [data, setData] = useState<AnalyticsPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [fetchError, setFetchError] = useState(false);
-  const [timeRange, setTimeRange] = useState<'today' | '7days' | 'month'>('today');
+  const [timeRange, setTimeRange] = useState<RevenueBarRange>('today');
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const isHydrated = useHydrated();
 
@@ -64,6 +78,8 @@ export function AdminDashboardView() {
       })
     : 'Hôm nay';
 
+  const greeting = isHydrated ? getGreeting() : 'Xin chào';
+
   const formattedLastUpdated =
     isHydrated && lastUpdated
       ? lastUpdated.toLocaleTimeString('vi-VN', {
@@ -73,7 +89,7 @@ export function AdminDashboardView() {
         })
       : null;
 
-  // Xử lý response analytics dùng chung cho mọi đường fetch (mount, đổi range, realtime, polling)
+  // Xử lý response analytics dùng chung cho mọi đường fetch
   const applyAnalytics = useCallback((resData: AnalyticsPayload) => {
     if (resData.error) {
       setFetchError(true);
@@ -84,16 +100,20 @@ export function AdminDashboardView() {
     setFetchError(false);
   }, []);
 
-  // Fetch khi người dùng chủ động (đổi range, bấm refresh, realtime, polling) — được set state đồng bộ
+  // Fetch khi người dùng chủ động (đổi range, bấm refresh, realtime, polling)
   const fetchAnalytics = useCallback(
-    (range: 'today' | '7days' | 'month', isInitial = false) => {
+    (range: RevenueBarRange, isInitial = false) => {
       if (isInitial) {
         setLoading(true);
       } else {
         setRefreshing(true);
       }
 
-      fetch(`/api/admin/analytics?range=${range}`)
+      const endpoint = isStaff
+        ? '/api/admin/analytics/staff'
+        : `/api/admin/analytics?range=${range}`;
+
+      fetch(endpoint)
         .then((res) => {
           if (!res.ok) {
             throw new Error(`Analytics fetch failed with status ${res.status}`);
@@ -101,7 +121,7 @@ export function AdminDashboardView() {
           return res.json();
         })
         .then((resData) => {
-          applyAnalytics(resData);
+          applyAnalytics(isStaff ? { summary: resData, ...resData } : resData);
         })
         .catch((err) => {
           console.error('Failed to fetch analytics:', err);
@@ -112,10 +132,10 @@ export function AdminDashboardView() {
           setRefreshing(false);
         });
     },
-    [applyAnalytics]
+    [applyAnalytics, isStaff]
   );
 
-  // Initial load — state khởi tạo đã ở loading=true, chỉ cập nhật bất đồng bộ
+  // Initial load
   useEffect(() => {
     let cancelled = false;
 
@@ -171,7 +191,7 @@ export function AdminDashboardView() {
     };
   }, [fetchAnalytics]);
 
-  const handleRangeChange = (newRange: 'today' | '7days' | 'month') => {
+  const handleRangeChange = (newRange: RevenueBarRange) => {
     setTimeRange(newRange);
     fetchAnalytics(newRange, false);
   };
@@ -180,104 +200,100 @@ export function AdminDashboardView() {
     fetchAnalytics(timeRange, false);
   };
 
+  const isLoading = loading || refreshing;
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
-      {/* Welcome & Time Range Filter Strip */}
+      {/* HEADER: Chào hỏi + Trạng thái Sync + Nhóm Thao tác chuẩn Aurora Console */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-              Xin chào, Quản trị viên 👋
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h1 className="text-2xl sm:text-[26px] font-extrabold text-slate-900 tracking-tight">
+              {greeting}, {isStaff ? (user?.name || 'Nhân viên') : 'Quản trị viên'} 👋
             </h1>
-            <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#5433eb]/10 text-[#5433eb] text-[10px] font-bold">
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#2f54eb]/10 text-[#2f54eb] text-[11px] font-bold">
               <Sparkles className="w-3 h-3" />
-              Realtime Workspace
+              {isStaff ? 'Operations Panel' : 'Aurora Workspace'}
             </span>
           </div>
-          <p className="text-xs text-slate-500 mt-1">
-            Dữ liệu kinh doanh và vận hành thanh toán QR tự động hôm nay ({currentDateString})
+          <p className="text-xs text-slate-500 mt-1 font-medium">
+            {isStaff
+              ? `Báo cáo vận hành thời gian thực (${currentDateString})`
+              : `Toàn cảnh tăng trưởng doanh thu & vận hành thanh toán QR (${currentDateString})`}
           </p>
         </div>
 
-        {/* Realtime Live Indicator, Time range switcher & Refresh */}
         <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
-          {/* Realtime Live status dot & Last updated */}
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50/90 border border-emerald-200/80 text-xs font-semibold text-emerald-800 shadow-xs">
+          {/* Trạng thái Realtime Live dot */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200/80 text-xs font-semibold text-emerald-800 shadow-xs">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
             <span className="text-[11px] font-bold text-emerald-700">
-              Thời gian thực (Realtime)
+              {formattedLastUpdated ? `Sync ${formattedLastUpdated}` : 'Realtime'}
             </span>
-            {formattedLastUpdated && (
-              <>
-                <span className="text-emerald-300">•</span>
-                <span className="text-[11px] text-emerald-600 font-medium">
-                  Cập nhật lúc: {formattedLastUpdated}
-                </span>
-              </>
-            )}
           </div>
 
-          {/* Time range switcher */}
-          <div className="flex items-center p-1 rounded-xl bg-white border border-slate-200/80 text-xs font-bold text-slate-700 shadow-sm">
-            <button
-              type="button"
-              onClick={() => handleRangeChange('today')}
-              className={`px-3 py-1 rounded-lg transition ${
-                timeRange === 'today'
-                  ? 'bg-[#5433eb] text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              Hôm nay
-            </button>
-            <button
-              type="button"
-              onClick={() => handleRangeChange('7days')}
-              className={`px-3 py-1 rounded-lg transition ${
-                timeRange === '7days'
-                  ? 'bg-[#5433eb] text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              7 ngày
-            </button>
-            <button
-              type="button"
-              onClick={() => handleRangeChange('month')}
-              className={`px-3 py-1 rounded-lg transition ${
-                timeRange === 'month'
-                  ? 'bg-[#5433eb] text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              Tháng này
-            </button>
-          </div>
+          {/* Bộ chọn kỳ (Hôm nay / 7 ngày / 30 ngày) */}
+          {!isStaff && (
+            <div className="flex items-center p-0.5 rounded-xl bg-slate-100 border border-slate-200/80 text-xs font-bold text-slate-600">
+              <button
+                type="button"
+                onClick={() => handleRangeChange('today')}
+                className={`px-3 py-1 rounded-lg transition cursor-pointer ${
+                  timeRange === 'today' ? 'bg-[#2f54eb] text-white shadow-xs' : 'hover:text-slate-900'
+                }`}
+              >
+                Hôm nay
+              </button>
+              <button
+                type="button"
+                onClick={() => handleRangeChange('7days')}
+                className={`px-3 py-1 rounded-lg transition cursor-pointer ${
+                  timeRange === '7days' ? 'bg-[#2f54eb] text-white shadow-xs' : 'hover:text-slate-900'
+                }`}
+              >
+                7 ngày
+              </button>
+              <button
+                type="button"
+                onClick={() => handleRangeChange('month')}
+                className={`px-3 py-1 rounded-lg transition cursor-pointer ${
+                  timeRange === 'month' ? 'bg-[#2f54eb] text-white shadow-xs' : 'hover:text-slate-900'
+                }`}
+              >
+                30 ngày
+              </button>
+            </div>
+          )}
 
-          {/* Manual Refresh button */}
+          {/* Nút Refresh */}
           <button
             type="button"
             onClick={handleRefresh}
-            disabled={loading || refreshing}
+            disabled={isLoading}
             aria-label="Làm mới dữ liệu"
-            className="p-2 rounded-xl bg-white border border-slate-200/80 text-slate-500 hover:text-slate-800 hover:bg-slate-50 shadow-sm transition disabled:opacity-50"
+            className="p-2 rounded-xl bg-white border border-slate-200/90 text-slate-500 hover:text-slate-800 hover:bg-slate-50 shadow-xs transition disabled:opacity-50 cursor-pointer"
             title="Tải lại số liệu"
           >
-            <RefreshCw
-              className={`w-4 h-4 ${
-                loading || refreshing ? 'animate-spin text-[#5433eb]' : ''
-              }`}
-            />
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-[#2f54eb]' : ''}`} />
           </button>
+
+          {/* Nút Quản lý/Tạo đơn nhanh */}
+          <Link
+            href="/admin/orders"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#2f54eb] text-white text-xs font-bold hover:bg-[#1d39c4] transition shadow-xs"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Tạo đơn</span>
+          </Link>
         </div>
       </div>
 
-      {/* Lỗi tải dữ liệu — hiển thị rõ ràng kèm nút thử lại thay vì dashboard trống im lặng */}
+      {/* Thông báo lỗi nếu fetch thất bại */}
       {fetchError && !loading && (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-amber-50 border border-amber-200">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200">
           <div className="flex items-center gap-2 text-sm font-medium text-amber-800">
             <AlertTriangle className="w-4 h-4 shrink-0" />
             Không tải được dữ liệu phân tích. Vui lòng thử lại.
@@ -285,7 +301,7 @@ export function AdminDashboardView() {
           <button
             type="button"
             onClick={handleRefresh}
-            className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-800 text-white text-xs font-semibold hover:bg-amber-900 transition cursor-pointer"
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-800 text-white text-xs font-semibold hover:bg-amber-900 transition cursor-pointer"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             Thử lại
@@ -293,125 +309,167 @@ export function AdminDashboardView() {
         </div>
       )}
 
-      {/* BENTO ROW 1: KPI CARDS */}
-      <AdminKpiStrip
-        summary={data?.summary}
-        timeRange={timeRange}
-        loading={loading || refreshing}
-      />
+      {isStaff ? (
+        <div className="space-y-6">
+          {/* HÀNG 1: THẺ CHỈ SỐ VẬN HÀNH DÀNH CHO NHÂN VIÊN */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {userPermissions.includes('orders') && (
+              <>
+                <div className="bg-white rounded-xl p-5 border border-slate-200/90 shadow-xs">
+                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                    Đơn hàng hôm nay
+                  </div>
+                  <div className="text-3xl font-extrabold text-slate-900 tracking-tight">
+                    {data?.summary?.todayOrders ?? 0}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">Đơn phát sinh trong ngày</p>
+                </div>
+                <div className="bg-white rounded-xl p-5 border border-slate-200/90 shadow-xs">
+                  <div className="text-[11px] font-bold text-amber-600 uppercase tracking-wider mb-1">
+                    Đơn chờ xử lý
+                  </div>
+                  <div className="text-3xl font-extrabold text-amber-700 tracking-tight">
+                    {data?.summary?.pendingOrdersCount ?? 0}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">Cần xác nhận đóng gói</p>
+                </div>
+              </>
+            )}
 
-      {/* BENTO ROW 2: CHART (8 COLS) + PAYMENT & ACTIONS (4 COLS) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* 8 Cols: Revenue Area Chart */}
-        <div className="lg:col-span-8">
-          <AdminRevenueChart
-            trend={data?.revenueTrend}
+            {userPermissions.includes('shipments') && (
+              <div className="bg-white rounded-xl p-5 border border-slate-200/90 shadow-xs">
+                <div className="text-[11px] font-bold text-blue-600 uppercase tracking-wider mb-1">
+                  Vận đơn đang giao
+                </div>
+                <div className="text-3xl font-extrabold text-blue-700 tracking-tight">
+                  {data?.summary?.activeShipmentsCount ?? 0}
+                </div>
+                <p className="text-xs text-slate-500 mt-1">Đơn vị GHN đang vận chuyển</p>
+              </div>
+            )}
+
+            {userPermissions.includes('products') && (
+              <div className="bg-white rounded-xl p-5 border border-slate-200/90 shadow-xs">
+                <div className="text-[11px] font-bold text-rose-600 uppercase tracking-wider mb-1">
+                  Cảnh báo tồn kho
+                </div>
+                <div className="text-3xl font-extrabold text-rose-700 tracking-tight">
+                  {data?.summary?.lowStockCount ?? 0}
+                </div>
+                <p className="text-xs text-slate-500 mt-1">Sản phẩm tồn kho &le; 5</p>
+              </div>
+            )}
+          </div>
+
+          {/* HÀNG 2: CẢNH BÁO VẬN HÀNH CẦN XỬ LÝ NGAY */}
+          {data?.urgentActions && data.urgentActions.length > 0 && (
+            <div className="bg-white rounded-xl p-5 sm:p-6 border border-slate-200/90 shadow-xs">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-base font-extrabold text-slate-900 tracking-tight">Cần xử lý ngay</h3>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Cảnh báo tự động
+                </span>
+              </div>
+              <AdminActionCenter
+                urgentActions={data?.urgentActions}
+                lowStockCount={data?.summary?.lowStockCount}
+              />
+            </div>
+          )}
+
+          {/* HÀNG 3: ĐƠN HÀNG MỚI NHẤT */}
+          {userPermissions.includes('orders') && (
+            <AdminRecentOrdersTable orders={data?.recentOrders} />
+          )}
+        </div>
+      ) : (
+        <>
+          {/* HÀNG 1: 4 KPI CARDS VỚI AURORA SPARKLINE */}
+          <AdminKpiStrip
+            summary={data?.summary}
             timeRange={timeRange}
-            loading={loading || refreshing}
+            loading={isLoading}
+            trend={data?.revenueTrend}
           />
-        </div>
 
-        {/* 4 Cols: Payment Breakdown & Action Center */}
-        <div className="lg:col-span-4 bg-white rounded-[24px] p-5 sm:p-6 border border-slate-200/80 shadow-sm flex flex-col justify-between">
-          <AdminPaymentBreakdown distribution={data?.paymentMethodDistribution} />
-          <AdminActionCenter
-            urgentActions={data?.urgentActions}
-            lowStockCount={data?.summary?.lowStockCount}
-            unmatchedTxCount={data?.summary?.unmatchedTransactionsCount}
-          />
-        </div>
-      </div>
-
-      {/* BENTO ROW 3: RECENT ORDERS TABLE */}
-      <AdminRecentOrdersTable orders={data?.recentOrders} />
-
-      {/* BENTO ROW 4: QUICK OPERATIONAL ACCESS TILES */}
-      <div className="pt-2">
-        <h2 className="text-sm font-bold text-slate-900 mb-3 uppercase tracking-wider text-[11px] text-slate-400">
-          Phân hệ Nghiệp vụ Quản trị
-        </h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-          <Link
-            href="/admin/orders"
-            className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/70 hover:border-[#5433eb]/40 hover:shadow-md transition text-center group flex flex-col items-center justify-center"
-          >
-            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-              <Package className="w-5 h-5" />
+          {/* HÀNG 2: Biểu đồ Doanh thu MRR (8 cols) + Phân bố thanh toán Donut (4 cols) chuẩn Aurora ov-grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            <div className="lg:col-span-8 min-h-[340px]">
+              <AdminRevenueBars
+                trend={data?.revenueTrend}
+                timeRange={timeRange}
+                loading={isLoading}
+                onRangeChange={handleRangeChange}
+              />
             </div>
-            <span className="text-xs font-bold text-slate-800 truncate w-full">Đơn hàng</span>
-          </Link>
 
-          <Link
-            href="/admin/shipments"
-            className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/70 hover:border-[#5433eb]/40 hover:shadow-md transition text-center group flex flex-col items-center justify-center"
-          >
-            <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-              <Truck className="w-5 h-5" />
+            <div className="lg:col-span-4 bg-white rounded-xl p-5 sm:p-6 border border-slate-200/90 shadow-xs flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900 tracking-tight">Cơ cấu thanh toán</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">Tỷ trọng kênh thanh toán ({PERIOD_LABELS[timeRange]})</p>
+                </div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  {PERIOD_LABELS[timeRange]}
+                </span>
+              </div>
+              <AdminDonutChart distribution={data?.paymentMethodDistribution} loading={isLoading} />
             </div>
-            <span className="text-xs font-bold text-slate-800 truncate w-full">Vận đơn GHN</span>
-          </Link>
+          </div>
 
-          <Link
-            href="/admin/transactions"
-            className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/70 hover:border-[#5433eb]/40 hover:shadow-md transition text-center group flex flex-col items-center justify-center"
-          >
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-              <CreditCard className="w-5 h-5" />
-            </div>
-            <span className="text-xs font-bold text-slate-800 truncate w-full">Đối soát VietQR</span>
-          </Link>
+          {/* HÀNG 3: Top Sản phẩm (4 cols) + Khách hàng (4 cols) + Đơn hàng Realtime (4 cols) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <AdminTopProducts products={data?.topProducts} loading={isLoading} />
 
-          <Link
-            href="/admin/products"
-            className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/70 hover:border-[#5433eb]/40 hover:shadow-md transition text-center group flex flex-col items-center justify-center"
-          >
-            <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-              <ShoppingBag className="w-5 h-5" />
-            </div>
-            <span className="text-xs font-bold text-slate-800 truncate w-full">Sản phẩm</span>
-          </Link>
+            <AdminCustomersCard
+              totalCustomers={data?.summary?.totalCustomers}
+              trend={data?.newCustomersTrend}
+              loading={isLoading}
+            />
 
-          <Link
-            href="/admin/coupons"
-            className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/70 hover:border-[#5433eb]/40 hover:shadow-md transition text-center group flex flex-col items-center justify-center"
-          >
-            <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-              <Tag className="w-5 h-5" />
-            </div>
-            <span className="text-xs font-bold text-slate-800 truncate w-full">Mã giảm giá</span>
-          </Link>
+            <AdminRealtimeOrdersCard
+              totalOrders={data?.summary?.totalOrders}
+              todayOrders={data?.summary?.todayOrders}
+              todayRevenueGrowth={data?.summary?.todayRevenueGrowth}
+              trend={data?.revenueTrend}
+              loading={isLoading}
+            />
+          </div>
 
-          <Link
-            href="/admin/customers"
-            className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/70 hover:border-[#5433eb]/40 hover:shadow-md transition text-center group flex flex-col items-center justify-center"
-          >
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-              <Users className="w-5 h-5" />
+          {/* HÀNG 4: Doanh thu kỳ share card & Cảnh báo vận hành cần xử lý */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            <div className="lg:col-span-4">
+              <AdminRevenueShareCard
+                periodRevenue={
+                  timeRange === 'today'
+                    ? data?.summary?.todayRevenue
+                    : data?.summary?.periodRevenue
+                }
+                totalRevenue={data?.summary?.totalRevenue}
+                periodLabel={PERIOD_LABELS[timeRange]}
+                loading={isLoading}
+              />
             </div>
-            <span className="text-xs font-bold text-slate-800 truncate w-full">Khách & RBAC</span>
-          </Link>
 
-          <Link
-            href="/admin/chat"
-            className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/70 hover:border-[#5433eb]/40 hover:shadow-md transition text-center group flex flex-col items-center justify-center"
-          >
-            <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-              <MessageSquare className="w-5 h-5" />
+            <div className="lg:col-span-8 bg-white rounded-xl p-5 sm:p-6 border border-slate-200/90 shadow-xs">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-base font-extrabold text-slate-900 tracking-tight">Cần xử lý ngay</h3>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Cảnh báo tự động
+                </span>
+              </div>
+              <AdminActionCenter
+                urgentActions={data?.urgentActions}
+                lowStockCount={data?.summary?.lowStockCount}
+                unmatchedTxCount={data?.summary?.unmatchedTransactionsCount}
+              />
             </div>
-            <span className="text-xs font-bold text-slate-800 truncate w-full">CSKH Trực tuyến</span>
-          </Link>
+          </div>
 
-          <Link
-            href="/admin/reviews"
-            className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/70 hover:border-[#5433eb]/40 hover:shadow-md transition text-center group flex flex-col items-center justify-center"
-          >
-            <div className="w-10 h-10 rounded-xl bg-yellow-50 text-yellow-600 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-              <Star className="w-5 h-5" />
-            </div>
-            <span className="text-xs font-bold text-slate-800 truncate w-full">Đánh giá SP</span>
-          </Link>
-        </div>
-      </div>
+          {/* HÀNG 5: Đơn hàng mới nhất trong hệ thống */}
+          <AdminRecentOrdersTable orders={data?.recentOrders} />
+        </>
+      )}
     </div>
   );
 }

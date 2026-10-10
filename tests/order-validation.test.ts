@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseOrderItems, buildValidatedOrderItems, MAX_QUANTITY_PER_ITEM } from '../src/lib/order-validation.ts';
+import { parseOrderItems, buildValidatedOrderItems, MAX_QUANTITY_PER_ITEM } from '@shared/validations';
 import type { Product } from '@prisma/client';
 
 describe('Order Validation - parseOrderItems', () => {

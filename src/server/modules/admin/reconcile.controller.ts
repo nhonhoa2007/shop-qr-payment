@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@server/modules/auth/auth-options';
 import { prisma } from '@server/database/prisma';
-import { validateReconcileInput, canReconcileOrder } from './reconciliation.service';
+import { validateReconcileInput, canReconcileOrder } from './reconciliation.service.ts';
 import { reserveOrderStock } from '@server/modules/inventory/inventory.service';
 import { createNotification } from '@server/modules/notifications/notifications.service';
 import { pusherServer } from '@server/infrastructure/pusher';

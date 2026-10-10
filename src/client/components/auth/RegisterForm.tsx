@@ -1,16 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { GoogleIcon } from './GoogleIcon';
 import { ArrowRight } from 'lucide-react';
 
 export function RegisterForm() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
   const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '' });
 
@@ -47,17 +44,6 @@ export function RegisterForm() {
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    setError('');
-    setGoogleLoading(true);
-    try {
-      await signIn('google', { callbackUrl: '/' });
-    } catch {
-      setError('Lỗi kết nối đến Google, vui lòng thử lại');
-      setGoogleLoading(false);
-    }
-  };
-
   return (
     <div className="w-full max-w-md mx-auto">
       <div className="bg-white rounded-[28px] shadow-card p-8 sm:p-10">
@@ -74,29 +60,6 @@ export function RegisterForm() {
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-full mb-6 text-xs tracking-[-0.014em]">
             {error}
           </div>
-        )}
-
-        {process.env.NEXT_PUBLIC_ENABLE_GOOGLE_AUTH === 'true' && (
-          <>
-            <button
-              type="button"
-              onClick={handleGoogleSignIn}
-              disabled={loading || googleLoading}
-              className="w-full flex items-center justify-center gap-3 bg-white border border-faint-border text-ink-black py-3 rounded-full text-xs font-medium hover:bg-canvas-mist disabled:opacity-40 transition shadow-soft-sm tracking-[-0.014em]"
-            >
-              <GoogleIcon className="w-4 h-4" />
-              <span>{googleLoading ? 'Đang chuyển hướng...' : 'Đăng ký nhanh với Google'}</span>
-            </button>
-
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-faint-border" />
-              </div>
-              <div className="relative flex justify-center text-xs">
-                <span className="bg-white px-3 text-muted-gray tracking-[-0.017em]">hoặc email</span>
-              </div>
-            </div>
-          </>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -182,7 +145,7 @@ export function RegisterForm() {
           </div>
           <button
             type="submit"
-            disabled={loading || googleLoading}
+            disabled={loading}
             className="w-full bg-ink-black text-white py-3 rounded-full text-xs font-medium hover:bg-slate-ink disabled:opacity-40 transition flex items-center justify-center gap-1.5 tracking-[-0.014em]"
           >
             <span>{loading ? 'Đang xử lý...' : 'Đăng ký tài khoản'}</span>

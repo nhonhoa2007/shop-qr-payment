@@ -1,15 +1,14 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { resolveOperatorAccess } from '@server/modules/admin/guards';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import {
-  validateImageFile,
+import { validateImageFile,
   verifyImageMagicBytes,
   getCloudinaryConfig,
   generateCloudinarySignature,
-  generateSafeUploadFilename,
-} from '@/lib/upload-utils';
+  generateSafeUploadFilename, } from '@server/modules/upload/upload.service';
 
 export const runtime = 'nodejs';
 
@@ -17,7 +16,7 @@ export async function POST(req: Request) {
   try {
     // 1. Check Authentication & Authorization
     const session = await getServerSession(authOptions);
-    if (!session?.user || session.user.role !== 'ADMIN') {
+    if (!session?.user || !resolveOperatorAccess(session.user, 'products')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

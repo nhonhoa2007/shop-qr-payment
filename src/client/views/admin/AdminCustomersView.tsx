@@ -23,6 +23,11 @@ import {
   Calendar,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  STAFF_PERMISSIONS,
+  PERMISSION_LABELS,
+  type StaffPermission,
+} from '@shared/constants/permissions';
 
 export type UserRole = 'CUSTOMER' | 'STAFF' | 'ADMIN';
 
@@ -34,6 +39,7 @@ export interface CustomerItem {
   address: string | null;
   avatar: string | null;
   role?: UserRole;
+  permissions?: string[];
   isBlocked?: boolean;
   isVerified: boolean;
   createdAt: string;
@@ -107,7 +113,7 @@ export function AdminCustomersView({ initialCustomers }: { initialCustomers: Cus
   // Generic Update Handler (PATCH /api/admin/customers)
   const handleUpdate = async (
     userId: string,
-    data: { role?: UserRole; isBlocked?: boolean; isVerified?: boolean },
+    data: { role?: UserRole; isBlocked?: boolean; isVerified?: boolean; permissions?: string[] },
     successMessage: string
   ) => {
     setUpdatingId(userId);
@@ -134,6 +140,7 @@ export function AdminCustomersView({ initialCustomers }: { initialCustomers: Cus
                 ...(data.role !== undefined ? { role: data.role } : {}),
                 ...(data.isBlocked !== undefined ? { isBlocked: data.isBlocked } : {}),
                 ...(data.isVerified !== undefined ? { isVerified: data.isVerified } : {}),
+                ...(data.permissions !== undefined ? { permissions: data.permissions } : {}),
               }
             : item
         )
@@ -148,6 +155,7 @@ export function AdminCustomersView({ initialCustomers }: { initialCustomers: Cus
                 ...(data.role !== undefined ? { role: data.role } : {}),
                 ...(data.isBlocked !== undefined ? { isBlocked: data.isBlocked } : {}),
                 ...(data.isVerified !== undefined ? { isVerified: data.isVerified } : {}),
+                ...(data.permissions !== undefined ? { permissions: data.permissions } : {}),
               }
             : null
         );
@@ -691,6 +699,60 @@ export function AdminCustomersView({ initialCustomers }: { initialCustomers: Cus
                     </button>
                   </div>
                 </div>
+
+                {/* Cấp quyền chi tiết khi người dùng là STAFF */}
+                {selectedCustomer.role === 'STAFF' && (
+                  <div className="pt-3 border-t border-indigo-100/60">
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                        <Shield className="w-3.5 h-3.5 text-blue-600" />
+                        Phân bổ quyền hạn nhân viên (Permission Matrix)
+                      </label>
+                      <span className="text-[10px] text-gray-500 font-medium">
+                        {(selectedCustomer.permissions || []).length}/5 quyền
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
+                      {STAFF_PERMISSIONS.map((perm) => {
+                        const currentPerms = (selectedCustomer.permissions || []) as StaffPermission[];
+                        const isChecked = currentPerms.includes(perm);
+
+                        const togglePermission = () => {
+                          const nextPerms = isChecked
+                            ? currentPerms.filter((p) => p !== perm)
+                            : [...currentPerms, perm];
+
+                          handleUpdate(
+                            selectedCustomer.id,
+                            { permissions: nextPerms },
+                            `Đã ${isChecked ? 'thu hồi' : 'cấp'} quyền "${PERMISSION_LABELS[perm]}"`
+                          );
+                        };
+
+                        return (
+                          <label
+                            key={perm}
+                            className={`flex items-center gap-2 p-2 rounded-lg border text-xs cursor-pointer transition select-none ${
+                              isChecked
+                                ? 'bg-blue-50 border-blue-200 text-blue-900 font-semibold'
+                                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              disabled={updatingId === selectedCustomer.id}
+                              onChange={togglePermission}
+                              className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5 cursor-pointer"
+                            />
+                            <span>{PERMISSION_LABELS[perm]}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {/* Email Verification Action */}
                 <div className="pt-2 border-t border-indigo-100/60 flex items-center justify-between">

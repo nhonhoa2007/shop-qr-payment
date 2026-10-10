@@ -1,14 +1,12 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  validateImageFile,
+import { validateImageFile,
   verifyImageMagicBytes,
   parseCloudinaryUrl,
   getCloudinaryConfig,
   generateCloudinarySignature,
   generateSafeUploadFilename,
-  MAX_UPLOAD_FILE_SIZE,
-} from '../src/lib/upload-utils.ts';
+  MAX_UPLOAD_FILE_SIZE, } from '@server/modules/upload/upload.service';
 
 describe('Image Upload Validation Logic', () => {
   it('should validate valid image mime types and sizes', () => {

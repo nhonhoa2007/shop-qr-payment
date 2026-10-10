@@ -2,7 +2,12 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@server/modules/auth/auth-options';
 import { checkDistributedRateLimit, getClientIp } from '@server/infrastructure/rate-limit';
-import { createWalletTopupPaymentLink } from './wallet-topup.service.ts';
+import { prisma } from '@server/database/prisma';
+import {
+  createWalletTopupPaymentLink,
+  getWalletTopupSession,
+  processWalletTopup,
+} from './wallet-topup.service.ts';
 
 interface CreateWalletTopupBody {
   amount?: unknown;
@@ -10,12 +15,12 @@ interface CreateWalletTopupBody {
 }
 
 /**
- * Controller xử lý yêu cầu khởi tạo phiên nạp tiền ví điện tử qua VietQR PayOS
+ * Controller xử lý yêu cầu khởi tạo phiên nạp tiền ví điện tử qua VietQR (Casso)
  *
  * @endpoint POST /api/wallet/topup
  * @security
  * - Bắt buộc xác thực người dùng (Auth Session Guard)
- * - Rate Limiting: Giới hạn 15 request/phút theo IP và User để ngăn chặn spam tạo link
+ * - Rate Limiting: Giới hạn 15 request/phút theo IP và User để ngăn chặn spam tạo mã QR
  * - Zero-Trust Client Payload: Kiểm tra nghiêm ngặt số tiền nạp (tối thiểu 10.000đ, tối đa 50.000.000đ)
  */
 export async function HandleCreateWalletTopup(req: Request) {
@@ -63,20 +68,15 @@ export async function HandleCreateWalletTopup(req: Request) {
       req.headers.get('idempotency-key') ||
       (typeof body.idempotencyToken === 'string' ? body.idempotencyToken : undefined);
 
-    const host = req.headers.get('host') || 'localhost:3000';
-    const protocol = req.headers.get('x-forwarded-proto') || 'http';
-
     const result = await createWalletTopupPaymentLink({
       userId: session.user.id,
       amount,
-      host,
-      protocol,
       idempotencyToken,
     });
 
     if (!result.success || !result.data) {
       return NextResponse.json(
-        { error: result.error || 'Không thể tạo liên kết thanh toán PayOS' },
+        { error: result.error || 'Không thể tạo mã VietQR nạp ví' },
         { status: 502 }
       );
     }
@@ -95,3 +95,58 @@ export async function HandleCreateWalletTopup(req: Request) {
 }
 
 export const POST = HandleCreateWalletTopup;
+
+/**
+ * DEV SANDBOX ONLY — mô phỏng "khách đã quét QR & chuyển khoản thành công".
+ *
+ * @endpoint POST /api/wallet/topup/simulate
+ * Chỉ tồn tại để demo/test nạp ví trên máy local (không có Casso webhook gọi về localhost).
+ * Endpoint tự vô hiệu ở production: mọi request đều bị từ chối 404.
+ */
+export async function HandleSimulateWalletTopup(req: Request) {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not Found' }, { status: 404 });
+  }
+
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: 'Vui lòng đăng nhập để mô phỏng nạp tiền' },
+        { status: 401 }
+      );
+    }
+
+    const body = (await req.json()) as { topupCode?: unknown };
+    const topupCode = typeof body.topupCode === 'string' ? body.topupCode.trim() : '';
+
+    const topupSession = await getWalletTopupSession(topupCode);
+    if (!topupSession || topupSession.userId !== session.user.id) {
+      return NextResponse.json(
+        { message: 'Không tìm thấy phiên nạp tiền hợp lệ cho mã đã cung cấp' },
+        { status: 400 }
+      );
+    }
+
+    const result = await processWalletTopup(prisma, {
+      topupCode: topupSession.topupCode,
+      amount: topupSession.amount,
+      userId: topupSession.userId,
+      bankTransId: `SANDBOX_${Date.now()}`,
+      description: `Nạp tiền vào ví (${topupSession.topupCode}) [dev sandbox]`,
+    });
+
+    if (!result.success) {
+      return NextResponse.json({ message: result.error || 'Mô phỏng nạp tiền thất bại' }, { status: 400 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      newBalance: result.newBalance,
+      topupCode: result.topupCode,
+    });
+  } catch (error) {
+    console.error('[Wallet Topup Controller] Lỗi mô phỏng nạp tiền:', error);
+    return NextResponse.json({ message: 'Lỗi máy chủ khi mô phỏng nạp tiền' }, { status: 500 });
+  }
+}

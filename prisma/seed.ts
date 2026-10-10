@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import bcrypt from 'bcryptjs';
+import { hashPassword } from '../src/server/modules/auth/password-hash.service.ts';
 
 const prisma = new PrismaClient();
 
@@ -7,8 +7,9 @@ async function main() {
   console.log('🌱 Bắt đầu khởi tạo dữ liệu mẫu phong phú cho hệ thống...');
 
   // 1. TẠO TÀI KHOẢN NGƯỜI DÙNG (USERS)
-  const adminPassword = await bcrypt.hash('admin123', 12);
-  const userPassword = await bcrypt.hash('user123', 12);
+  const adminPassword = await hashPassword('admin123');
+  const staffPassword = await hashPassword('staff123');
+  const userPassword = await hashPassword('user123');
 
   const admin = await prisma.user.upsert({
     where: { email: 'admin@shop.com' },
@@ -20,6 +21,30 @@ async function main() {
       role: 'ADMIN',
       isVerified: true,
     },
+  });
+
+  const staff = await prisma.user.upsert({
+    where: { email: 'staff@shop.com' },
+    update: {},
+    create: {
+      email: 'staff@shop.com',
+      passwordHash: staffPassword,
+      name: 'Nguyễn Văn Vận Hành',
+      role: 'STAFF',
+      isVerified: true,
+    },
+  });
+
+  // Gán permissions vận hành mặc định cho tài khoản Staff mẫu
+  await prisma.staffPermission.deleteMany({ where: { userId: staff.id } });
+  await prisma.staffPermission.createMany({
+    data: [
+      { userId: staff.id, permission: 'orders', grantedBy: admin.id },
+      { userId: staff.id, permission: 'products', grantedBy: admin.id },
+      { userId: staff.id, permission: 'shipments', grantedBy: admin.id },
+      { userId: staff.id, permission: 'chat', grantedBy: admin.id },
+      { userId: staff.id, permission: 'reviews', grantedBy: admin.id },
+    ],
   });
 
   const customer1 = await prisma.user.upsert({

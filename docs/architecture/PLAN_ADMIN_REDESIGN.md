@@ -1,5 +1,9 @@
 # PLAN: KẾ HOẠCH TRIỂN KHAI THIẾT KẾ LẠI GIAO DIỆN ADMIN (OPTION 1)
 
+> ✅ **TRẠNG THÁI: HOÀN THÀNH** — Dashboard Bento Grid + Admin App Shell đã triển khai
+> (commit `507026b`, mở rộng thêm trên nhánh `feature/admin-saas-workspace`).
+> Tài liệu giữ nguyên làm hồ sơ thiết kế gốc.
+
 **Dự án:** `shop-qr-payment`  
 **Chỉ huy điều phối:** Tech Lead & System Architect  
 **Phân bổ nguồn lực:**

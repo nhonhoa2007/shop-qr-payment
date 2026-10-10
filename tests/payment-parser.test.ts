@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseOrderCodeFromDescription, getTransactionAmount, getTransactionId } from '../src/lib/payment-parser.ts';
+import { parseOrderCodeFromDescription, getTransactionAmount, getTransactionId } from '@server/modules/payment/vietqr-parser.service';
 
 describe('Payment Parser - parseOrderCodeFromDescription', () => {
   it('should extract DH + numbers order code', () => {

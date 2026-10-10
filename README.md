@@ -1,8 +1,8 @@
 # 🛒 Shop QR Payment
 
-Hệ thống bán hàng thương mại điện tử tích hợp thanh toán tự động qua **VietQR** & Webhook ngân hàng (Casso), xác thực đăng ký bằng mã OTP qua Email, quản lý tồn kho chống race condition và hỗ trợ chat trực tiếp Realtime qua Pusher.
+Hệ thống bán hàng thương mại điện tử tích hợp thanh toán tự động qua **VietQR** & Webhook ngân hàng (Casso), xác thực đăng ký bằng mã OTP qua Email, quản lý tồn kho chống race condition, **ví nội bộ** thanh toán 1-chạm & hoàn tiền tự động, vận chuyển qua **GHN**, đánh giá sản phẩm xác thực đơn hàng, chat trực tiếp Realtime qua Pusher và **phân quyền 3 cấp CUSTOMER / STAFF / ADMIN** (kèm Ma trận phân quyền nhân viên vận hành).
 
-Dự án được xây dựng bằng **Next.js 16 (App Router)**, **React 19**, **Prisma ORM**, **PostgreSQL** và **Tailwind CSS v4**.
+Dự án được xây dựng bằng **Next.js 16 (App Router)**, **React 19**, **Prisma ORM**, **PostgreSQL**, **Redis** và **Tailwind CSS v4**.
 
 ---
 
@@ -15,6 +15,7 @@ Dự án được xây dựng bằng **Next.js 16 (App Router)**, **React 19**, 
    - [Dành cho Linux / macOS](#-hướng-dẫn-trên-linux--macos)
 5. [Tài khoản thử nghiệm (Seed data)](#5-tài-khoản-thử-nghiệm-seed-data)
 6. [Chạy kiểm thử (Unit Tests)](#6-chạy-kiểm-thử-unit-tests)
+7. [Cấu hình Webhook & Cron Job](#7-cấu-hình-webhook--cron-job)
 8. [Tài liệu Phân tích & Thiết kế Hệ thống](#8-tài-liệu-phân-tích--thiết-kế-hệ-thống)
 
 ---
@@ -169,7 +170,21 @@ NEXT_PUBLIC_PUSHER_KEY="your-pusher-key"
 PUSHER_SECRET="your-pusher-secret"
 NEXT_PUBLIC_PUSHER_CLUSTER="ap1"
 
-# 7. Cron Secret (Bảo vệ endpoint tự động hủy đơn quá hạn)
+# 7. GHN (Vận chuyển: tính phí, tạo vận đơn, dataset địa giới)
+# Token dev dùng gateway dev mặc định; nếu dùng token production thì trỏ GHN_API_BASE_URL
+# về https://online-gateway.ghn.vn/shiip/public-api/
+GHN_TOKEN="your-ghn-token"
+GHN_API_BASE_URL="https://dev-online-gateway.ghn.vn/shiip/public-api/"
+GHN_WEBHOOK_TOKEN="your-ghn-webhook-token"
+GHN_SHOP_ID="your-ghn-shop-id"
+GHN_FROM_DISTRICT_ID=1442
+GHN_FROM_WARD_CODE="20101"
+
+# 8. Upstash Redis (Cache + Rate limit; có fallback in-memory khi dev offline)
+UPSTASH_REDIS_REST_URL="https://your-upstash-redis.upstash.io"
+UPSTASH_REDIS_REST_TOKEN="your-upstash-token"
+
+# 9. Cron Secret (Bảo vệ endpoint tự động hủy đơn quá hạn)
 CRON_SECRET="your-cron-secret-key"
 ```
 
@@ -255,50 +270,75 @@ CRON_SECRET="your-cron-secret-key"
 
 ---
 
+### ⚙️ Các lệnh tiện ích khác
+
+| Lệnh | Công dụng |
+| :--- | :--- |
+| `npm run seed:demo` | Nạp dữ liệu demo phong phú (idempotent) — xem mục 5 |
+| `npm run ghn:import` | Tải & biên soạn dataset địa giới hành chính đầy đủ 63 tỉnh của GHN vào `src/shared/constants/vietnam-locations.ts` |
+| `npm run docs:uml` | Sinh lại toàn bộ 21 sơ đồ UML + bảng xem trực tuyến vào `docs/uml/` |
+| `npm run db:backup` / `npm run db:restore` | Sao lưu / phục hồi database PostgreSQL |
+| `npm run lint` | Kiểm tra code style ESLint |
+
+---
+
 ## 5. Tài khoản thử nghiệm (Seed data)
 
 Sau khi chạy lệnh `npm run seed`, hệ thống đã có sẵn 2 tài khoản mẫu:
 
 | Loại tài khoản | Email | Mật khẩu | Quyền hạn |
 | :--- | :--- | :--- | :--- |
-| **Admin** | `admin@shop.com` | `admin123` | Quản lý sản phẩm, đơn hàng, chat khách hàng |
+| **Admin** | `admin@shop.com` | `admin123` | Toàn quyền quản trị: đơn hàng, sản phẩm, đối soát, coupon, phân quyền |
 | **Khách hàng** | `customer@shop.com` | `customer123` | Mua sắm, thanh toán, quản lý đơn cá nhân |
+
+### Dữ liệu demo phong phú (tùy chọn)
+
+Muốn có ngay một cửa hàng "trông như đã hoạt động lâu năm" để demo (đồ án, thuyết trình, chụp màn hình), chạy thêm:
+
+```bash
+npm run seed:demo
+```
+
+Script cộng dồn an toàn (idempotent — chạy nhiều lần không nhân đôi), nạp thêm: khách hàng ngẫu nhiên nhiều loại (có/khó có đơn), sản phẩm kèm biến thể màu/size, đơn hàng trải dài nhiều trạng thái + giao dịch đã thanh toán, đánh giá có trả lời, ví có lịch sử nạp/hoàn. Chạy `npm run ghn:import` trước nếu muốn dataset địa giới 63 tỉnh đầy đủ để demo tính năng định vị GPS.
 
 ---
 
 ## 6. Chạy kiểm thử (Unit Tests)
 
-Dự án sử dụng bộ kiểm thử độc lập viết bằng **Node Native Test Runner** (`node:test` & `node:assert`) chạy trực tiếp không cần cài đặt thêm runner cồng kềnh:
+Dự án sử dụng bộ kiểm thử độc lập viết bằng **Node Native Test Runner** (`node:test` & `node:assert`) chạy trực tiếp không cần cài đặt thêm runner, **không cần** database hay dịch vụ ngoài (service có mock client và fallback in-memory). Hiện có **45 test suites**:
 
 ```bash
 # Chạy toàn bộ test suites:
 npm run test
 
-# Hoặc chạy trực tiếp qua Node:
+# Chạy một suite cụ thể:
 node --experimental-strip-types --test tests/checkout.test.ts
-node --experimental-strip-types --test tests/order-validation.test.ts
-node --experimental-strip-types --test tests/payment-parser.test.ts
-node --experimental-strip-types --test tests/order-transitions.test.ts
-node --experimental-strip-types --test tests/otp.test.ts
+
+# Chạy theo tên test case:
+node --experimental-strip-types --test --test-name-pattern="refund" tests/wallet.test.ts
 ```
 
-Các nội dung được kiểm thử:
-- ✅ Tính tiền checkout: miễn phí ship trên 500k, phí tiêu chuẩn 30k.
-- ✅ Bắt lỗi đặt hàng: giỏ hàng rỗng, mã không tồn tại, vượt giới hạn 99 món, vượt số lượng tồn kho.
-- ✅ Parser mã đơn hàng: bóc tách chính xác mã `DHxxxxxx` từ nội dung chuyển khoản ngân hàng.
-- ✅ Quy tắc chuyển đổi trạng thái: chặn sửa đổi đơn hủy, chặn giao đơn chưa thanh toán.
-- ✅ Logic OTP: chuẩn hóa email, sinh chuỗi ngẫu nhiên 6 chữ số.
+Các nhóm nội dung được kiểm thử:
+- ✅ Checkout & validation: miễn phí ship trên 500k, phí tiêu chuẩn 30k, chặn giỏ rỗng / vượt tồn kho / vượt 99 món.
+- ✅ Parser & webhook: bóc tách mã `DHxxxxxx` / mã nạp ví `NAP…` khỏi nội dung chuyển khoản, idempotency `bankTransId`, chống trả thiếu tiền.
+- ✅ Đơn hàng: máy trạng thái FSM (chặn ship khi chưa trả tiền, chặn sửa đơn hủy), hủy đơn hoàn kho + thu hồi coupon.
+- ✅ Ví: thanh toán bằng ví CAS trừ tiền, nạp tiền idempotent, hoàn tiền chống trùng lặp.
+- ✅ Auth & phân quyền: OTP, quên mật khẩu, RBAC CUSTOMER/STAFF/ADMIN, guard từng phân hệ.
+- ✅ Hạ tầng: Redis fallback, rate-limit, upload ảnh, GHN, cron auth, schema Prisma.
 
 ---
 
 ## 7. Cấu hình Webhook & Cron Job
 
-### 1. Webhook Casso / Ngân hàng
-- URL nhận Webhook: `https://your-domain.com/api/webhooks/payment`
-- Header xác thực: `secure-token: <CASSO_WEBHOOK_SECRET>`
-- Tính năng: Tự động khớp mã đơn hàng từ nội dung chuyển khoản, kiểm tra trùng lặp (`Idempotency`), cập nhật trạng thái đơn thành `PAID` và thông báo tức thì qua Pusher.
+### 1. Webhook Thanh toán (Casso)
+- URL nhận Webhook ngân hàng: `https://your-domain.com/api/webhooks/payment` (header xác thực: `secure-token: <CASSO_WEBHOOK_SECRET>`)
+- Tính năng: Tự động khớp mã đơn hàng (`DH…`) và mã nạp ví (`NAP…`) từ nội dung chuyển khoản, kiểm tra trùng lặp (`Idempotency`), cập nhật trạng thái đơn thành `PAID` / cộng số dư ví và thông báo tức thì qua Pusher.
 
-### 2. Tự động hủy đơn quá hạn (Order Expiry Cron)
+### 2. Webhook Vận đơn GHN
+- URL: `https://your-domain.com/api/webhooks/ghn` (header xác thực: `token: <GHN_WEBHOOK_TOKEN>`)
+- Tính năng: Đồng bộ lộ trình vận đơn (`delivering → SHIPPING`, `delivered → COMPLETED` — COD thì tự đánh dấu PAID, `cancel/return → CANCELLED` + hoàn kho), nối shippingLog vào timeline đơn hàng.
+
+### 3. Tự động hủy đơn quá hạn (Order Expiry Cron)
 - Đơn hàng sau **15 phút** không thanh toán sẽ hết hạn và hoàn lại tồn kho.
 - Endpoint thực thi:
   ```http
@@ -307,12 +347,18 @@ Các nội dung được kiểm thử:
   Header: Authorization: Bearer <CRON_SECRET>
   ```
 - **Vercel Hobby Tier:** File `vercel.json` đặt lịch chạy 1 lần/ngày (`0 0 * * *`) để tuân thủ chính sách Vercel Free.
-- **Giải pháp 5 phút miễn phí:** Xem chi tiết 3 phương án chạy định kỳ 5 phút/lần (cron-job.org, GitHub Actions, Upstash QStash) tại 👉 **[CRON_SETUP.md](./CRON_SETUP.md)**.
+- **Giải pháp 5 phút miễn phí:** Xem chi tiết 3 phương án chạy định kỳ 5 phút/lần (cron-job.org, GitHub Actions, Upstash QStash) tại 👉 **[docs/architecture/CRON_SETUP.md](./docs/architecture/CRON_SETUP.md)**.
 
 
 ---
 
 ## 8. Tài liệu Phân tích & Thiết kế Hệ thống
 
-Xem chi tiết kiến trúc tổng thể, luồng Sequence diagram, ERD cơ sở dữ liệu và đặc tả 6 phân hệ mở rộng trong tương lai tại file:
-👉 **[SYSTEM_DESIGN.md](./SYSTEM_DESIGN.md)**
+Bộ tài liệu đầy đủ được đánh chỉ mục tại 👉 **[docs/README.md](./docs/README.md)**, gồm:
+
+| Tài liệu | Nội dung |
+| :--- | :--- |
+| **[SYSTEM_DESIGN.md](./SYSTEM_DESIGN.md)** | Phân tích & thiết kế hệ thống: yêu cầu, kiến trúc, ERD, API, đặc tả các phân hệ mở rộng (đã triển khai xong) |
+| **[docs/HE-THONG-CHUC-NANG.md](./docs/HE-THONG-CHUC-NANG.md)** | Cách hoạt động của 14+ luồng chức năng, đối chiếu trực tiếp với mã nguồn |
+| **[docs/uml/README.md](./docs/uml/README.md)** | Bộ 21 sơ đồ UML kiến trúc (use case, class, sequence, activity, state machine, deployment…) + [bảng xem trực tuyến](./docs/uml/index.html) |
+| **[docs/architecture/](./docs/architecture/)** | Bản thiết kế chi tiết từng đợt refactor/redesign + hướng dẫn cấu hình Cron |

@@ -1,16 +1,12 @@
 import { AuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import GoogleProvider from 'next-auth/providers/google';
-import { prisma } from '@server/database/prisma';
-import { handleGoogleSignIn } from './auth-google.service';
-import { authorizeCredentialsLogin } from '@server/modules/admin/admin-rbac.service';
+import { prisma } from '../../database/prisma.ts';
+import { authorizeCredentialsLogin } from '../admin/admin-rbac.service.ts';
+import { getStaffPermissions } from '../admin/permission.service.ts';
+import type { StaffPermission } from '../../../shared/constants/permissions.ts';
 
 export const authOptions: AuthOptions = {
   providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || '',
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
-    }),
     CredentialsProvider({
       name: 'credentials',
       credentials: {
@@ -28,18 +24,16 @@ export const authOptions: AuthOptions = {
     }),
   ],
   callbacks: {
-    async signIn({ user, account }) {
-      return handleGoogleSignIn({
-        user,
-        account,
-        prismaUser: prisma.user,
-      });
-    },
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
         token.role = user.role;
         token.isBlocked = user.isBlocked;
+      }
+      if (token.role === 'STAFF' && token.id) {
+        token.permissions = await getStaffPermissions(token.id as string);
+      } else {
+        token.permissions = [];
       }
       return token;
     },
@@ -48,6 +42,7 @@ export const authOptions: AuthOptions = {
         session.user.id = token.id as string;
         session.user.role = token.role as string;
         session.user.isBlocked = token.isBlocked as boolean;
+        session.user.permissions = (token.permissions as StaffPermission[]) || [];
       }
       return session;
     },

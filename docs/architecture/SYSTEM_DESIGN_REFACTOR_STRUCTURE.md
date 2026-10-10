@@ -1,5 +1,7 @@
 # SYSTEM DESIGN: CHUẨN HÓA CẤU TRÚC THƯ MỤC DỰ ÁN (PROJECT STRUCTURE STANDARDIZATION)
 
+> ✅ **Đã triển khai** — đặc tả này mô tả hiện trạng kiến trúc `@client/*`, `@server/*`, `@shared/*` (commits `5feeaf9`, `58f81b3`).
+
 **Dự án:** `shop-qr-payment`  
 **Chỉ huy thiết kế:** Tech Lead & System Architect  
 **Mục tiêu:** Xóa bỏ Technical Debt (Junk Drawer Antipattern trong `src/lib/`), tách biệt tường minh các phân khu Client / Server / Shared, thiết lập Path Aliases và đảm bảo 100% tests & build pass.

@@ -35,7 +35,7 @@ flowchart TB
 
     %% External SaaS Ecosystem
     subgraph ExternalSaaSTier ["🌐 Tầng Dịch vụ Đám mây Chuyên biệt (Third-party Cloud Ecosystem)"]
-        PayOSServer["🏦 Cổng PayOS / NAPAS 247 Switch (VietQR)"]
+        CassoServer["🏦 Casso Webhook Engine (Giám sát biến động số dư)"]
         GHNServer["🚚 Giao Hàng Nhanh API (Logistics OpenAPI)"]
         PusherServer["📡 Pusher Cloud Channels (WebSocket Gateway)"]
         ResendServer["✉️ Resend Cloud API (OTP & Password Reset Emails)"]
@@ -45,7 +45,7 @@ flowchart TB
     %% Connections
     DesktopBrowser -->|HTTPS / WSS| CloudflareEdge
     MobileBrowser -->|HTTPS / WSS| CloudflareEdge
-    BankAppDevice -->|Quét VietQR chuyển tiền NAPAS| PayOSServer
+    BankAppDevice -->|Quét VietQR chuyển khoản NAPAS| CassoServer
 
     CloudflareEdge --> NodeRuntime
     NodeRuntime -->|Prisma TCP / SSL| PostgresInstance
@@ -54,8 +54,7 @@ flowchart TB
     PusherServer -.->|WSS Push Notifications| DesktopBrowser
     PusherServer -.->|WSS Push Notifications| MobileBrowser
 
-    NodeRuntime -->|Create Payment Link| PayOSServer
-    PayOSServer -->|Webhook POST with HMAC| NodeRuntime
+    CassoServer -->|Webhook POST secure-token| NodeRuntime
 
     NodeRuntime -->|Create Order & Calc Fee| GHNServer
     GHNServer -->|Webhook Tracking Update| NodeRuntime

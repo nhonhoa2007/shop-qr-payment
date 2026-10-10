@@ -3,7 +3,6 @@ import type { Prisma, PrismaClient } from '@prisma/client';
 import { prisma } from '../../database/prisma.ts';
 import { redis } from '../../infrastructure/redis.ts';
 import { generateTopupCode } from '../../../shared/utils/index.ts';
-import { parsePayOSOrderCode, createPayOSPaymentLink } from '../payment/payos.service.ts';
 import { getBankInfo } from '../payment/vietqr.service.ts';
 import { getOrCreateWallet } from './wallet.service.ts';
 import type { WalletTopupSession, WalletTopupResponse } from '../../../shared/types/index.ts';
@@ -29,12 +28,10 @@ export interface WalletTopupProcessResult {
  */
 export async function saveWalletTopupSession(session: WalletTopupSession): Promise<void> {
   inMemoryTopupStore.set(session.topupCode, session);
-  inMemoryTopupStore.set(String(session.orderCode), session);
 
   try {
     const ttlSeconds = 86400; // 24 hours
     await redis.set(`wallet:topup:${session.topupCode}`, session, { ex: ttlSeconds });
-    await redis.set(`wallet:topup:orderCode:${session.orderCode}`, session, { ex: ttlSeconds });
     if (session.idempotencyToken) {
       await redis.set(`wallet:topup:idempotency:${session.idempotencyToken}`, session, { ex: ttlSeconds });
     }
@@ -44,7 +41,7 @@ export async function saveWalletTopupSession(session: WalletTopupSession): Promi
 }
 
 /**
- * Truy vấn phiên nạp tiền ví theo topupCode (NAPxxxxx) hoặc orderCode (số PayOS)
+ * Truy vấn phiên nạp tiền ví theo topupCode (NAPxxxxx)
  */
 export async function getWalletTopupSession(
   identifier: string | number
@@ -58,13 +55,10 @@ export async function getWalletTopupSession(
 
   // 2. Kiểm tra Redis
   try {
-    const session =
-      (await redis.get<WalletTopupSession>(`wallet:topup:${key}`)) ||
-      (await redis.get<WalletTopupSession>(`wallet:topup:orderCode:${key}`));
+    const session = await redis.get<WalletTopupSession>(`wallet:topup:${key}`);
     if (session) {
       // Sync lại in-memory store
       inMemoryTopupStore.set(session.topupCode, session);
-      inMemoryTopupStore.set(String(session.orderCode), session);
       return session;
     }
   } catch (err) {
@@ -125,12 +119,10 @@ export async function createWalletTopupSession(params: {
   }
 
   const topupCode = params.topupCode || generateTopupCode();
-  const orderCode = parsePayOSOrderCode(topupCode);
   const idempotencyToken = params.idempotencyToken || crypto.randomUUID();
 
   const session: WalletTopupSession = {
     topupCode,
-    orderCode,
     userId: params.userId,
     amount,
     status: 'PENDING',
@@ -143,13 +135,12 @@ export async function createWalletTopupSession(params: {
 }
 
 /**
- * Tạo liên kết thanh toán VietQR PayOS cho giao dịch nạp tiền ví
+ * Tạo phiên nạp tiền ví kèm mã VietQR tĩnh (img.vietqr.io) — nội dung chuyển khoản
+ * chứa mã NAPxxxxx để Casso webhook tự khớp tiền và cộng ví qua processWalletTopup.
  */
 export async function createWalletTopupPaymentLink(params: {
   userId: string;
   amount: number;
-  host?: string;
-  protocol?: string;
   idempotencyToken?: string;
 }): Promise<{
   success: boolean;
@@ -162,59 +153,26 @@ export async function createWalletTopupPaymentLink(params: {
     idempotencyToken: params.idempotencyToken,
   });
 
-  const host = params.host || 'localhost:3000';
-  const protocol = params.protocol || 'http';
-  const baseUrl = `${protocol}://${host}`;
-
-  const returnUrl = `${baseUrl}/wallet?topup=success&code=${session.topupCode}`;
-  const cancelUrl = `${baseUrl}/wallet?topup=cancelled&code=${session.topupCode}`;
-
-  const payOSResult = await createPayOSPaymentLink({
-    orderCode: session.orderCode,
-    amount: session.amount,
-    description: session.topupCode, // Tối đa 25 ký tự theo quy định PayOS
-    returnUrl,
-    cancelUrl,
-    items: [
-      {
-        name: `Nạp ví ShopQR (${session.topupCode})`,
-        quantity: 1,
-        price: session.amount,
-      },
-    ],
-  });
-
-  if (!payOSResult.success) {
-    return {
-      success: false,
-      error: payOSResult.error || 'Cổng thanh toán PayOS tạm thời không khả dụng',
-    };
-  }
-
   const bankInfo = getBankInfo();
   const bankAccount = bankInfo.accountNo || '970422123456789';
   const bankName = bankInfo.displayName || 'MB Bank';
   const bankId = bankInfo.bankId || 'mbbank';
   const accountName = bankInfo.accountName || 'SHOP QR PAYMENT';
 
-  const defaultVietQrUrl = `https://img.vietqr.io/image/${bankId}-${bankAccount}-compact2.png?amount=${session.amount}&addInfo=${encodeURIComponent(session.topupCode)}&accountName=${encodeURIComponent(accountName)}`;
+  const qrUrl = `https://img.vietqr.io/image/${bankId}-${bankAccount}-compact2.png?amount=${session.amount}&addInfo=${encodeURIComponent(session.topupCode)}&accountName=${encodeURIComponent(accountName)}`;
 
   return {
     success: true,
     data: {
       topupCode: session.topupCode,
-      orderCode: session.orderCode,
       amount: session.amount,
-      checkoutUrl: payOSResult.checkoutUrl,
-      qrCode: payOSResult.qrCode,
-      qrUrl: payOSResult.qrCode && payOSResult.qrCode.startsWith('http') ? payOSResult.qrCode : defaultVietQrUrl,
+      qrUrl,
       bankInfo: {
         bankName,
         bankId,
         accountNo: bankAccount,
         accountName,
       },
-      paymentLinkId: payOSResult.paymentLinkId,
       idempotencyToken: session.idempotencyToken,
     },
   };

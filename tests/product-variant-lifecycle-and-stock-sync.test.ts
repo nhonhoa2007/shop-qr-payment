@@ -1,7 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  normalizeText,
+import { normalizeText,
   normalizeNonNegativeInt,
   validateVariantInput,
   validateVariantsArray,
@@ -11,8 +10,7 @@ import {
   updateProductWithVariants,
   deleteProductOrVariant,
   type TransactionClient,
-  type ValidatedVariantInput,
-} from '../src/lib/product.ts';
+  type ValidatedVariantInput, } from '@server/modules/products/product.service';
 
 describe('Product Variant - Input Validation & Boundary Testing (Pillar 2)', () => {
   it('should normalize strings: trim whitespaces and return null for empty/whitespace-only/non-strings', () => {

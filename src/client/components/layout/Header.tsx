@@ -7,7 +7,7 @@ import { useCartStore } from '@client/stores/cart-store';
 import { useWishlistStore } from '@client/stores/wishlist-store';
 import { NotificationBell } from './NotificationBell';
 import { useNotifications } from '@client/hooks/useNotifications';
-import { useHydrated } from '@/lib/hydration';
+import { useHydrated } from '@client/hooks/useHydrated';
 import { useRouter, usePathname } from 'next/navigation';
 import {
   ShoppingCart,

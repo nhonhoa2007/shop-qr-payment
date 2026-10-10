@@ -52,3 +52,20 @@ next-env.d.ts
 # IDE tools
 .zcode/
 .zcodeignore
+
+# Tài liệu cá nhân & file tạm ngoài thư mục repo
+.~lock.*#
+*.tmp
+*.dtmp
+.$*
+page_out-*.jpg
+de_cuong_do_an_*
+improve.md
+res.md
+plan-30d.md
+
+# Artifact của công cụ workflow (superpowers SDD)
+.superpowers/
+docs/superpowers/*
+!docs/superpowers/specs/
+!docs/superpowers/plans/

@@ -15,7 +15,8 @@ import {
   createProductWithVariants,
   updateProductWithVariants,
   deleteProductOrVariant,
-} from './product.service';
+} from './product.service.ts';
+import { resolveOperatorAccess } from '@server/modules/admin/guards';
 
 interface ProductBody {
   id?: unknown;
@@ -116,7 +117,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user || session.user.role !== 'ADMIN') {
+    if (!session?.user || !resolveOperatorAccess(session.user, 'products')) {
       return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 403 });
     }
 
@@ -172,7 +173,7 @@ export async function POST(req: Request) {
 export async function PUT(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user || session.user.role !== 'ADMIN') {
+    if (!session?.user || !resolveOperatorAccess(session.user, 'products')) {
       return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 403 });
     }
 

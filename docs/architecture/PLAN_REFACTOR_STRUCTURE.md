@@ -1,5 +1,9 @@
 # PLAN: KẾ HOẠCH TỐI ƯU HÓA CẤU TRÚC THƯ MỤC DỰ ÁN
 
+> ✅ **TRẠNG THÁI: HOÀN THÀNH** — Refactor Layered Clean Architecture đã chốt ở commits
+> `5feeaf9` (tái cấu trúc @client/@server/@shared + shims `src/lib/`) và `58f81b3`
+> (chuẩn hóa direct imports). Các checkbox bên dưới là trạng thái lúc lập kế hoạch, không phản ánh hiện trạng.
+
 **Dự án:** `shop-qr-payment`  
 **Chỉ huy điều phối:** Tech Lead & System Architect  
 

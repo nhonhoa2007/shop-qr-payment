@@ -3,7 +3,6 @@ export { CheckoutView } from './CheckoutView';
 export { WalletView } from './WalletView';
 export { WishlistView } from './WishlistView';
 export { PaymentView } from './PaymentView';
-export { PayOSCheckoutView } from './PayOSCheckoutView';
 export { OrdersView } from './OrdersView';
 export { NotificationsView } from './NotificationsView';
 export { ChatView } from './ChatView';

@@ -1,11 +1,9 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
-import {
-  validateReviewSubmissionInput,
+import { validateReviewSubmissionInput,
   resolveReviewEligibility,
   type OrderCandidate,
-  type ReviewCandidate,
-} from '../src/lib/review-submission.ts';
+  type ReviewCandidate, } from '@server/modules/reviews/review.service';
 
 describe('Review Submission DTO Validation', () => {
   it('should reject non-object or null input', () => {

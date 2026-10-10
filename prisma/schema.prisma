@@ -26,6 +26,8 @@ model User {
   wishlists     Wishlist[]
   couponUsages  CouponUsage[]
   wallet        UserWallet?
+  staffPermissions   StaffPermission[]     @relation("UserPermissions")
+  grantedPermissions StaffPermission[]     @relation("GrantedPermissions")
   createdAt     DateTime              @default(now())
   updatedAt     DateTime              @updatedAt
 }
@@ -34,6 +36,20 @@ enum Role {
   CUSTOMER
   STAFF
   ADMIN
+}
+
+model StaffPermission {
+  id         String   @id @default(cuid())
+  userId     String
+  permission String
+  grantedBy  String
+  grantedAt  DateTime @default(now())
+
+  user       User     @relation("UserPermissions", fields: [userId], references: [id], onDelete: Cascade)
+  granter    User     @relation("GrantedPermissions", fields: [grantedBy], references: [id])
+
+  @@unique([userId, permission])
+  @@index([userId])
 }
 
 model OtpCode {

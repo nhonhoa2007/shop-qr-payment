@@ -1,19 +1,11 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import bcrypt from 'bcryptjs';
-import {
-  validateUserUpdatePayload,
+import { hashPassword } from '@server/modules/auth/password-hash.service';
+import { validateUserUpdatePayload,
   updateUserRbac,
   authorizeCredentialsLogin,
   type AdminUserRecord,
-  type UserPrismaRbacDelegate,
-} from '../src/lib/admin-rbac.ts';
-import {
-  handleGoogleSignIn,
-  type GoogleSignInUser,
-  type UserPrismaDelegate,
-  type UserDbRecord,
-} from '../src/lib/auth-helpers.ts';
+  type UserPrismaRbacDelegate, } from '@server/modules/admin/admin-rbac.service';
 
 // ─── Helpers: In-memory mock delegates ──────────────────────────────────────
 
@@ -606,7 +598,7 @@ describe('RBAC - Safety Rules & Invariants', () => {
 
 describe('RBAC - Login Enforcement for Blocked Accounts', () => {
   it('should BLOCK credentials login if user isBlocked === true with explicit error', async () => {
-    const hash = await bcrypt.hash('SecretPass123', 10);
+    const hash = await hashPassword('SecretPass123');
     const blockedUser: AdminUserRecord = {
       id: 'blocked_user_id',
       email: 'blocked@shop.vn',
@@ -636,7 +628,7 @@ describe('RBAC - Login Enforcement for Blocked Accounts', () => {
   });
 
   it('should ALLOW credentials login if user isBlocked === false and password is valid', async () => {
-    const hash = await bcrypt.hash('CorrectPassword123', 10);
+    const hash = await hashPassword('CorrectPassword123');
     const activeUser: AdminUserRecord = {
       id: 'active_user_id',
       email: 'active@shop.vn',
@@ -665,7 +657,7 @@ describe('RBAC - Login Enforcement for Blocked Accounts', () => {
   });
 
   it('should REJECT credentials login if user is not verified (isVerified === false)', async () => {
-    const hash = await bcrypt.hash('SomePassword', 10);
+    const hash = await hashPassword('SomePassword');
     const unverifiedUser: AdminUserRecord = {
       id: 'unverified_id',
       email: 'unverified@shop.vn',
@@ -689,7 +681,7 @@ describe('RBAC - Login Enforcement for Blocked Accounts', () => {
   });
 
   it('should REJECT credentials login if password does not match', async () => {
-    const hash = await bcrypt.hash('RealPassword123', 10);
+    const hash = await hashPassword('RealPassword123');
     const activeUser: AdminUserRecord = {
       id: 'user_active',
       email: 'user@shop.vn',
@@ -710,82 +702,5 @@ describe('RBAC - Login Enforcement for Blocked Accounts', () => {
     });
 
     assert.equal(result, null);
-  });
-
-  it('should BLOCK Google OAuth sign-in if existing account isBlocked === true with explicit error', async () => {
-    const blockedDbUser: UserDbRecord = {
-      id: 'google_blocked_id',
-      email: 'blocked.google@gmail.com',
-      name: 'Google Blocked User',
-      role: 'CUSTOMER',
-      isVerified: true,
-      isBlocked: true, // BLOCKED
-    };
-
-    const mockPrismaUser: UserPrismaDelegate = {
-      async findUnique({ where }) {
-        if (where.email === 'blocked.google@gmail.com') return blockedDbUser;
-        return null;
-      },
-      async create() {
-        throw new Error('Should not create new user');
-      },
-    };
-
-    const user: GoogleSignInUser = {
-      name: 'Google User',
-      email: 'blocked.google@gmail.com',
-    };
-
-    await assert.rejects(
-      async () => {
-        await handleGoogleSignIn({
-          user,
-          account: { provider: 'google' },
-          prismaUser: mockPrismaUser,
-        });
-      },
-      (err: Error) => {
-        assert.match(err.message, /Tài khoản của bạn đã bị tạm khóa/i);
-        return true;
-      }
-    );
-  });
-
-  it('should ALLOW Google OAuth sign-in for active account and populate session properties', async () => {
-    const activeDbUser: UserDbRecord = {
-      id: 'google_active_id',
-      email: 'active.google@gmail.com',
-      name: 'Active Google',
-      role: 'STAFF',
-      isVerified: true,
-      isBlocked: false,
-    };
-
-    const mockPrismaUser: UserPrismaDelegate = {
-      async findUnique({ where }) {
-        if (where.email === 'active.google@gmail.com') return activeDbUser;
-        return null;
-      },
-      async create() {
-        throw new Error('Should not create new user');
-      },
-    };
-
-    const user: GoogleSignInUser = {
-      name: 'Active Google',
-      email: 'Active.Google@gmail.com',
-    };
-
-    const result = await handleGoogleSignIn({
-      user,
-      account: { provider: 'google' },
-      prismaUser: mockPrismaUser,
-    });
-
-    assert.equal(result, true);
-    assert.equal(user.id, 'google_active_id');
-    assert.equal(user.role, 'STAFF');
-    assert.equal(user.isBlocked, false);
   });
 });

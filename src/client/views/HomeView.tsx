@@ -46,7 +46,7 @@ export function HomeView({
   currentSort,
 }: HomeViewProps) {
   const router = useRouter();
-  const shownCount = (page - 1) * pageSize + products.length;
+  const shownCount = Math.min((page - 1) * pageSize + products.length, total);
   const hasMore = shownCount < total;
 
   const handleSortChange = (sort: HomeCatalogSort) => {

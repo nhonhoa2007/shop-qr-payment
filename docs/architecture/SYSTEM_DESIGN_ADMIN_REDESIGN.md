@@ -1,5 +1,7 @@
 # SYSTEM DESIGN: THIẾT KẾ LẠI GIAO DIỆN ADMIN (OPTION 1: MODERN SAAS WORKSPACE)
 
+> ✅ **Đã triển khai** — đặc tả này mô tả hiện trạng dashboard `/admin` (Bento Grid, AdminSidebar/AdminTopbar).
+
 **Dự án:** `shop-qr-payment`  
 **Phiên bản thiết kế:** v1.0.0  
 **Tác giả:** Tech Lead & System Architect  

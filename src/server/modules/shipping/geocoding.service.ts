@@ -15,14 +15,28 @@ export interface ReverseGeocodeResult {
 
 /**
  * Chuẩn hóa tên đơn vị hành chính để so khớp (bỏ dấu, chuyển chữ thường, loại bỏ tiền tố hành chính)
+ *
+ * Lưu ý: chỉ strip tiền tố ở ĐẦU chuỗi ("Tỉnh Hà Tĩnh" → "hatinh") — nếu strip mọi
+ * từ "tinh/quan/xa" thì "Hà Tĩnh" còn "ha" và false-positive với mọi tên chứa "ha".
  */
 function normalizeLocationName(name: string): string {
   if (!name) return '';
   return removeVietnameseTones(name)
     .toLowerCase()
-    .replace(/\b(thanh pho|tinh|tp\.|tp|quan|huyen|thi xa|phuong|xa|thi tran|q\.|p\.)\b/g, '')
+    .replace(/^(thanh pho|tinh|thi xa|quan|huyen|phuong|xa|thi tran|tp|q|p)\b\.?\s*/, '')
     .replace(/[^a-z0-9]/g, '')
     .trim();
+}
+
+/**
+ * So khớp gần đúng an toàn: contains chỉ khi cả hai phía đủ dài (≥4 ký tự),
+ * tránh false positive của tên rút gọn (vd. 'ha' ⊂ 'nguhanhson').
+ */
+function looselyMatches(a: string, b: string): boolean {
+  if (!a || !b) return false;
+  if (a === b) return true;
+  if (a.length < 4 || b.length < 4) return false;
+  return a.includes(b) || b.includes(a);
 }
 
 /**
@@ -89,7 +103,7 @@ function findMatchingProvince(rawProvince: string, rawCity: string, rawState: st
 
     for (const prov of VIETNAM_LOCATIONS) {
       const provNorm = normalizeLocationName(prov.name);
-      if (norm.includes(provNorm) || provNorm.includes(norm)) {
+      if (looselyMatches(norm, provNorm)) {
         return prov;
       }
     }
@@ -122,14 +136,14 @@ function findMatchingDistrict(
     }
   }
 
-  // Bước 2: So khớp gần đúng (Includes)
+  // Bước 2: So khớp gần đúng (looselyMatches — contains với ngưỡng độ dài an toàn)
   for (const cand of candidates) {
     const norm = normalizeLocationName(cand);
     if (!norm) continue;
 
     for (const dist of province.districts) {
       const distNorm = normalizeLocationName(dist.name);
-      if (norm.includes(distNorm) || distNorm.includes(norm)) {
+      if (looselyMatches(norm, distNorm)) {
         return dist;
       }
     }
@@ -162,14 +176,14 @@ function findMatchingWard(
     }
   }
 
-  // Bước 2: So khớp gần đúng (Includes)
+  // Bước 2: So khớp gần đúng (looselyMatches — contains với ngưỡng độ dài an toàn)
   for (const cand of candidates) {
     const norm = normalizeLocationName(cand);
     if (!norm) continue;
 
     for (const ward of district.wards) {
       const wardNorm = normalizeLocationName(ward.name);
-      if (norm.includes(wardNorm) || wardNorm.includes(norm)) {
+      if (looselyMatches(norm, wardNorm)) {
         return ward;
       }
     }
@@ -314,15 +328,54 @@ export async function reverseGeocodeCoordinates(
       };
     }
 
-    // So khớp Quận / Huyện
-    const matchedDistrict =
-      findMatchingDistrict(matchedProvince, rawDistrict, rawCounty, rawCityDistrict) ||
-      matchedProvince.districts[0];
+    // So khớp Quận / Huyện trực tiếp từ candidates
+    let matchedDistrict = findMatchingDistrict(
+      matchedProvince,
+      rawDistrict,
+      rawCounty,
+      rawCityDistrict
+    );
+    let matchedWard: Ward | null = null;
 
-    // So khớp Phường / Xã
-    const matchedWard =
-      findMatchingWard(matchedDistrict, rawWard, rawSuburb, rawQuarter) ||
-      matchedDistrict.wards[0];
+    // Suy luận ngược từ Phường/Xã: dữ liệu admin cấp thấp của BDC cho Việt Nam
+    // thường là TÊN PHƯỜNG (vd. "Hòa Cường") chứ không phải quận — tra phường
+    // trước rồi lấy quận cha, chính xác hơn nhiều so với khớp quận trực tiếp.
+    if (!matchedDistrict) {
+      const wardCandidates = [rawWard, rawSuburb, rawQuarter, rawDistrict, rawCounty, rawCityDistrict];
+      for (const cand of wardCandidates) {
+        const norm = normalizeLocationName(cand);
+        if (!norm) continue;
+        for (const dist of matchedProvince.districts) {
+          const wardHit = dist.wards.find((w) =>
+            looselyMatches(norm, normalizeLocationName(w.name))
+          );
+          if (wardHit) {
+            matchedDistrict = dist;
+            matchedWard = wardHit;
+            break;
+          }
+        }
+        if (matchedDistrict) break;
+      }
+    }
+
+    // Không khớp được quận nào → trả isMatched:false trung thực (route sẽ tự
+    // fallback qua IP). Tuyệt đối không đoán mù districts[0] — với dataset đầy
+    // đủ, phần tử đầu có thể là huyện đảo cách cả trăm km (vd. Hoàng Sa).
+    if (!matchedDistrict) {
+      return {
+        ...defaultFallback,
+        specificAddress: specificAddress || fullDisplayName,
+        fullDisplayName,
+        isMatched: false,
+      };
+    }
+
+    // So khớp Phường / Xã trong quận (nếu chưa suy luận được từ bước trên)
+    if (!matchedWard) {
+      matchedWard = findMatchingWard(matchedDistrict, rawWard, rawSuburb, rawQuarter);
+    }
+    matchedWard = matchedWard || matchedDistrict.wards[0] || null;
 
     const compositeDisplay =
       fullDisplayName ||

@@ -1,0 +1,23 @@
+sequenceDiagram
+    autonumber
+    actor U as 👤 Người gọi (khách hoặc admin)
+    participant API as ⚙️ PATCH /api/orders/[id]
+    participant FSM as 🚦 orders.fsm
+    participant DB as 🗄️ prisma.$transaction
+    participant W as 💰 refundOrderToWallet
+
+    U->>API: Yêu cầu hủy đơn
+    API->>FSM: validateOrderTransition + canCustomerCancelOrder
+    Note over FSM: Khách: chỉ đơn MÌNH, chỉ khi PENDING<br/>Admin: mọi chuyển hợp lệ · CANCELLED là trạng thái chốt
+    alt Đơn đã PAID
+        API->>DB: Bắt đầu transaction hủy
+        DB->>W: CAS updateMany WHERE paymentStatus = PAID<br/>SET REFUNDED + CANCELLED
+        Note over W: count === 1 mới được hoàn tiền<br/>→ hai lời gọi song song chỉ một thắng
+        W->>DB: releaseOrderStock (variant + sản phẩm gốc)
+        W->>DB: balance.increment(100% tổng đơn) + WalletTransaction REFUND
+        Note over DB: Guest chưa đăng nhập → isGuest true,<br/>xử lý hoàn ngoài hệ thống
+    else Chưa PAID
+        API->>DB: releaseOrderStock (hoàn variant + gốc)
+        API->>DB: coupon.usedCount giảm + xóa couponUsage của đơn
+    end
+    API-->>U: Thông báo hủy + hoàn tiền · Pusher order-status-changed / wallet-updated

@@ -1,0 +1,115 @@
+@startuml
+left to right direction
+skinparam dpi 150
+skinparam nodesep 12
+skinparam ranksep 40
+skinparam packageStyle rectangle
+skinparam usecase {
+  BackgroundColor White
+  BorderColor Black
+  ArrowColor Black
+}
+skinparam actor {
+  BackgroundColor White
+  BorderColor Black
+}
+
+' ===== Actor người (hình người que) =====
+actor "Khách hàng" as Customer
+
+' ===== System boundary chứa 2 phân hệ =====
+rectangle "Hệ thống shop-qr-payment (shop.)" {
+  rectangle "Phân hệ Mua sắm\n(Storefront)" as Storefront {
+    usecase "Tìm kiếm & xem\nsản phẩm" as UC1
+    usecase "Quản lý giỏ hàng" as UC2
+    usecase "Đặt hàng" as UC3
+    usecase "Thanh toán đơn\nbằng Ví Shop" as UC4
+    usecase "Nạp tiền vào Ví" as UC5
+    usecase "Hủy đơn hàng" as UC6
+    usecase "Đánh giá sản phẩm" as UC7
+    usecase "Quản lý danh sách\nyêu thích" as UC8
+    usecase "Chat tư vấn\ntrực tuyến" as UC9
+    usecase "Đăng ký tài khoản" as UC10
+    usecase "Đặt lại mật khẩu" as UC11
+    usecase "Xác thực OTP" as UI1
+    usecase "Kiểm tra & giữ tồn kho" as UI2
+    usecase "Tạo mã VietQR\nthanh toán" as UI3
+    usecase "Tính phí vận chuyển" as UI4
+    usecase "Hoàn tiền vào Ví" as UI5
+    usecase "Áp dụng mã giảm giá" as UE1
+    usecase "Tự động điền\ndịa chỉ GPS" as UE2
+  }
+  rectangle "Phân hệ Quản trị\n& Tự động hóa" as AdminBox {
+    usecase "Quản lý đơn hàng\n& đẩy vận đơn" as UC12
+    usecase "Quản lý sản phẩm\n& tồn kho" as UC13
+    usecase "Giám sát doanh thu\nrealtime" as UC14
+    usecase "Kiểm duyệt đánh giá" as UC15
+    usecase "Phân quyền RBAC\n& khóa tài khoản" as UC16
+    usecase "Tiếp nhận Webhook\nngân hàng" as UC17
+    usecase "Đồng bộ trạng thái\nvận đơn" as UC18
+    usecase "Tự động hủy đơn\nquá hạn" as UC19
+    usecase "Khớp tiền tự động\n(idempotent)" as UI6
+    usecase "Tạo vận đơn GHN" as UI7
+  }
+}
+
+' ===== Quan hệ «include» =====
+UC3 ..> UI2 : <<include>>
+UC3 ..> UI3 : <<include>>
+UC3 ..> UI4 : <<include>>
+UC6 ..> UI5 : <<include>>
+UC10 ..> UI1 : <<include>>
+UC11 ..> UI1 : <<include>>
+UC12 ..> UI7 : <<include>>
+UC17 ..> UI6 : <<include>>
+
+' ===== Quan hệ «extend» =====
+UE1 ..> UC3 : <<extend>>
+UE2 ..> UC3 : <<extend>>
+
+' ===== Ràng buộc layout: chia 2 cột mỗi phân hệ + đẩy box phải sang phải =====
+UC5 -[hidden]down- UC6
+UC5 -[hidden]down- UC7
+UC5 -[hidden]down- UC8
+UC5 -[hidden]down- UC9
+UC5 -[hidden]down- UC10
+UC5 -[hidden]down- UC11
+UC16 -[hidden]down- UC17
+UC16 -[hidden]down- UC18
+UC16 -[hidden]down- UC19
+UC11 -[hidden]down- UC12
+
+' ===== Association =====
+Customer -- UC1
+Customer -- UC2
+Customer -- UC3
+Customer -- UC4
+Customer -- UC5
+Customer -- UC6
+Customer -- UC7
+Customer -- UC8
+Customer -- UC9
+Customer -- UC10
+Customer -- UC11
+
+actor "Nhân viên\n(STAFF)" as Staff
+actor "Quản trị viên\n(ADMIN)" as Admin
+Admin --|> Staff
+
+Staff -- UC9
+Staff -- UC12
+Staff -- UC13
+Admin -- UC14
+Admin -- UC15
+Admin -- UC16
+
+' ===== Actor hệ thống ngoài: hình chữ nhật «actor» (slide 37) =====
+rectangle "«actor»\nNgân hàng\n(NAPAS 247 / Casso)" as Bank #White
+rectangle "«actor»\nGHN Logistics" as GHN #White
+rectangle "«actor»\nCron\n(hệ thống quét)" as Cron #White
+
+Bank -- UC17
+GHN -- UC18
+GHN -- UI7
+Cron -- UC19
+@enduml

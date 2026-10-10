@@ -1,6 +1,6 @@
 import { prisma } from '@server/database/prisma';
 import { Role } from '@prisma/client';
-import { updateUserRbac } from './admin-rbac.service';
+import { updateUserRbac } from './admin-rbac.service.ts';
 import { getCachedAnalytics, setCachedAnalytics } from '@server/infrastructure/redis';
 import {
   type AdminAnalyticsResponse,
@@ -13,7 +13,8 @@ import {
   buildRevenueTrend,
   buildHourlyRevenueTrend,
   buildMonthlyRevenueTrend,
-} from './admin-analytics.service';
+  buildNewCustomersTrend,
+} from './admin-analytics.service.ts';
 
 export interface GetAdminCustomersOptions {
   search?: string;
@@ -59,6 +60,9 @@ export class AdminService {
     const users = await prisma.user.findMany({
       where,
       include: {
+        staffPermissions: {
+          select: { permission: true },
+        },
         orders: {
           select: {
             id: true,
@@ -86,6 +90,7 @@ export class AdminService {
         address: u.address,
         avatar: u.avatar,
         role: u.role,
+        permissions: (u.staffPermissions || []).map((sp) => sp.permission),
         isVerified: u.isVerified,
         isBlocked: u.isBlocked,
         createdAt: u.createdAt.toISOString(),
@@ -104,6 +109,7 @@ export class AdminService {
     adminId: string;
     userId: string;
     role?: 'CUSTOMER' | 'STAFF' | 'ADMIN';
+    permissions?: string[];
     isBlocked?: boolean;
     isVerified?: boolean;
   }) {
@@ -266,6 +272,8 @@ export class AdminService {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
 
     const trendStartDate = range === 'today' ? startOfToday : range === 'month' ? thirtyDaysAgo : sevenDaysAgo;
+    // Đầu tháng cách đây 11 tháng (để trend khách hàng mới đủ 12 bucket tháng)
+    const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1, 0, 0, 0, 0);
 
     const [
       paidOrdersAgg,
@@ -288,6 +296,7 @@ export class AdminService {
       recentPaidOrders,
       topOrderItems,
       rawRecentOrders,
+      recentCustomers,
     ] = await Promise.all([
       // 1. Overall paid orders & revenue
       prisma.order.aggregate({
@@ -404,6 +413,11 @@ export class AdminService {
           },
         },
       }),
+      // 21. Customers registered trong 12 tháng gần nhất (cho trend khách hàng mới)
+      prisma.user.findMany({
+        where: { role: 'CUSTOMER', createdAt: { gte: twelveMonthsAgo } },
+        select: { createdAt: true },
+      }),
     ]);
 
     const totalRevenue = paidOrdersAgg._sum.totalAmount || 0;
@@ -497,6 +511,7 @@ export class AdminService {
       },
       ordersByStatus,
       revenueTrend,
+      newCustomersTrend: buildNewCustomersTrend(now, recentCustomers),
       paymentMethodDistribution,
       urgentActions,
       recentOrders,

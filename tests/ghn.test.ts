@@ -1,11 +1,9 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  mapGHNStatusToShipmentStatus,
+import { mapGHNStatusToShipmentStatus,
   calculateGHNFee,
   createGHNShipment,
-  verifyGHNWebhookAuth,
-} from '../src/lib/ghn.ts';
+  verifyGHNWebhookAuth, } from '@server/modules/shipping/ghn.service';
 
 describe('GHN Logistics - Status Mapping', () => {
   it('should map ready_to_pick correctly', () => {

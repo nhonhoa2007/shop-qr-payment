@@ -1,10 +1,8 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  calculateDiscount,
+import { calculateDiscount,
   calculateCheckoutTotalsWithCoupon,
-  STANDARD_SHIPPING_FEE,
-} from '../src/lib/checkout.ts';
+  STANDARD_SHIPPING_FEE, } from '@shared/utils/checkout';
 
 describe('Coupon Discount Calculations', () => {
   it('should calculate FIXED discount correctly', () => {

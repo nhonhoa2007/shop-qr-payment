@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { prisma } from '@server/database/prisma';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { resolveOperatorAccess } from '@server/modules/admin/guards';
 
 export async function POST(req: Request) {
   try {
@@ -20,7 +21,7 @@ export async function POST(req: Request) {
     });
 
     if (!participant) {
-      if (session.user.role === 'ADMIN') {
+      if (resolveOperatorAccess(session.user, 'chat')) {
         try {
           participant = await prisma.chatRoomParticipant.create({
             data: { roomId, userId: session.user.id },

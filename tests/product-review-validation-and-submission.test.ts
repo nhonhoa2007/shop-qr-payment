@@ -1,11 +1,9 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  validateReviewSubmissionInput,
+import { validateReviewSubmissionInput,
   resolveReviewEligibility,
   type OrderCandidate,
-  type ReviewCandidate,
-} from '../src/lib/review-submission.ts';
+  type ReviewCandidate, } from '@server/modules/reviews/review.service';
 
 // Helper mô phỏng cách tính toán điểm trung bình trong ProductReviews Controller
 function calculateAverageRating(reviews: Array<{ rating: number }>): { avgRating: number; total: number } {

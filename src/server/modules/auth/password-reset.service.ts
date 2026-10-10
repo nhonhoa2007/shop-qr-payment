@@ -1,5 +1,5 @@
-import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+import { hashOtp, verifyOtp, hashPassword, verifyPassword } from '@server/modules/auth/password-hash.service';
 
 export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -186,7 +186,7 @@ export async function sendOtpCore({
   }
 
   const otp = generateOtp();
-  const hashedOtp = await bcrypt.hash(otp, 10);
+  const hashedOtp = await hashOtp(otp);
   const expiresAt = new Date(now.getTime() + OTP_TTL_MS);
 
   const record = await prismaOtp.create({
@@ -241,7 +241,7 @@ export async function verifyOtpCore({
     return false;
   }
 
-  const isValid = await bcrypt.compare(inputOtp, otpRecord.code);
+  const isValid = await verifyOtp(inputOtp, otpRecord.code);
   if (isValid) {
     await prismaOtp.update({
       where: { id: otpRecord.id },
@@ -261,13 +261,7 @@ export async function verifyOtpCore({
 /**
  * Password Hashing Helpers
  */
-export async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, 10);
-}
-
-export async function verifyPassword(password: string, hash: string): Promise<boolean> {
-  return bcrypt.compare(password, hash);
-}
+export { hashPassword, verifyPassword, hashOtp, verifyOtp };
 
 /**
  * End-to-end reset password execution helper

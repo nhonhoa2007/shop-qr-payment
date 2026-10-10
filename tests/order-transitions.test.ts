@@ -1,11 +1,9 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  validateOrderTransition,
+import { validateOrderTransition,
   isOrderStatus,
   isPaymentStatus,
-  canCustomerCancelOrder,
-} from '../src/lib/order-transitions.ts';
+  canCustomerCancelOrder, } from '@server/modules/orders/orders.fsm';
 
 describe('Order Transitions Validation', () => {
   it('should validate status type guards correctly', () => {

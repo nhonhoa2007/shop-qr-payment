@@ -2,14 +2,15 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@server/modules/auth/auth-options';
 import { prisma } from '@server/database/prisma';
-import { validateReviewModeration } from './review.service';
+import { validateReviewModeration } from './review.service.ts';
+import { resolveOperatorAccess } from '@server/modules/admin/guards';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user || session.user.role !== 'ADMIN') {
+    if (!session?.user || !resolveOperatorAccess(session.user, 'reviews')) {
       return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 403 });
     }
 
@@ -66,7 +67,7 @@ export async function GET(req: Request) {
 export async function PATCH(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user || session.user.role !== 'ADMIN') {
+    if (!session?.user || !resolveOperatorAccess(session.user, 'reviews')) {
       return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 403 });
     }
 

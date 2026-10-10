@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { prisma } from '@server/database/prisma';
 import { pusherServer } from '@server/infrastructure/pusher';
 import { authOptions } from '@server/modules/auth/auth-options';
+import { resolveOperatorAccess } from '@server/modules/admin/guards';
 
 export async function POST(req: Request) {
   try {
@@ -24,8 +25,8 @@ export async function POST(req: Request) {
       const participant = await prisma.chatRoomParticipant.findUnique({
         where: { roomId_userId: { roomId, userId: session.user.id } },
       });
-      const isAdminOrStaff = session.user.role === 'ADMIN' || session.user.role === 'STAFF';
-      if (!participant && !isAdminOrStaff) return new Response('Forbidden', { status: 403 });
+      const canAccessChat = resolveOperatorAccess(session.user, 'chat');
+      if (!participant && !canAccessChat) return new Response('Forbidden', { status: 403 });
     }
 
     if (channelName.startsWith('private-user-')) {

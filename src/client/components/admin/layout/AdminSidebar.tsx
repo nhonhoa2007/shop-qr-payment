@@ -30,6 +30,7 @@ export interface AdminSidebarProps {
     name?: string | null;
     email?: string | null;
     role?: string;
+    permissions?: string[];
   };
 }
 
@@ -40,6 +41,8 @@ interface NavItem {
   badge?: string;
   badgeType?: 'default' | 'alert' | 'count';
   exact?: boolean;
+  permission?: string;
+  adminOnly?: boolean;
 }
 
 interface NavGroup {
@@ -68,6 +71,7 @@ const NAV_GROUPS: NavGroup[] = [
         icon: Package,
         badge: 'Mới',
         badgeType: 'count',
+        permission: 'orders',
       },
       {
         name: 'Vận đơn GHN',
@@ -75,11 +79,13 @@ const NAV_GROUPS: NavGroup[] = [
         icon: Truck,
         badge: 'GHN',
         badgeType: 'default',
+        permission: 'shipments',
       },
       {
         name: 'Sản phẩm & Biến thể',
         href: '/admin/products',
         icon: Boxes,
+        permission: 'products',
       },
     ],
   },
@@ -92,11 +98,13 @@ const NAV_GROUPS: NavGroup[] = [
         icon: CreditCard,
         badge: 'Khớp',
         badgeType: 'alert',
+        adminOnly: true,
       },
       {
         name: 'Mã giảm giá (Coupon)',
         href: '/admin/coupons',
         icon: Tag,
+        adminOnly: true,
       },
     ],
   },
@@ -107,6 +115,7 @@ const NAV_GROUPS: NavGroup[] = [
         name: 'Khách hàng & RBAC',
         href: '/admin/customers',
         icon: Users,
+        adminOnly: true,
       },
       {
         name: 'Tin nhắn trực tuyến',
@@ -114,11 +123,13 @@ const NAV_GROUPS: NavGroup[] = [
         icon: MessageSquare,
         badge: 'Live',
         badgeType: 'count',
+        permission: 'chat',
       },
       {
         name: 'Đánh giá sản phẩm',
         href: '/admin/reviews',
         icon: Star,
+        permission: 'reviews',
       },
     ],
   },
@@ -147,6 +158,19 @@ export function AdminSidebar({
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   };
 
+  const userRole = user?.role;
+  const userPermissions = (user?.permissions || []) as string[];
+
+  const visibleGroups = NAV_GROUPS.map((group) => {
+    const items = group.items.filter((item) => {
+      if (userRole === 'ADMIN') return true;
+      if (item.adminOnly) return false;
+      if (!item.permission) return true;
+      return userPermissions.includes(item.permission);
+    });
+    return { ...group, items };
+  }).filter((group) => group.items.length > 0);
+
   const sidebarContent = (
     <div className="flex flex-col h-full justify-between select-none">
       {/* Top section: Logo & Nav */}
@@ -165,11 +189,19 @@ export function AdminSidebar({
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className="font-extrabold text-base tracking-tight text-slate-900">shop.</span>
-                  <span className="px-1.5 py-0.5 rounded-md bg-[#5433eb]/10 text-[#5433eb] text-[10px] font-bold tracking-wider">
-                    ADMIN
+                  <span
+                    className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold tracking-wider ${
+                      userRole === 'STAFF'
+                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                        : 'bg-[#5433eb]/10 text-[#5433eb]'
+                    }`}
+                  >
+                    {userRole === 'STAFF' ? 'STAFF' : 'ADMIN'}
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-400 font-medium truncate">Trung tâm điều hành</p>
+                <p className="text-[11px] text-slate-400 font-medium truncate">
+                  {userRole === 'STAFF' ? 'Nhân viên vận hành' : 'Trung tâm điều hành'}
+                </p>
               </div>
             )}
           </div>
@@ -198,7 +230,7 @@ export function AdminSidebar({
 
         {/* Navigation list */}
         <nav className="space-y-4 text-[13px] px-1">
-          {NAV_GROUPS.map((group) => (
+          {visibleGroups.map((group) => (
             <div key={group.title} className="space-y-1">
               {!isCollapsed ? (
                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 mb-1.5">
@@ -313,7 +345,11 @@ export function AdminSidebar({
                   {user?.name || 'Admin Shop'}
                 </p>
                 <p className="text-[10px] text-slate-400 truncate">
-                  {user?.role === 'ADMIN' ? 'Super Admin' : user?.role || 'Admin'}
+                  {userRole === 'ADMIN'
+                    ? 'Super Admin'
+                    : userRole === 'STAFF'
+                    ? 'Nhân viên vận hành'
+                    : userRole || 'Admin'}
                 </p>
               </div>
             )}
