@@ -7,7 +7,7 @@ import { createNotification } from '@server/modules/notifications/notifications.
 import { pusherServer } from '@server/infrastructure/pusher';
 import { formatVND } from '@shared/utils';
 import { releaseOrderStock } from '@server/modules/inventory/inventory.service';
-import { createGHNShipment } from '@server/modules/shipping/ghn.service';
+import { approveAndFulfillOrder } from '@server/modules/orders/order-fulfillment.service';
 import { refundOrderToWallet } from '@server/modules/wallet/wallet.service';
 import {
   STATUS_NOTIFICATION_MAP,
@@ -194,46 +194,7 @@ export async function PATCH(
 
     // Tự động khởi tạo vận đơn GHN khi đơn hàng chuyển sang PROCESSING (thực thi ngoài DB Transaction để giải phóng Connection Pool)
     if (nextStatus === 'PROCESSING' && !currentOrder.shipment) {
-      try {
-        const toDistrictId = Number(process.env.DEFAULT_TO_DISTRICT_ID) || 1442;
-        const toWardCode = process.env.DEFAULT_TO_WARD_CODE || '20101';
-        const shipmentResult = await createGHNShipment({
-          orderId: currentOrder.id,
-          orderCode: currentOrder.orderCode,
-          customerName: currentOrder.customerName,
-          customerPhone: currentOrder.customerPhone,
-          customerAddress: currentOrder.customerAddress,
-          toDistrictId,
-          toWardCode,
-          items: currentOrder.items.map((i) => ({
-            name: i.product?.name || 'Sản phẩm',
-            quantity: i.quantity,
-            price: i.price,
-          })),
-          codAmount: currentOrder.paymentStatus === 'PAID' ? 0 : currentOrder.totalAmount,
-        });
-
-        await prisma.shipment.create({
-          data: {
-            orderId: currentOrder.id,
-            carrier: shipmentResult.carrier,
-            trackingCode: shipmentResult.trackingCode,
-            shippingFee: shipmentResult.shippingFee,
-            codAmount: currentOrder.paymentStatus === 'PAID' ? 0 : currentOrder.totalAmount,
-            status: 'READY_TO_PICK',
-            estimatedArrival: shipmentResult.expectedDeliveryTime,
-            shippingLogs: [
-              {
-                status: 'READY_TO_PICK',
-                description: 'Đã tạo vận đơn tự động qua GHN OpenAPI v2',
-                timestamp: new Date().toISOString(),
-              },
-            ],
-          },
-        });
-      } catch (shipmentErr) {
-        console.error('[GHN Shipment] Lỗi khởi tạo vận đơn tự động:', shipmentErr);
-      }
+      await approveAndFulfillOrder(currentOrder.id);
     }
 
     if (currentOrder.userId) {
