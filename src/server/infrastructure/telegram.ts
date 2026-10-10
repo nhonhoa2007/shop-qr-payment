@@ -75,6 +75,23 @@ export function escapeTelegramHtml(text: string): string {
     .replace(/"/g, '&quot;');
 }
 
+/**
+ * Kiểm tra xem một URL có hợp lệ để gắn vào nút bấm Inline Keyboard của Telegram hay không.
+ * Telegram Bot API từ chối các URL localhost/127.0.0.1 và non-HTTP schemes.
+ */
+export function isValidTelegramButtonUrl(url: string | undefined | null): boolean {
+  if (!url || typeof url !== 'string') return false;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
+    if (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') return false;
+    if (!parsed.hostname.includes('.')) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function getAdminOrderUrl(orderCode: string): string {
   const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
   return `${baseUrl.replace(/\/$/, '')}/admin/orders?search=${encodeURIComponent(orderCode)}`;
@@ -85,7 +102,7 @@ function getAdminOrderUrl(orderCode: string): string {
  */
 export function formatNewOrderMessage(order: NewOrderMessageParams): {
   text: string;
-  replyMarkup: Record<string, unknown>;
+  replyMarkup?: Record<string, unknown>;
 } {
   const itemsText = order.items
     .map((item) => {
@@ -117,16 +134,19 @@ ${itemsText}
 ${discountLine}💵 <b>TỔNG CỘNG:</b> ${order.totalAmount.toLocaleString('vi-VN')}đ
 ⏰ <i>Hạn thanh toán: 15 phút</i>`;
 
-  const replyMarkup = {
-    inline_keyboard: [
-      [
-        {
-          text: '🔍 Xem đơn hàng trên Web',
-          url: getAdminOrderUrl(order.orderCode),
-        },
-      ],
-    ],
-  };
+  const adminUrl = getAdminOrderUrl(order.orderCode);
+  const inlineKeyboard: Array<Array<{ text: string; url?: string; callback_data?: string }>> = [];
+
+  if (isValidTelegramButtonUrl(adminUrl)) {
+    inlineKeyboard.push([
+      {
+        text: '🔍 Xem đơn hàng trên Web',
+        url: adminUrl,
+      },
+    ]);
+  }
+
+  const replyMarkup = inlineKeyboard.length > 0 ? { inline_keyboard: inlineKeyboard } : undefined;
 
   return { text, replyMarkup };
 }
@@ -136,7 +156,7 @@ ${discountLine}💵 <b>TỔNG CỘNG:</b> ${order.totalAmount.toLocaleString('vi
  */
 export function formatPaidOrderMessage(order: PaidOrderMessageParams): {
   text: string;
-  replyMarkup: Record<string, unknown>;
+  replyMarkup?: Record<string, unknown>;
 } {
   const method = order.paymentMethod || 'Chuyển khoản VietQR';
   const text = `💰 <b>ĐƠN HÀNG ĐÃ THANH TOÁN #${escapeTelegramHtml(order.orderCode)}</b>
@@ -146,20 +166,22 @@ export function formatPaidOrderMessage(order: PaidOrderMessageParams): {
 💳 <b>Phương thức:</b> ${escapeTelegramHtml(method)}
 ⚡ <b>Trạng thái:</b> Đã xác nhận tiền về tài khoản`;
 
-  const replyMarkup = {
-    inline_keyboard: [
-      [
-        {
-          text: '🚚 Duyệt & Tạo vận đơn GHN',
-          callback_data: `approve_order:${order.id}`,
-        },
-        {
-          text: '🔍 Xem trên Web',
-          url: getAdminOrderUrl(order.orderCode),
-        },
-      ],
-    ],
-  };
+  const adminUrl = getAdminOrderUrl(order.orderCode);
+  const actionRow: Array<{ text: string; url?: string; callback_data?: string }> = [
+    {
+      text: '🚚 Duyệt & Tạo vận đơn GHN',
+      callback_data: `approve_order:${order.id}`,
+    },
+  ];
+
+  if (isValidTelegramButtonUrl(adminUrl)) {
+    actionRow.push({
+      text: '🔍 Xem trên Web',
+      url: adminUrl,
+    });
+  }
+
+  const replyMarkup = { inline_keyboard: [actionRow] };
 
   return { text, replyMarkup };
 }
@@ -169,7 +191,7 @@ export function formatPaidOrderMessage(order: PaidOrderMessageParams): {
  */
 export function formatApprovedOrderMessage(order: ApprovedOrderMessageParams): {
   text: string;
-  replyMarkup: Record<string, unknown>;
+  replyMarkup?: Record<string, unknown>;
 } {
   const method = order.paymentMethod || 'Chuyển khoản VietQR';
   const dateFormatted = order.expectedDeliveryTime
@@ -188,16 +210,19 @@ export function formatApprovedOrderMessage(order: ApprovedOrderMessageParams): {
 🚚 <b>Cước GHN:</b> ${order.shippingFee.toLocaleString('vi-VN')}đ
 📅 <b>Dự kiến giao:</b> ${dateFormatted}`;
 
-  const replyMarkup = {
-    inline_keyboard: [
-      [
-        {
-          text: '🔍 Xem trên Web',
-          url: getAdminOrderUrl(order.orderCode),
-        },
-      ],
-    ],
-  };
+  const adminUrl = getAdminOrderUrl(order.orderCode);
+  const inlineKeyboard: Array<Array<{ text: string; url?: string; callback_data?: string }>> = [];
+
+  if (isValidTelegramButtonUrl(adminUrl)) {
+    inlineKeyboard.push([
+      {
+        text: '🔍 Xem trên Web',
+        url: adminUrl,
+      },
+    ]);
+  }
+
+  const replyMarkup = inlineKeyboard.length > 0 ? { inline_keyboard: inlineKeyboard } : undefined;
 
   return { text, replyMarkup };
 }
@@ -216,15 +241,19 @@ export async function sendTelegramMessage(
   }
 
   try {
+    const bodyPayload: Record<string, unknown> = {
+      chat_id: chatId,
+      text: params.text,
+      parse_mode: 'HTML',
+    };
+    if (params.replyMarkup) {
+      bodyPayload.reply_markup = params.replyMarkup;
+    }
+
     const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text: params.text,
-        parse_mode: 'HTML',
-        reply_markup: params.replyMarkup,
-      }),
+      body: JSON.stringify(bodyPayload),
     });
 
     const data = await response.json();
@@ -254,16 +283,20 @@ export async function editTelegramMessage(
   }
 
   try {
+    const bodyPayload: Record<string, unknown> = {
+      chat_id: params.chatId,
+      message_id: params.messageId,
+      text: params.text,
+      parse_mode: 'HTML',
+    };
+    if (params.replyMarkup) {
+      bodyPayload.reply_markup = params.replyMarkup;
+    }
+
     const response = await fetch(`https://api.telegram.org/bot${token}/editMessageText`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: params.chatId,
-        message_id: params.messageId,
-        text: params.text,
-        parse_mode: 'HTML',
-        reply_markup: params.replyMarkup,
-      }),
+      body: JSON.stringify(bodyPayload),
     });
 
     const data = await response.json();

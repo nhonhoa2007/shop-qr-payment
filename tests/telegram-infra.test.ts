@@ -2,6 +2,7 @@ import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   escapeTelegramHtml,
+  isValidTelegramButtonUrl,
   formatNewOrderMessage,
   formatPaidOrderMessage,
   formatApprovedOrderMessage,
@@ -9,6 +10,23 @@ import {
   editTelegramMessage,
   answerCallbackQuery,
 } from '@server/infrastructure/telegram';
+
+describe('Telegram Infrastructure - URL Validation', () => {
+  it('should reject localhost and loopback addresses as invalid Telegram button URLs', () => {
+    assert.equal(isValidTelegramButtonUrl('http://localhost:3000/admin/orders'), false);
+    assert.equal(isValidTelegramButtonUrl('http://127.0.0.1:3000/admin/orders'), false);
+    assert.equal(isValidTelegramButtonUrl('http://localhost'), false);
+    assert.equal(isValidTelegramButtonUrl(''), false);
+    assert.equal(isValidTelegramButtonUrl(null), false);
+    assert.equal(isValidTelegramButtonUrl(undefined), false);
+  });
+
+  it('should accept valid public domain URLs for Telegram buttons', () => {
+    assert.equal(isValidTelegramButtonUrl('https://shop.nhonhoadev.id.vn/admin/orders'), true);
+    assert.equal(isValidTelegramButtonUrl('https://example.com/admin/orders?search=DH123'), true);
+    assert.equal(isValidTelegramButtonUrl('http://my-domain.com/admin/orders'), true);
+  });
+});
 
 describe('Telegram Infrastructure - HTML Escaping', () => {
   it('should escape HTML sensitive characters correctly', () => {
@@ -31,14 +49,14 @@ describe('Telegram Infrastructure - Message Formatting', () => {
   const originalEnv = process.env.NEXTAUTH_URL;
 
   beforeEach(() => {
-    process.env.NEXTAUTH_URL = 'http://localhost:3000';
+    process.env.NEXTAUTH_URL = 'https://shop.nhonhoadev.id.vn';
   });
 
   afterEach(() => {
     process.env.NEXTAUTH_URL = originalEnv;
   });
 
-  it('should format new order message with proper HTML structure and inline URL button', () => {
+  it('should format new order message with proper HTML structure and inline URL button on public domain', () => {
     const orderData = {
       orderCode: 'DH123456',
       customerName: 'Nguyễn <Văn> A & Con',
@@ -66,10 +84,29 @@ describe('Telegram Infrastructure - Message Formatting', () => {
     const markup = formatted.replyMarkup as { inline_keyboard: Array<Array<{ text: string; url: string }>> };
     assert.ok(markup?.inline_keyboard);
     assert.equal(markup.inline_keyboard[0][0].text, '🔍 Xem đơn hàng trên Web');
-    assert.equal(markup.inline_keyboard[0][0].url, 'http://localhost:3000/admin/orders?search=DH123456');
+    assert.equal(markup.inline_keyboard[0][0].url, 'https://shop.nhonhoadev.id.vn/admin/orders?search=DH123456');
   });
 
-  it('should format paid order message with approve callback button and web url button', () => {
+  it('should omit inline URL button when NEXTAUTH_URL is localhost to prevent Telegram 400 rejection', () => {
+    process.env.NEXTAUTH_URL = 'http://localhost:3000';
+    const orderData = {
+      orderCode: 'DH123456',
+      customerName: 'Nguyễn Văn A',
+      customerPhone: '0901234567',
+      customerAddress: '123 Đường Lê Lợi, Q.1',
+      subtotal: 500000,
+      shippingFee: 30000,
+      discountAmount: 0,
+      totalAmount: 530000,
+      items: [{ name: 'Áo thun', quantity: 1, price: 500000 }],
+    };
+
+    const formatted = formatNewOrderMessage(orderData);
+    assert.equal(formatted.replyMarkup, undefined);
+  });
+
+  it('should format paid order message with approve callback button and optional web url button', () => {
+    process.env.NEXTAUTH_URL = 'https://shop.nhonhoadev.id.vn';
     const paidData = {
       id: 'order_uuid_123',
       orderCode: 'DH999888',
@@ -92,7 +129,7 @@ describe('Telegram Infrastructure - Message Formatting', () => {
     assert.equal(markup.inline_keyboard[0][0].text, '🚚 Duyệt & Tạo vận đơn GHN');
     assert.equal(markup.inline_keyboard[0][0].callback_data, 'approve_order:order_uuid_123');
     assert.equal(markup.inline_keyboard[0][1].text, '🔍 Xem trên Web');
-    assert.equal(markup.inline_keyboard[0][1].url, 'http://localhost:3000/admin/orders?search=DH999888');
+    assert.equal(markup.inline_keyboard[0][1].url, 'https://shop.nhonhoadev.id.vn/admin/orders?search=DH999888');
   });
 
   it('should format approved order message with tracking code and removed approval button', () => {
@@ -117,7 +154,7 @@ describe('Telegram Infrastructure - Message Formatting', () => {
     };
     assert.equal(markup.inline_keyboard.length, 1);
     assert.equal(markup.inline_keyboard[0][0].text, '🔍 Xem trên Web');
-    assert.equal(markup.inline_keyboard[0][0].url, 'http://localhost:3000/admin/orders?search=DH999888');
+    assert.equal(markup.inline_keyboard[0][0].url, 'https://shop.nhonhoadev.id.vn/admin/orders?search=DH999888');
   });
 });
 

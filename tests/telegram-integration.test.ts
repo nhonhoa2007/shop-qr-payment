@@ -24,7 +24,8 @@ describe('Telegram Integration - Non-blocking & Payload Validation', () => {
     });
 
     assert.ok(orderPayload.text.includes('DH20261010001'));
-    assert.ok(orderPayload.replyMarkup);
+    // On localhost, replyMarkup is safely undefined to avoid Telegram 400 rejection
+    assert.equal(orderPayload.replyMarkup, undefined);
 
     const paidPayload = formatPaidOrderMessage({
       id: 'order_uuid_test',
