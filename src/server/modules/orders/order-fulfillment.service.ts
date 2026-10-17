@@ -83,6 +83,13 @@ export async function approveAndFulfillOrder(orderId: string, db: typeof prisma 
 
   // 4. Khởi tạo vận đơn GHN
   try {
+    const packing = order.packingSnapshot as {
+      totalWeightGrams?: number;
+      lengthCm?: number;
+      widthCm?: number;
+      heightCm?: number;
+    } | null;
+
     const shipmentResult = await createGHNShipment({
       orderId: order.id,
       orderCode: order.orderCode,
@@ -91,6 +98,10 @@ export async function approveAndFulfillOrder(orderId: string, db: typeof prisma 
       customerAddress: order.customerAddress,
       toDistrictId: order.toDistrictId,
       toWardCode: order.toWardCode,
+      weight: packing?.totalWeightGrams,
+      length: packing?.lengthCm,
+      width: packing?.widthCm,
+      height: packing?.heightCm,
       items: order.items.map((i) => ({
         name: i.product?.name || 'Sản phẩm',
         quantity: i.quantity,
@@ -106,6 +117,7 @@ export async function approveAndFulfillOrder(orderId: string, db: typeof prisma 
         trackingCode: shipmentResult.trackingCode,
         shippingFee: BigInt(shipmentResult.shippingFee),
         codAmount: order.paymentStatus === 'PAID' ? 0n : BigInt(order.totalAmount),
+        weightGrams: packing?.totalWeightGrams ?? null,
         status: 'READY_TO_PICK',
         estimatedArrival: shipmentResult.expectedDeliveryTime,
         shippingLogs: [

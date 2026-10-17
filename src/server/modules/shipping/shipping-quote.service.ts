@@ -2,6 +2,7 @@ import { prisma } from '@server/database/prisma';
 import { calculateGHNFee } from './ghn.service.ts';
 import { parseOrderItems, buildValidatedOrderItems } from '@shared/validations';
 import { VIETNAM_LOCATIONS } from '@shared/constants/vietnam-locations';
+import { buildPackingSnapshot } from './packing.service.ts';
 
 export class QuoteError extends Error {
   status: number;
@@ -30,17 +31,41 @@ export async function quoteShipping(input: {
   if (!validated.orderItems || validated.subtotal === undefined) {
     throw new QuoteError(validated.error || 'Giỏ hàng không hợp lệ');
   }
-  const weight = validated.orderItems.reduce((sum, item) => sum + item.quantity * 300, 0) || 500;
-  const fee = await calculateGHNFee({ toDistrictId, toWardCode, weight, subtotal: validated.subtotal });
+
+  const productMap = new Map(products.map((p) => [p.id, p]));
+  const packingItems = validated.orderItems.map((item) => {
+    const prod = productMap.get(item.productId);
+    const variant = item.variantId ? prod?.variants?.find((v) => v.id === item.variantId) : null;
+    return {
+      productId: item.productId,
+      variantId: item.variantId,
+      quantity: item.quantity,
+      weightGrams: variant?.weightGrams ?? prod?.weightGrams ?? 300,
+      lengthCm: variant?.lengthCm ?? prod?.lengthCm ?? 20,
+      widthCm: variant?.widthCm ?? prod?.widthCm ?? 15,
+      heightCm: variant?.heightCm ?? prod?.heightCm ?? 5,
+    };
+  });
+
+  const packingSnapshot = buildPackingSnapshot(packingItems, BigInt(validated.subtotal));
+  const fee = await calculateGHNFee({
+    toDistrictId,
+    toWardCode,
+    weight: packingSnapshot.totalWeightGrams,
+    subtotal: validated.subtotal,
+  });
   if (fee.source !== 'GHN_API') {
     throw new QuoteError('Không thể lấy phí GHN lúc này. Vui lòng thử lại sau.', 503);
   }
   return {
-    toDistrictId, toWardCode,
+    toDistrictId,
+    toWardCode,
     orderItems: validated.orderItems,
     subtotal: validated.subtotal,
     shippingFee: fee.totalFee,
-    weight,
+    weight: packingSnapshot.totalWeightGrams,
+    packingSnapshot,
+    packingRevision: packingSnapshot.revision,
     fee,
   };
 }

@@ -79,6 +79,10 @@ model Product {
   category    String?
   stock         Int              @default(0)
   stockVersion  Int              @default(0)
+  weightGrams   Int?
+  lengthCm      Int?
+  widthCm       Int?
+  heightCm      Int?
   isActive      Boolean          @default(true)
   inventoryMode InventoryMode    @default(BASE)
   orderItems    OrderItem[]
@@ -108,6 +112,10 @@ model ProductVariant {
   price        BigInt
   stock        Int         @default(0)
   stockVersion Int         @default(0)
+  weightGrams  Int?
+  lengthCm     Int?
+  widthCm      Int?
+  heightCm     Int?
   image        String?
   isActive     Boolean     @default(true)
   orderItems   OrderItem[]
@@ -161,7 +169,9 @@ model Order {
   bankTransfers   BankTransfer[]
   refundCases     RefundCase[]
   fulfillmentState FulfillmentState @default(NONE)
-  qrContent       String?
+  packingSnapshot  Json?
+  packingRevision  String?
+  qrContent        String?
   note            String?
   expiresAt       DateTime
   createdAt       DateTime      @default(now())
@@ -431,6 +441,7 @@ model Shipment {
   trackingCode     String         @unique
   shippingFee      BigInt
   codAmount        BigInt         @default(0)
+  weightGrams      Int?
   status           ShipmentStatus @default(READY_TO_PICK)
   estimatedArrival DateTime?
   shippingLogs     Json?

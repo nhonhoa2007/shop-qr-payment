@@ -153,6 +153,8 @@ export async function POST(req: Request) {
           couponId: couponRecord?.id || null,
           couponCode: couponRecord?.code || null,
           totalAmount: finalTotalAmount,
+          packingSnapshot: (validated.packingSnapshot as any) || null,
+          packingRevision: validated.packingRevision || null,
           qrContent: qrUrl,
           note: note || null,
           expiresAt: new Date(Date.now() + 15 * 60 * 1000),
