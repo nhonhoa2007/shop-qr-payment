@@ -168,10 +168,12 @@ model Order {
   shipment        Shipment?
   bankTransfers   BankTransfer[]
   refundCases     RefundCase[]
-  fulfillmentState FulfillmentState @default(NONE)
-  packingSnapshot  Json?
-  packingRevision  String?
-  qrContent        String?
+  fulfillmentState         FulfillmentState @default(NONE)
+  manualFulfillmentOutcome String?
+  customerConsentRef       String?
+  packingSnapshot          Json?
+  packingRevision          String?
+  qrContent                String?
   note            String?
   expiresAt       DateTime
   createdAt       DateTime      @default(now())

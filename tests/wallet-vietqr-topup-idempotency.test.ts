@@ -184,15 +184,15 @@ describe('VietQR Topup - Webhook Decision Matrix Verification (Pillar 1 & 4)', (
 
 describe('VietQR Topup - Concurrency & Persistent Idempotency Guard (Pillar 3)', () => {
   it('should atomically credit balance and record TOPUP transaction on first webhook call', async () => {
-    let balanceUpdated = 0;
+    let balanceUpdated = 0n;
     let createdTx: Record<string, unknown> | null = null;
 
     const mockTx = {
       userWallet: {
-        findUnique: async () => ({ id: 'w_user_1', userId: 'u_1', balance: 50000 }),
-        create: async () => ({ id: 'w_user_1', userId: 'u_1', balance: 0 }),
-        update: async ({ data }: { data: { balance: { increment: number } } }) => {
-          balanceUpdated = 50000 + data.balance.increment;
+        findUnique: async () => ({ id: 'w_user_1', userId: 'u_1', balance: 50000n }),
+        create: async () => ({ id: 'w_user_1', userId: 'u_1', balance: 0n }),
+        update: async ({ data }: { data: { balance: { increment: bigint } } }) => {
+          balanceUpdated = 50000n + data.balance.increment;
           return { id: 'w_user_1', balance: balanceUpdated };
         },
       },
@@ -214,10 +214,10 @@ describe('VietQR Topup - Concurrency & Persistent Idempotency Guard (Pillar 3)',
     });
 
     assert.equal(result.success, true);
-    assert.equal(result.newBalance, 250000);
-    assert.equal(balanceUpdated, 250000);
+    assert.equal(result.newBalance, 250000n);
+    assert.equal(balanceUpdated, 250000n);
     assert.ok(createdTx);
-    assert.equal((createdTx as Record<string, unknown>).amount, 200000);
+    assert.equal((createdTx as Record<string, unknown>).amount, 200000n);
     assert.equal((createdTx as Record<string, unknown>).type, 'TOPUP');
     assert.equal((createdTx as Record<string, unknown>).orderId, 'NAP888999111');
   });
@@ -227,10 +227,10 @@ describe('VietQR Topup - Concurrency & Persistent Idempotency Guard (Pillar 3)',
 
     const mockTx = {
       userWallet: {
-        findUnique: async () => ({ id: 'w_user_1', userId: 'u_1', balance: 250000 }),
+        findUnique: async () => ({ id: 'w_user_1', userId: 'u_1', balance: 250000n }),
         update: async () => {
           updateCalled = true;
-          return { id: 'w_user_1', balance: 450000 };
+          return { id: 'w_user_1', balance: 450000n };
         },
       },
       walletTransaction: {
@@ -239,7 +239,7 @@ describe('VietQR Topup - Concurrency & Persistent Idempotency Guard (Pillar 3)',
           id: 'tx_topup_001',
           walletId: 'w_user_1',
           type: 'TOPUP',
-          amount: 200000,
+          amount: 200000n,
           orderId: 'NAP888999111',
         }),
         create: async () => {
@@ -257,7 +257,7 @@ describe('VietQR Topup - Concurrency & Persistent Idempotency Guard (Pillar 3)',
 
     assert.equal(result.success, true);
     assert.equal(result.alreadyProcessed, true);
-    assert.equal(result.newBalance, 250000); // Balance unchanged!
+    assert.equal(result.newBalance, 250000n); // Balance unchanged!
     assert.equal(updateCalled, false); // Balance was NOT incremented again!
   });
 });

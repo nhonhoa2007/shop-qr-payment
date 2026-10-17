@@ -41,6 +41,9 @@ export interface GHNCreateOrderParams {
   }[];
   codAmount?: number;
   weight?: number; // grams
+  length?: number; // cm
+  width?: number; // cm
+  height?: number; // cm
   note?: string | null;
 }
 
@@ -241,6 +244,9 @@ export async function createGHNShipment(
           to_district_id: params.toDistrictId,
           cod_amount: params.codAmount || 0,
           weight: Math.max(100, totalWeight),
+          length: params.length,
+          width: params.width,
+          height: params.height,
           service_type_id: 2,
           items: params.items.map((i) => ({
             name: i.name,

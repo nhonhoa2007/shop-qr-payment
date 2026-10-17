@@ -73,6 +73,21 @@ export async function approveAndFulfillOrder(orderId: string, db: typeof prisma 
   if (!order.toDistrictId || !order.toWardCode) {
     return { success: false, orderId, orderCode: order.orderCode, error: 'Đơn hàng thiếu địa bàn nhận hàng GHN' };
   }
+
+  // Đơn hàng giá trị cao (> 5.000.000đ) vượt hạn mức bảo hiểm mặc định GHN -> Chuyển sang REVIEW trực tiếp
+  if (BigInt(order.totalAmount) > 5_000_000n) {
+    await db.order.updateMany({
+      where: { id: order.id, fulfillmentState: 'NONE' },
+      data: { fulfillmentState: 'REVIEW' },
+    });
+    return {
+      success: false,
+      orderId: order.id,
+      orderCode: order.orderCode,
+      error: 'Đơn hàng giá trị cao (>5.000.000đ) vượt hạn mức bảo hiểm tự động của GHN; đã chuyển sang kiểm tra thủ công.',
+    };
+  }
+
   const claimed = await db.order.updateMany({
     where: { id: order.id, fulfillmentState: 'NONE', paymentStatus: 'PAID', status: { in: ['CONFIRMED', 'PROCESSING'] } },
     data: { fulfillmentState: 'REQUESTING' },

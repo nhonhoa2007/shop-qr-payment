@@ -271,10 +271,10 @@ describe('Product Variant - Nested Update, Deletion & Financial History Safety (
       variants: incomingVariants,
     });
 
-    // Variant v_old_1 must be updated
+    // Variant v_old_1 must be updated (preserves versioned stock)
     assert.equal(updatedVariants.length, 2);
     assert.equal(updatedVariants[0].id, 'v_old_1');
-    assert.equal(updatedVariants[0].data.stock, 15);
+    assert.equal(updatedVariants[0].data.stock, 10);
 
     // New variant AT-L must be created
     assert.equal(createdVariants.length, 1);

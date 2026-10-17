@@ -193,11 +193,11 @@ describe('Wallet Topup - processWalletTopup Core Engine', () => {
     let walletUpdatedData: unknown = null;
     let txCreatedData: unknown = null;
 
-    const fakeWallet = { id: 'w_101', userId: 'u_user_99', balance: 50_000 };
+    const fakeWallet = { id: 'w_101', userId: 'u_user_99', balance: 50_000n };
     const fakeTx = {
       userWallet: {
         findUnique: async () => fakeWallet,
-        update: async (args: { data: { balance: { increment: number } } }) => {
+        update: async (args: { data: { balance: { increment: bigint } } }) => {
           walletUpdatedData = args.data;
           return { ...fakeWallet, balance: fakeWallet.balance + args.data.balance.increment };
         },
@@ -219,17 +219,17 @@ describe('Wallet Topup - processWalletTopup Core Engine', () => {
     });
 
     assert.equal(res.success, true);
-    assert.equal(res.newBalance, 150_000);
+    assert.equal(res.newBalance, 150_000n);
     assert.equal(res.transactionId, 'wtx_999');
     assert.equal(res.topupCode, 'NAP260924777');
 
     assert.deepEqual(walletUpdatedData, {
-      balance: { increment: 100_000 },
+      balance: { increment: 100_000n },
     });
 
     assert.deepEqual(txCreatedData, {
       walletId: 'w_101',
-      amount: 100_000,
+      amount: 100_000n,
       type: 'TOPUP',
       orderId: 'NAP260924777',
       description: 'Nạp tiền vào ví (NAP260924777) [FT_BANK_777]',
