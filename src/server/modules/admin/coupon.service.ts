@@ -8,8 +8,10 @@ export interface CouponValidationResult {
     code: string;
     discountType: string;
     discountValue: number;
-    maxDiscount: number | null;
-    minOrderAmount: number;
+    fixedDiscountAmount?: bigint | null;
+    percentageRate?: number | null;
+    maxDiscount: number | bigint | null;
+    minOrderAmount: number | bigint;
   };
 }
 
@@ -39,8 +41,8 @@ export async function validateCoupon(
     return { valid: false, error: 'Mã giảm giá đã hết lượt sử dụng' };
   }
 
-  if (subtotal < coupon.minOrderAmount) {
-    return { valid: false, error: `Đơn hàng tối thiểu để áp dụng mã này là ${coupon.minOrderAmount.toLocaleString('vi-VN')}đ` };
+  if (BigInt(subtotal) < coupon.minOrderAmount) {
+    return { valid: false, error: `Đơn hàng tối thiểu để áp dụng mã này là ${Number(coupon.minOrderAmount).toLocaleString('vi-VN')}đ` };
   }
 
   if (userId) {
@@ -59,6 +61,8 @@ export async function validateCoupon(
       code: coupon.code,
       discountType: coupon.discountType,
       discountValue: coupon.discountValue,
+      fixedDiscountAmount: coupon.fixedDiscountAmount,
+      percentageRate: coupon.percentageRate,
       maxDiscount: coupon.maxDiscount,
       minOrderAmount: coupon.minOrderAmount,
     },

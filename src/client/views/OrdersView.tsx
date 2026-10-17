@@ -251,7 +251,7 @@ export function OrdersView({ orders: initialOrders, currentUserId }: OrdersViewP
                         </div>
                       </div>
                       <span className="font-semibold text-slate-700 text-xs sm:text-sm shrink-0 ml-2">
-                        {formatVND(item.price * item.quantity)}
+                        {formatVND(Number(item.price) * item.quantity)}
                       </span>
                     </div>
                   ))}

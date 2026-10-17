@@ -129,7 +129,7 @@ export function AdminProductsView({ initialProducts }: { initialProducts: Produc
     setForm({
       name: product.name,
       description: product.description || '',
-      price: product.price,
+      price: Number(product.price),
       stock: product.stock,
       category: product.category || '',
       image: product.image || '',
@@ -140,7 +140,7 @@ export function AdminProductsView({ initialProducts }: { initialProducts: Produc
       id: v.id,
       sku: v.sku || '',
       title: v.title || '',
-      price: v.price,
+      price: Number(v.price),
       stock: v.stock,
       color: v.color || '',
       size: v.size || '',
@@ -160,7 +160,7 @@ export function AdminProductsView({ initialProducts }: { initialProducts: Produc
                 id: v.id,
                 sku: v.sku || '',
                 title: v.title || '',
-                price: v.price,
+                price: Number(v.price),
                 stock: v.stock,
                 color: v.color || '',
                 size: v.size || '',
@@ -175,7 +175,7 @@ export function AdminProductsView({ initialProducts }: { initialProducts: Produc
 
     setMatrixColors('');
     setMatrixSizes('');
-    setMatrixPrice(product.price);
+    setMatrixPrice(Number(product.price));
     setMatrixStock(10);
     setShowModal(true);
   };

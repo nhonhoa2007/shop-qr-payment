@@ -27,6 +27,9 @@ export function parseMoneyVnd(value: unknown, field: string): bigint {
     if (!Number.isFinite(value) || !Number.isInteger(value)) {
       throw new TypeError(`Invalid ${field}: expected integer number, received ${value}`);
     }
+    if (!Number.isSafeInteger(value)) {
+      throw new RangeError(`Invalid ${field}: number exceeds safe integer limit`);
+    }
     if (value < 0 || Object.is(value, -0)) {
       throw new RangeError(`Invalid ${field}: must be nonnegative`);
     }

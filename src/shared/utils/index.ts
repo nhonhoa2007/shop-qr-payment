@@ -1,8 +1,18 @@
-export function formatVND(amount: number): string {
+export function formatVND(amount: number | bigint | string): string {
+  let val: number | bigint;
+  if (typeof amount === 'string') {
+    try {
+      val = BigInt(amount);
+    } catch {
+      val = Number(amount) || 0;
+    }
+  } else {
+    val = amount;
+  }
   return new Intl.NumberFormat('vi-VN', {
     style: 'currency',
     currency: 'VND',
-  }).format(amount);
+  }).format(val);
 }
 
 export function formatTime(dateStr: string | Date): string {
@@ -109,6 +119,6 @@ export function getShipmentStatusColor(status: string): string {
 }
 
 export * from './product-variants.ts';
-export * from './money';
+export * from './money.ts';
 
 

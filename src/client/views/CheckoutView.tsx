@@ -97,7 +97,7 @@ export function CheckoutView() {
                 </div>
                 <div className="text-right">
                   <p className="font-semibold text-xs text-ink-black tracking-tight-display">
-                    {formatVND(item.price * item.quantity)}
+                    {formatVND(Number(item.price) * item.quantity)}
                   </p>
                 </div>
               </div>

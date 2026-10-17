@@ -29,7 +29,7 @@ interface WalletTopupModalProps {
   onClose: () => void;
   userId: string;
   userName: string;
-  onTopupSuccess?: (newBalance: number) => void;
+  onTopupSuccess?: (newBalance: number | string) => void;
 }
 
 type TopupStep = 'SELECT_AMOUNT' | 'QR_PAYMENT' | 'SUCCESS';
@@ -58,8 +58,8 @@ export function WalletTopupModal({
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [successInfo, setSuccessInfo] = useState<{
-    newBalance: number;
-    amount: number;
+    newBalance: number | string | bigint;
+    amount: number | string | bigint;
     topupCode: string;
   } | null>(null);
 

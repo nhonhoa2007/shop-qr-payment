@@ -125,7 +125,7 @@ export async function POST(req: Request) {
           const formatted = formatApprovedOrderMessage({
             orderCode: result.orderCode,
             customerName: order.customerName,
-            totalAmount: order.totalAmount,
+            totalAmount: Number(order.totalAmount),
             trackingCode: result.trackingCode || 'GHN',
             shippingFee: result.shippingFee || 30000,
             expectedDeliveryTime: result.expectedDeliveryTime,

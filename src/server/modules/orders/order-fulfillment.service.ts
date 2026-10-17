@@ -44,7 +44,7 @@ export async function approveAndFulfillOrder(orderId: string, db: typeof prisma 
       orderId: order.id,
       orderCode: order.orderCode,
       trackingCode: order.shipment.trackingCode,
-      shippingFee: order.shipment.shippingFee,
+      shippingFee: Number(order.shipment.shippingFee),
       carrier: order.shipment.carrier,
       expectedDeliveryTime: order.shipment.estimatedArrival,
       isAlreadyProcessed: true,
@@ -94,9 +94,9 @@ export async function approveAndFulfillOrder(orderId: string, db: typeof prisma 
       items: order.items.map((i) => ({
         name: i.product?.name || 'Sản phẩm',
         quantity: i.quantity,
-        price: i.price,
+        price: Number(i.price),
       })),
-      codAmount: order.paymentStatus === 'PAID' ? 0 : order.totalAmount,
+      codAmount: order.paymentStatus === 'PAID' ? 0 : Number(order.totalAmount),
     });
 
     const shipment = await db.shipment.create({
@@ -104,8 +104,8 @@ export async function approveAndFulfillOrder(orderId: string, db: typeof prisma 
         orderId: order.id,
         carrier: shipmentResult.carrier,
         trackingCode: shipmentResult.trackingCode,
-        shippingFee: shipmentResult.shippingFee,
-        codAmount: order.paymentStatus === 'PAID' ? 0 : order.totalAmount,
+        shippingFee: BigInt(shipmentResult.shippingFee),
+        codAmount: order.paymentStatus === 'PAID' ? 0n : BigInt(order.totalAmount),
         status: 'READY_TO_PICK',
         estimatedArrival: shipmentResult.expectedDeliveryTime,
         shippingLogs: [
@@ -159,7 +159,7 @@ export async function approveAndFulfillOrder(orderId: string, db: typeof prisma 
       orderId: order.id,
       orderCode: order.orderCode,
       trackingCode: shipment.trackingCode,
-      shippingFee: shipment.shippingFee,
+      shippingFee: Number(shipment.shippingFee),
       carrier: shipment.carrier,
       expectedDeliveryTime: shipment.estimatedArrival,
       isAlreadyProcessed: false,

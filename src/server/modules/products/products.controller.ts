@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { prisma } from '@server/database/prisma';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@server/modules/auth/auth-options';
 import {
   buildProductCacheKey,
   getCachedProductList,
@@ -17,6 +17,7 @@ import {
   deleteProductOrVariant,
 } from './product.service.ts';
 import { resolveOperatorAccess } from '@server/modules/admin/guards';
+import { serializeProductDto } from '@server/modules/money/money-serialization';
 
 interface ProductBody {
   id?: unknown;
@@ -61,7 +62,7 @@ export async function GET(req: Request) {
         return NextResponse.json({ error: 'Không tìm thấy sản phẩm' }, { status: 404 });
       }
 
-      return NextResponse.json({ product });
+      return NextResponse.json({ product: serializeProductDto(product) });
     }
 
     // Query Cache: Chỉ cache danh mục sản phẩm công khai cho khách mua
@@ -107,7 +108,8 @@ export async function GET(req: Request) {
       await setCachedProductList(cacheKey, products, 60);
     }
 
-    return NextResponse.json({ products }, { headers: { 'X-Cache': 'MISS' } });
+    const serializedProducts = products.map(serializeProductDto);
+    return NextResponse.json({ products: serializedProducts }, { headers: { 'X-Cache': 'MISS' } });
   } catch (error) {
     console.error('Get products error:', error);
     return NextResponse.json({ error: 'Lỗi hệ thống' }, { status: 500 });
@@ -156,7 +158,7 @@ export async function POST(req: Request) {
     // Invalidate product cache
     await invalidateProductCache();
 
-    return NextResponse.json({ product }, { status: 201 });
+    return NextResponse.json({ product: serializeProductDto(product) }, { status: 201 });
   } catch (error: unknown) {
     console.error('Create product error:', error);
     const errObj = error as { code?: string; message?: string };
@@ -221,7 +223,7 @@ export async function PUT(req: Request) {
     // Invalidate product cache
     await invalidateProductCache();
 
-    return NextResponse.json({ product });
+    return NextResponse.json({ product: serializeProductDto(product) });
   } catch (error: unknown) {
     console.error('Update product error:', error);
     if (error instanceof Error && error.message === 'NOT_FOUND') {

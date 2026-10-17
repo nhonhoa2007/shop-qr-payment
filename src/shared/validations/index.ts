@@ -99,7 +99,7 @@ export function buildValidatedOrderItems(
         return { error: `Biến thể "${variant.title}" chỉ còn ${variant.stock} món` };
       }
 
-      const itemPrice = variant.price;
+      const itemPrice = typeof variant.price === 'bigint' ? Number(variant.price) : Number(variant.price);
       subtotal += itemPrice * item.quantity;
       orderItems.push({
         productId: product.id,
@@ -118,11 +118,12 @@ export function buildValidatedOrderItems(
         return { error: `Sản phẩm "${product.name}" chỉ còn ${product.stock} món` };
       }
 
-      subtotal += product.price * item.quantity;
+      const itemPrice = typeof product.price === 'bigint' ? Number(product.price) : Number(product.price);
+      subtotal += itemPrice * item.quantity;
       orderItems.push({
         productId: product.id,
         quantity: item.quantity,
-        price: product.price,
+        price: itemPrice,
       });
     }
   }

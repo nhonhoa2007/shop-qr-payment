@@ -2,11 +2,14 @@
 // CORE DOMAIN ENTITIES & INTERFACES
 // ==========================================
 
+import type { MoneyVnd, MoneySnapshot } from './money';
+export type { MoneyVnd, MoneySnapshot };
+
 export interface Product {
   id: string;
   name: string;
   description: string | null;
-  price: number;
+  price: MoneyVnd | number | bigint;
   image: string | null;
   category: string | null;
   stock: number;
@@ -22,7 +25,7 @@ export interface Product {
 export interface CartItem {
   productId: string;
   name: string;
-  price: number;
+  price: MoneyVnd | number | bigint;
   image?: string;
   quantity: number;
   variantId?: string | null;
@@ -36,7 +39,7 @@ export interface OrderItem {
   variantId?: string | null;
   variantTitle?: string | null;
   quantity: number;
-  price: number;
+  price: MoneyVnd | number | bigint;
 }
 
 export type OrderStatus = 'PENDING' | 'CONFIRMED' | 'PROCESSING' | 'SHIPPING' | 'COMPLETED' | 'CANCELLED';
@@ -53,12 +56,12 @@ export interface Order {
   customerEmail?: string | null;
   customerAddress: string;
   items: OrderItem[];
-  subtotal?: number;
-  shippingFee?: number;
-  discountAmount?: number;
+  subtotal?: MoneyVnd | number | bigint;
+  shippingFee?: MoneyVnd | number | bigint;
+  discountAmount?: MoneyVnd | number | bigint;
   couponId?: string | null;
   couponCode?: string | null;
-  totalAmount: number;
+  totalAmount: MoneyVnd | number | bigint;
   status: OrderStatus;
   paymentStatus: PaymentStatus;
   shipment?: Shipment | null;
@@ -106,7 +109,7 @@ export interface QRPaymentData {
   orderId: string;
   orderCode: string;
   qrUrl: string;
-  totalAmount: number;
+  totalAmount: MoneyVnd | number | bigint;
   expiresAt: string;
   bankInfo: {
     bankName: string;
@@ -130,8 +133,10 @@ export interface Coupon {
   description?: string | null;
   discountType: DiscountType;
   discountValue: number;
-  maxDiscount?: number | null;
-  minOrderAmount?: number | null;
+  fixedDiscountAmount?: MoneyVnd | bigint | number | null;
+  percentageRate?: number | null;
+  maxDiscount?: MoneyVnd | bigint | number | null;
+  minOrderAmount?: MoneyVnd | bigint | number | null;
   usageLimit?: number | null;
   usedCount: number;
   perUserLimit?: number | null;
@@ -149,7 +154,7 @@ export interface ProductVariant {
   title: string;
   color?: string | null;
   size?: string | null;
-  price: number;
+  price: MoneyVnd | number | bigint;
   stock: number;
   image?: string | null;
   isActive: boolean;
@@ -198,8 +203,8 @@ export interface Shipment {
   orderId: string;
   carrier: CarrierName;
   trackingCode: string;
-  shippingFee: number;
-  codAmount: number;
+  shippingFee: MoneyVnd | number | bigint;
+  codAmount: MoneyVnd | number | bigint;
   status: ShipmentStatus;
   estimatedArrival?: Date | string | null;
   shippingLogs?: unknown;
@@ -212,7 +217,7 @@ export type WalletTxType = 'REFUND' | 'PURCHASE_PAYMENT' | 'TOPUP';
 export interface WalletTransaction {
   id: string;
   walletId: string;
-  amount: number;
+  amount: MoneyVnd | number | bigint;
   type: WalletTxType;
   orderId?: string | null;
   description: string;
@@ -222,7 +227,7 @@ export interface WalletTransaction {
 export interface UserWallet {
   id: string;
   userId: string;
-  balance: number;
+  balance: MoneyVnd | number | bigint;
   transactions?: WalletTransaction[];
   createdAt: Date | string;
   updatedAt: Date | string;
@@ -251,11 +256,11 @@ export interface UserAccount {
   createdAt: string;
   orderCount?: number;
   paidOrderCount?: number;
-  totalSpent?: number;
+  totalSpent?: MoneyVnd | number | bigint;
   recentOrders?: Array<{
     id: string;
     orderCode: string;
-    totalAmount: number;
+    totalAmount: MoneyVnd | number | bigint;
     status: string;
     paymentStatus: string;
     createdAt: string;
@@ -277,27 +282,27 @@ export interface ValidatedOrderItem {
   variantId?: string | null;
   variantTitle?: string | null;
   quantity: number;
-  price: number;
+  price: MoneyVnd | number | bigint;
 }
 
 export interface CheckoutTotals {
-  subtotal: number;
-  shippingFee: number;
-  discountAmount: number;
-  totalAmount: number;
+  subtotal: MoneyVnd | number | bigint;
+  shippingFee: MoneyVnd | number | bigint;
+  discountAmount: MoneyVnd | number | bigint;
+  totalAmount: MoneyVnd | number | bigint;
 }
 
 export interface CouponValidationResult {
   isValid: boolean;
   coupon?: Coupon;
-  discountAmount: number;
+  discountAmount: MoneyVnd | number | bigint;
   message?: string;
 }
 
 export interface ReconcileInput {
   orderId?: string;
   orderCode?: string;
-  amount: number;
+  amount: MoneyVnd | number | bigint;
   bankTransId?: string;
   bankName?: string;
   note?: string;
@@ -310,7 +315,7 @@ export interface ReconcileValidationResult {
   normalizedData?: {
     orderId?: string;
     orderCode?: string;
-    amount: number;
+    amount: MoneyVnd | number | bigint;
     bankTransId: string;
     bankName?: string;
     note?: string;
@@ -344,7 +349,7 @@ export interface RecentOrderDto {
   id: string;
   orderCode: string;
   customerName: string;
-  totalAmount: number;
+  totalAmount: MoneyVnd | number | bigint;
   status: OrderStatus;
   paymentStatus: PaymentStatus;
   paymentMethod: 'VIETQR' | 'COD' | 'WALLET';
@@ -357,9 +362,9 @@ export interface TopProductDto {
   name: string;
   image: string | null;
   category: string | null;
-  price: number;
+  price: MoneyVnd | number | bigint;
   soldQuantity: number;
-  revenue: number;
+  revenue: MoneyVnd | number | bigint;
 }
 
 export interface PaymentMethodDistribution {
@@ -370,11 +375,11 @@ export interface PaymentMethodDistribution {
 
 export interface RevenueTrendItem {
   label: string;
-  revenue: number;
+  revenue: MoneyVnd | number | bigint;
 }
 
 export interface AdminAnalyticsSummary {
-  todayRevenue: number;
+  todayRevenue: MoneyVnd | number | bigint;
   revenueGrowthPercent: number;
   todayOrders: number;
   ordersGrowthPercent: number;
@@ -443,8 +448,8 @@ export interface SerializedShipment {
   id: string;
   carrier: string;
   trackingCode: string;
-  shippingFee: number;
-  codAmount: number;
+  shippingFee: MoneyVnd | number | bigint;
+  codAmount: MoneyVnd | number | bigint;
   status: string;
   estimatedArrival?: string | null;
   shippingLogs?: SerializedShipmentLog[];
@@ -454,7 +459,7 @@ export interface SerializedShipment {
 export interface SerializedOrderItem {
   id: string;
   quantity: number;
-  price: number;
+  price: MoneyVnd | number | bigint;
   product: {
     name: string;
     image?: string | null;
@@ -465,7 +470,7 @@ export interface SerializedOrderItem {
 export interface SerializedOrder {
   id: string;
   orderCode: string;
-  totalAmount: number;
+  totalAmount: MoneyVnd | number | bigint;
   status: string;
   paymentStatus: string;
   createdAt: string;
@@ -477,7 +482,7 @@ export interface ProductVariantInput {
   id?: string;
   sku: string;
   title: string;
-  price: number;
+  price: MoneyVnd | number | bigint;
   stock?: number;
   color?: string | null;
   size?: string | null;
@@ -488,7 +493,7 @@ export interface ProductVariantInput {
 export interface CreateProductDto {
   name: string;
   description?: string | null;
-  price: number;
+  price: MoneyVnd | number | bigint;
   image?: string | null;
   category?: string | null;
   stock?: number;
@@ -500,7 +505,7 @@ export interface UpdateProductDto {
   id: string;
   name?: string;
   description?: string | null;
-  price?: number;
+  price?: MoneyVnd | number | bigint;
   image?: string | null;
   category?: string | null;
   stock?: number;
@@ -509,12 +514,12 @@ export interface UpdateProductDto {
 }
 
 export interface WalletTopupRequest {
-  amount: number;
+  amount: MoneyVnd | number | bigint;
 }
 
 export interface WalletTopupResponse {
   topupCode: string;
-  amount: number;
+  amount: MoneyVnd | number | bigint;
   qrUrl?: string;
   bankInfo?: {
     bankName: string;
@@ -528,7 +533,7 @@ export interface WalletTopupResponse {
 export interface WalletTopupSession {
   topupCode: string;
   userId: string;
-  amount: number;
+  amount: MoneyVnd | number | bigint;
   status: 'PENDING' | 'COMPLETED' | 'EXPIRED' | 'CANCELLED';
   idempotencyToken: string;
   createdAt: string;

@@ -5,6 +5,7 @@ import { prisma } from '@server/database/prisma';
 import { createNotification } from '@server/modules/notifications/notifications.service';
 import { pusherServer } from '@server/infrastructure/pusher';
 import { invalidateAnalyticsCache } from '@server/infrastructure/redis';
+import { BUSINESS_MAX_VND } from '@shared/utils/money';
 import {
   type BankTransactionPayload,
   getTransactionId,
@@ -41,9 +42,21 @@ export async function POST(req: Request) {
       const transactionId = getTransactionId(txn);
       const topupCode = parseTopupCodeFromDescription(txn.description);
       const matchedCode = parseOrderCodeFromDescription(txn.description);
-      const amount = Number(txn.amount);
-      const validIncomingAmount = Number.isSafeInteger(amount) && amount > 0 && amount <= 2_147_483_647;
-      const storedAmount = Number.isFinite(amount) ? Math.max(-2_147_483_648, Math.min(2_147_483_647, Math.round(amount))) : 0;
+      let parsedBigInt: bigint | null = null;
+      try {
+        if (typeof txn.amount === 'bigint') {
+          parsedBigInt = txn.amount;
+        } else if (typeof txn.amount === 'number' && Number.isFinite(txn.amount)) {
+          parsedBigInt = BigInt(Math.round(txn.amount));
+        } else if (typeof txn.amount === 'string' && /^-?\d+$/.test(txn.amount.trim())) {
+          parsedBigInt = BigInt(txn.amount.trim());
+        }
+      } catch {
+        parsedBigInt = null;
+      }
+      const storedAmount = parsedBigInt != null ? parsedBigInt : 0n;
+      const validIncomingAmount = parsedBigInt != null && parsedBigInt > 0n && parsedBigInt <= BUSINESS_MAX_VND;
+      const amount = Number(storedAmount);
       const order = matchedCode ? await prisma.order.findFirst({
         where: { orderCode: { equals: matchedCode, mode: 'insensitive' } },
         include: { chatRoom: true },
@@ -145,7 +158,7 @@ export async function POST(req: Request) {
             data: {
               orderId: order.id,
               bankTransId: transactionId,
-              amount,
+              amount: storedAmount,
               description: txn.description || '',
               bankName: txn.bankSubAccId || null,
               receivedAt: txn.when ? new Date(txn.when) : new Date(),
@@ -237,7 +250,7 @@ export async function POST(req: Request) {
           id: order.id,
           orderCode: order.orderCode,
           customerName: order.customerName,
-          totalAmount: order.totalAmount,
+          totalAmount: Number(order.totalAmount),
           paymentMethod: 'Chuyển khoản VietQR',
         });
         void sendTelegramMessage(paidTelegramPayload).catch((err) => {

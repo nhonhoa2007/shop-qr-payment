@@ -17,6 +17,7 @@ import {
   validateOrderTransition,
 } from '@server/modules/orders/orders.fsm';
 import { resolveOperatorAccess } from '@server/modules/admin/guards';
+import { serializeOrderDto } from '@server/modules/money/money-serialization';
 
 interface UpdateOrderBody {
   status?: unknown;
@@ -54,7 +55,7 @@ export async function GET(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    return NextResponse.json({ order });
+    return NextResponse.json({ order: serializeOrderDto(order) });
   } catch (error) {
     console.error('Get order error:', error);
     return NextResponse.json({ error: 'Lỗi hệ thống' }, { status: 500 });
@@ -157,7 +158,7 @@ export async function PATCH(
       const fulfillment = await approveAndFulfillOrder(currentOrder.id);
       if (!fulfillment.success) return NextResponse.json({ error: fulfillment.error }, { status: 502 });
       const order = await prisma.order.findUnique({ where: { id }, include: { items: { include: { product: true, variant: true } } } });
-      return NextResponse.json({ order });
+      return NextResponse.json({ order: order ? serializeOrderDto(order) : null });
     }
 
     const shouldRefundPaidOrder =
@@ -310,7 +311,7 @@ export async function PATCH(
       console.error('[Order Detail] Pusher admin trigger error:', pusherErr);
     }
 
-    return NextResponse.json({ order: updatedOrder });
+    return NextResponse.json({ order: serializeOrderDto(updatedOrder) });
   } catch (error) {
     console.error('Update order error:', error);
     return NextResponse.json({ error: 'Lỗi cập nhật đơn hàng' }, { status: 500 });

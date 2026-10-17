@@ -77,7 +77,7 @@ export async function POST(req: Request) {
           id: orderId,
           orderCode: order.orderCode,
           customerName: order.customerName,
-          totalAmount: result.paidAmount,
+          totalAmount: Number(result.paidAmount || order.totalAmount),
           paymentMethod: 'Ví Shop',
         });
         void sendTelegramMessage(paidTelegramPayload).catch((err) => {

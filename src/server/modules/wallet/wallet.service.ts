@@ -1,15 +1,18 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { prisma } from '../../database/prisma.ts';
 import { releaseOrderStock } from '../inventory/inventory.service.ts';
+import { serializeMoneyVnd } from '@shared/utils/money';
+import { serializeWalletDto } from '@server/modules/money/money-serialization';
+import type { MoneyVnd } from '@shared/types/money';
 
 type TransactionClient = Prisma.TransactionClient | PrismaClient;
 
 export interface WalletOperationResult {
   success: boolean;
   error?: string;
-  refundedAmount?: number;
-  paidAmount?: number;
-  newBalance?: number;
+  refundedAmount?: MoneyVnd | number;
+  paidAmount?: MoneyVnd | number;
+  newBalance?: MoneyVnd | number;
   transactionId?: string;
   isGuest?: boolean;
 }
@@ -136,8 +139,8 @@ export async function refundOrderToWallet(
 
     return {
       success: true,
-      refundedAmount: order.totalAmount,
-      newBalance: updatedWallet.balance,
+      refundedAmount: serializeMoneyVnd(BigInt(order.totalAmount)),
+      newBalance: serializeMoneyVnd(BigInt(updatedWallet.balance)),
       transactionId: txRecord.id,
     };
   }
@@ -145,12 +148,12 @@ export async function refundOrderToWallet(
   // Khách vãng lai (không có tài khoản đăng nhập)
   await tx.refundCase.upsert({
     where: { sourceKey: `order:${order.id}` },
-    create: { sourceKey: `order:${order.id}`, orderId: order.id, amount: order.totalAmount, reason: reason || 'Đơn đã thanh toán bị hủy; cần hoàn tiền cho khách vãng lai' },
+    create: { sourceKey: `order:${order.id}`, orderId: order.id, amount: BigInt(order.totalAmount), reason: reason || 'Đơn đã thanh toán bị hủy; cần hoàn tiền cho khách vãng lai' },
     update: {},
   });
   return {
     success: true,
-    refundedAmount: order.totalAmount,
+    refundedAmount: serializeMoneyVnd(BigInt(order.totalAmount)),
     isGuest: true,
   };
 }
@@ -233,10 +236,11 @@ export async function payOrderWithWallet(
   }
 
   // Ghi nhật ký biến động ví
+  const orderAmountBigInt = BigInt(order.totalAmount);
   const txRecord = await tx.walletTransaction.create({
     data: {
       walletId: wallet.id,
-      amount: -order.totalAmount,
+      amount: -orderAmountBigInt,
       type: 'PURCHASE_PAYMENT',
       orderId: order.id,
       description: `Thanh toán thành công đơn hàng ${order.orderCode}`,
@@ -256,7 +260,7 @@ export async function payOrderWithWallet(
   await tx.transaction.upsert({
     where: { orderId: order.id },
     update: {
-      amount: order.totalAmount,
+      amount: orderAmountBigInt,
       bankName: 'SHOP_WALLET',
       bankTransId: txRecord.id,
       description: `Thanh toán qua Ví nội bộ: ${order.orderCode}`,
@@ -265,7 +269,7 @@ export async function payOrderWithWallet(
     },
     create: {
       orderId: order.id,
-      amount: order.totalAmount,
+      amount: orderAmountBigInt,
       bankName: 'SHOP_WALLET',
       bankTransId: txRecord.id,
       description: `Thanh toán qua Ví nội bộ: ${order.orderCode}`,
@@ -274,10 +278,11 @@ export async function payOrderWithWallet(
     },
   });
 
+  const remainingBalance = BigInt(wallet.balance) - orderAmountBigInt;
   return {
     success: true,
-    paidAmount: order.totalAmount,
-    newBalance: wallet.balance - order.totalAmount,
+    paidAmount: serializeMoneyVnd(orderAmountBigInt),
+    newBalance: serializeMoneyVnd(remainingBalance),
     transactionId: txRecord.id,
   };
 }
@@ -294,10 +299,10 @@ export async function getWalletDetails(userId: string) {
     take: 20,
   });
 
-  return {
+  return serializeWalletDto({
     id: wallet.id,
     balance: wallet.balance,
     updatedAt: wallet.updatedAt,
     transactions,
-  };
+  });
 }

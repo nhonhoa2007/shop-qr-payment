@@ -114,7 +114,7 @@ export function evaluateWebhookDecision(
     isDuplicateTransaction: boolean;
     order: {
       orderCode: string;
-      totalAmount: number;
+      totalAmount: number | bigint;
       paymentStatus: string;
       status: string;
     } | null;
@@ -152,10 +152,13 @@ export function evaluateWebhookDecision(
     return { action: 'SKIP', reason: 'ORDER_CANCELLED' };
   }
 
-  if (amount < context.order.totalAmount) {
+  const amountBigInt = BigInt(amount);
+  const orderTotalBigInt = BigInt(context.order.totalAmount);
+
+  if (amountBigInt < orderTotalBigInt) {
     return { action: 'SKIP', reason: 'UNDERPAID' };
   }
-  if (amount > context.order.totalAmount) {
+  if (amountBigInt > orderTotalBigInt) {
     return { action: 'SKIP', reason: 'OVERPAID' };
   }
 

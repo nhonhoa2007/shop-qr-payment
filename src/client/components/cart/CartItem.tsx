@@ -74,7 +74,7 @@ export function CartItem({ item, onRequestRemove }: CartItemProps) {
         {/* Subtotal */}
         <div className="text-right min-w-[90px]">
           <p className="font-semibold text-sm text-ink-black tracking-tight-display">
-            {formatVND(item.price * item.quantity)}
+            {formatVND(Number(item.price) * item.quantity)}
           </p>
         </div>
 

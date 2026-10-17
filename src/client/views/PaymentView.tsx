@@ -1,12 +1,13 @@
 'use client';
 
 import { QRPayment } from '@client/components/payment/QRPayment';
+import type { MoneyVnd } from '@shared/types/money';
 
 export interface PaymentViewProps {
   orderId: string;
   orderCode: string;
   qrUrl: string;
-  totalAmount: number;
+  totalAmount: MoneyVnd | number | bigint;
   expiresAt: string;
   bankInfo: {
     bankName: string;

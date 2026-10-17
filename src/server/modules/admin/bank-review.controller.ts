@@ -50,8 +50,8 @@ export async function POST(req: Request) {
       const order = await tx.order.findUnique({ where: { orderCode }, include: { items: true } });
       if (!order || order.paymentStatus === 'PAID' || order.paymentStatus === 'REFUNDED') throw new Error('Đơn không tồn tại hoặc đã thanh toán');
       const transfers = await tx.bankTransfer.findMany({ where: { id: { in: ids }, status: 'PENDING_REVIEW' } });
-      if (transfers.length !== ids.length || transfers.some((item) => item.amount <= 0)) throw new Error('Giao dịch không còn chờ đối soát');
-      const total = transfers.reduce((sum, item) => sum + item.amount, 0);
+      if (transfers.length !== ids.length || transfers.some((item) => item.amount <= 0n)) throw new Error('Giao dịch không còn chờ đối soát');
+      const total = transfers.reduce((sum, item) => sum + item.amount, 0n);
       if (total < order.totalAmount) throw new Error('Tổng giao dịch chưa đủ giá trị đơn');
       const claimed = await tx.bankTransfer.updateMany({ where: { id: { in: ids }, status: 'PENDING_REVIEW' }, data: { status: 'APPLIED_ORDER', orderId: order.id, reviewedById: reviewerId, reviewedAt: new Date(), resolutionNote: note, reviewReason: null } });
       if (claimed.count !== ids.length) throw new Error('Giao dịch đã được xử lý đồng thời');

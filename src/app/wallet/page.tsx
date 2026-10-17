@@ -1,5 +1,5 @@
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@server/modules/auth/auth-options';
 import { redirect } from 'next/navigation';
 import { getWalletDetails } from '@server/modules/wallet/wallet.service';
 import { WalletView } from '@client/views/WalletView';
@@ -26,15 +26,15 @@ export default async function WalletPage() {
     userId: session.user.id,
     balance: wallet.balance,
     createdAt: new Date().toISOString(),
-    updatedAt: wallet.updatedAt.toISOString(),
-    transactions: wallet.transactions.map((t) => ({
+    updatedAt: typeof wallet.updatedAt === 'string' ? wallet.updatedAt : wallet.updatedAt.toISOString(),
+    transactions: (wallet.transactions || []).map((t: any) => ({
       id: t.id,
       walletId: t.walletId,
       amount: t.amount,
       type: t.type,
       orderId: t.orderId,
       description: t.description,
-      createdAt: t.createdAt.toISOString(),
+      createdAt: typeof t.createdAt === 'string' ? t.createdAt : t.createdAt.toISOString(),
     })) as WalletTransaction[],
   };
 

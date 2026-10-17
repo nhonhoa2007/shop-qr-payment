@@ -2,6 +2,7 @@ import { prisma } from '@server/database/prisma';
 import { Role } from '@prisma/client';
 import { updateUserRbac } from './admin-rbac.service.ts';
 import { getCachedAnalytics, setCachedAnalytics } from '@server/infrastructure/redis';
+import { bigIntJsonReplacer } from '@server/modules/money/money-serialization';
 import {
   type AdminAnalyticsResponse,
   type AnalyticsRange,
@@ -80,7 +81,7 @@ export class AdminService {
 
     return users.map((u) => {
       const paidOrders = u.orders.filter((o) => o.paymentStatus === 'PAID');
-      const totalSpent = paidOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+      const totalSpent = paidOrders.reduce((sum, o) => sum + Number(o.totalAmount), 0);
 
       return {
         id: u.id,
@@ -99,6 +100,7 @@ export class AdminService {
         totalSpent,
         recentOrders: u.orders.slice(0, 3).map((o) => ({
           ...o,
+          totalAmount: Number(o.totalAmount),
           createdAt: o.createdAt.toISOString(),
         })),
       };
@@ -132,6 +134,10 @@ export class AdminService {
 
     return orders.map((order) => ({
       ...order,
+      subtotal: Number(order.subtotal),
+      shippingFee: Number(order.shippingFee),
+      discountAmount: Number(order.discountAmount),
+      totalAmount: Number(order.totalAmount),
       customerEmail: order.customerEmail || undefined,
       note: order.note || undefined,
       createdAt: order.createdAt.toISOString(),
@@ -140,7 +146,7 @@ export class AdminService {
       items: order.items.map((item) => ({
         id: item.id,
         quantity: item.quantity,
-        price: item.price,
+        price: Number(item.price),
         product: {
           name: item.product.name,
           image: item.product.image || undefined,
@@ -183,7 +189,7 @@ export class AdminService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return JSON.parse(JSON.stringify(reviews));
+    return JSON.parse(JSON.stringify(reviews, bigIntJsonReplacer));
   }
 
   static async getAdminShipments() {
@@ -210,8 +216,8 @@ export class AdminService {
       orderId: s.orderId,
       carrier: s.carrier,
       trackingCode: s.trackingCode,
-      shippingFee: s.shippingFee,
-      codAmount: s.codAmount,
+      shippingFee: Number(s.shippingFee),
+      codAmount: Number(s.codAmount),
       status: s.status,
       estimatedArrival: s.estimatedArrival ? s.estimatedArrival.toISOString() : null,
       shippingLogs: (s.shippingLogs as unknown as Array<{
@@ -227,7 +233,7 @@ export class AdminService {
         customerName: s.order.customerName,
         customerPhone: s.order.customerPhone,
         customerAddress: s.order.customerAddress,
-        totalAmount: s.order.totalAmount,
+        totalAmount: Number(s.order.totalAmount),
         status: s.order.status,
         paymentStatus: s.order.paymentStatus,
       },
@@ -253,7 +259,7 @@ export class AdminService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return JSON.parse(JSON.stringify(transactions));
+    return JSON.parse(JSON.stringify(transactions, bigIntJsonReplacer));
   }
 
   static async getAdminAnalytics(range: AnalyticsRange = '7days'): Promise<AdminAnalyticsResponse> {
@@ -421,10 +427,10 @@ export class AdminService {
       }),
     ]);
 
-    const totalRevenue = paidOrdersAgg._sum.totalAmount || 0;
+    const totalRevenue = Number(paidOrdersAgg._sum.totalAmount || 0n);
     const totalPaidOrders = paidOrdersAgg._count.id || 0;
-    const todayRevenue = todayPaidAgg._sum.totalAmount || 0;
-    const yesterdayRevenue = yesterdayPaidAgg._sum.totalAmount || 0;
+    const todayRevenue = Number(todayPaidAgg._sum.totalAmount || 0n);
+    const yesterdayRevenue = Number(yesterdayPaidAgg._sum.totalAmount || 0n);
     const todayRevenueGrowth = calculateRevenueGrowth(todayRevenue, yesterdayRevenue);
 
     const matchedTransactions = totalTransactions - unmatchedTransactionsCount;
@@ -442,14 +448,23 @@ export class AdminService {
       ordersByStatus[item.status] = item._count.id;
     }
 
-    const revenueTrend = range === 'today'
-      ? buildHourlyRevenueTrend(startOfToday, recentPaidOrders)
-      : range === 'month'
-      ? buildMonthlyRevenueTrend(thirtyDaysAgo, recentPaidOrders)
-      : buildRevenueTrend(sevenDaysAgo, recentPaidOrders);
+    const recentPaidOrdersMapped = recentPaidOrders.map((o) => ({
+      ...o,
+      totalAmount: Number(o.totalAmount),
+    }));
 
-    const periodRevenue = recentPaidOrders.reduce((sum, o) => sum + o.totalAmount, 0);
-    const paymentMethodDistribution = calculatePaymentMethodDistribution(paidOrdersForDistribution);
+    const revenueTrend = range === 'today'
+      ? buildHourlyRevenueTrend(startOfToday, recentPaidOrdersMapped)
+      : range === 'month'
+      ? buildMonthlyRevenueTrend(thirtyDaysAgo, recentPaidOrdersMapped)
+      : buildRevenueTrend(sevenDaysAgo, recentPaidOrdersMapped);
+
+    const periodRevenue = recentPaidOrdersMapped.reduce((sum, o) => sum + o.totalAmount, 0);
+    const paidOrdersForDistributionMapped = paidOrdersForDistribution.map((o) => ({
+      ...o,
+      shipment: o.shipment ? { ...o.shipment, codAmount: Number(o.shipment.codAmount) } : null,
+    }));
+    const paymentMethodDistribution = calculatePaymentMethodDistribution(paidOrdersForDistributionMapped as any);
     const urgentActions = buildUrgentActions({
       unmatchedTransactionsCount,
       criticalStockCount,
@@ -462,7 +477,7 @@ export class AdminService {
       customerName: order.customerName,
       customerPhone: order.customerPhone,
       itemsSummary: formatItemsSummary(order.items),
-      totalAmount: order.totalAmount,
+      totalAmount: Number(order.totalAmount),
       paymentStatus: order.paymentStatus,
       status: order.status,
       createdAt: order.createdAt.toISOString(),
@@ -482,7 +497,7 @@ export class AdminService {
       return {
         productId: item.productId,
         name: info?.name || 'Sản phẩm',
-        price: info?.price || 0,
+        price: Number(info?.price || 0),
         image: info?.image || null,
         category: info?.category || null,
         totalSold: item._sum.quantity || 0,

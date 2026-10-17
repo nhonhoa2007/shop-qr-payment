@@ -281,7 +281,7 @@ export function WalletView({ initialWallet, userName, userId }: WalletViewProps)
         ) : (
           <div className="divide-y divide-gray-100">
             {filteredTransactions.map((tx) => {
-              const isPositive = tx.amount > 0;
+              const isPositive = Number(tx.amount) > 0;
               const isRefund = tx.type === 'REFUND';
               const isTopup = tx.type === 'TOPUP';
 

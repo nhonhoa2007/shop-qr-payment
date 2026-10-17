@@ -1,6 +1,7 @@
 import { cache } from 'react';
 import { prisma } from '@server/database/prisma';
 import { redis } from '@server/infrastructure/redis';
+import { serializeMoneyVnd } from '@shared/utils/money';
 import type { Product } from '@/types';
 
 export type CatalogSort = 'newest' | 'price-asc' | 'price-desc';
@@ -93,7 +94,7 @@ export class CatalogService {
           id: p.id,
           name: p.name,
           description: p.description,
-          price: p.price,
+          price: serializeMoneyVnd(BigInt(p.price)),
           image: p.image,
           category: p.category,
           stock: p.stock,
@@ -109,7 +110,7 @@ export class CatalogService {
             title: v.title,
             color: v.color,
             size: v.size,
-            price: v.price,
+            price: serializeMoneyVnd(BigInt(v.price)),
             stock: v.stock,
             image: v.image,
             isActive: v.isActive,
@@ -157,7 +158,7 @@ export class CatalogService {
         id: product.id,
         name: product.name,
         description: product.description,
-        price: product.price,
+        price: serializeMoneyVnd(BigInt(product.price)),
         image: product.image,
         category: product.category,
         stock: product.stock,
@@ -171,7 +172,7 @@ export class CatalogService {
           title: v.title,
           color: v.color,
           size: v.size,
-          price: v.price,
+          price: serializeMoneyVnd(BigInt(v.price)),
           stock: v.stock,
           image: v.image,
           isActive: v.isActive,

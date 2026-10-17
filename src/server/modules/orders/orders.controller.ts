@@ -8,12 +8,17 @@ import { authOptions } from '@server/modules/auth/auth-options';
 import { expireUnpaidOrders, reserveOrderStock } from '@server/modules/inventory/inventory.service';
 import { normalizeEmail } from '@server/modules/auth/otp.service';
 import { validateCoupon } from '@server/modules/admin/coupon.service';
-import { calculateDiscount } from '@shared/utils/checkout';
+import { calculateDiscount, calculateDiscountBigInt } from '@shared/utils/checkout';
 import { checkDistributedRateLimit, getClientIp } from '@server/infrastructure/rate-limit';
 import { pusherServer } from '@server/infrastructure/pusher';
 import { resolveOperatorAccess } from '@server/modules/admin/guards';
 import { formatNewOrderMessage, sendTelegramMessage } from '@server/infrastructure/telegram';
 import { quoteShipping, QuoteError } from '@server/modules/shipping/shipping-quote.service';
+import {
+  serializeOrderDto,
+  serializeMoneyVnd,
+  parseMoneyVnd,
+} from '@server/modules/money/money-serialization';
 
 interface CreateOrderBody {
   items?: unknown;
@@ -58,45 +63,71 @@ export async function POST(req: Request) {
     }
 
     const validated = await quoteShipping(body);
-    if (!Number.isInteger(body.quotedShippingFee) || body.quotedShippingFee !== validated.shippingFee || !Number.isInteger(body.quotedSubtotal) || body.quotedSubtotal !== validated.subtotal) {
-      return NextResponse.json({
-        error: 'Giá hàng hoặc phí vận chuyển đã thay đổi. Vui lòng xác nhận tổng tiền mới.',
-        shippingFee: validated.shippingFee,
-        subtotal: validated.subtotal,
-      }, { status: 409 });
+    const validatedSubtotalBigInt = BigInt(validated.subtotal);
+    const validatedShippingFeeBigInt = BigInt(validated.shippingFee);
+
+    let quotedSubtotalBigInt: bigint | null = null;
+    let quotedShippingFeeBigInt: bigint | null = null;
+    try {
+      if (body.quotedSubtotal !== undefined && body.quotedSubtotal !== null) {
+        quotedSubtotalBigInt = parseMoneyVnd(body.quotedSubtotal, 'quotedSubtotal');
+      }
+      if (body.quotedShippingFee !== undefined && body.quotedShippingFee !== null) {
+        quotedShippingFeeBigInt = parseMoneyVnd(body.quotedShippingFee, 'quotedShippingFee');
+      }
+    } catch {
+      quotedSubtotalBigInt = null;
+      quotedShippingFeeBigInt = null;
+    }
+
+    if (
+      quotedSubtotalBigInt === null ||
+      quotedShippingFeeBigInt === null ||
+      quotedSubtotalBigInt !== validatedSubtotalBigInt ||
+      quotedShippingFeeBigInt !== validatedShippingFeeBigInt
+    ) {
+      return NextResponse.json(
+        {
+          error: 'Giá hàng hoặc phí vận chuyển đã thay đổi. Vui lòng xác nhận tổng tiền mới.',
+          shippingFee: serializeMoneyVnd(validatedShippingFeeBigInt),
+          subtotal: serializeMoneyVnd(validatedSubtotalBigInt),
+        },
+        { status: 409 }
+      );
     }
 
     // Handle Coupon discount
-    let couponRecord: { id: string; code: string; discountType: string; discountValue: number; maxDiscount: number | null; minOrderAmount: number; perUserLimit: number } | null = null;
-    let discountAmount = 0;
+    let couponRecord: { id: string; code: string; discountType: string; discountValue: number; fixedDiscountAmount?: bigint | null; percentageRate?: number | null; maxDiscount: bigint | number | null; minOrderAmount: bigint | number; perUserLimit: number } | null = null;
+    let discountAmountBigInt = 0n;
 
     if (couponCodeInput) {
       const couponValidation = await validateCoupon(
         couponCodeInput,
         session?.user?.id || null,
-        validated.subtotal
+        Number(validatedSubtotalBigInt)
       );
 
       if (!couponValidation.valid || !couponValidation.coupon) {
         return NextResponse.json({ error: couponValidation.error || 'Mã giảm giá không hợp lệ' }, { status: 400 });
       }
 
-      couponRecord = couponValidation.coupon;
-      discountAmount = calculateDiscount(
-        couponRecord,
-        validated.subtotal,
-        validated.shippingFee
+      couponRecord = couponValidation.coupon as any;
+      discountAmountBigInt = calculateDiscountBigInt(
+        couponRecord!,
+        validatedSubtotalBigInt,
+        validatedShippingFeeBigInt
       );
     }
 
-    const finalTotalAmount = Math.max(0, validated.subtotal + validated.shippingFee - discountAmount);
+    const finalTotalAmountBigInt = validatedSubtotalBigInt + validatedShippingFeeBigInt - discountAmountBigInt;
+    const finalTotalAmount = finalTotalAmountBigInt < 0n ? 0n : finalTotalAmountBigInt;
     const orderCode = generateOrderCode();
     const bankInfo = getBankInfo();
     const qrUrl = generateVietQRUrl({
       bankId: bankInfo.bankId,
       accountNo: bankInfo.accountNo,
       accountName: bankInfo.accountName,
-      amount: finalTotalAmount,
+      amount: Number(finalTotalAmount),
       orderId: orderCode,
     });
 
@@ -116,9 +147,9 @@ export async function POST(req: Request) {
           toDistrictId: validated.toDistrictId,
           toWardCode: validated.toWardCode,
           customerEmail: customerEmail ? normalizeEmail(customerEmail) : null,
-          subtotal: validated.subtotal,
-          shippingFee: validated.shippingFee,
-          discountAmount,
+          subtotal: validatedSubtotalBigInt,
+          shippingFee: validatedShippingFeeBigInt,
+          discountAmount: discountAmountBigInt,
           couponId: couponRecord?.id || null,
           couponCode: couponRecord?.code || null,
           totalAmount: finalTotalAmount,
@@ -131,7 +162,7 @@ export async function POST(req: Request) {
               variantId: item.variantId || null,
               variantTitle: item.variantTitle || null,
               quantity: item.quantity,
-              price: item.price,
+              price: BigInt(item.price),
             })),
           },
         },
@@ -219,16 +250,16 @@ export async function POST(req: Request) {
         customerName,
         customerPhone,
         customerAddress,
-        subtotal: validated.subtotal,
-        shippingFee: validated.shippingFee,
-        discountAmount,
+        subtotal: Number(validatedSubtotalBigInt),
+        shippingFee: Number(validatedShippingFeeBigInt),
+        discountAmount: Number(discountAmountBigInt),
         couponCode: couponRecord?.code || null,
-        totalAmount: finalTotalAmount,
-        items: order.items.map((item) => ({
-          name: item.product.name,
+        totalAmount: Number(finalTotalAmount),
+        items: validated.orderItems!.map((item) => ({
+          name: item.variantTitle || 'Sản phẩm',
           quantity: item.quantity,
-          price: item.price,
-          variantTitle: item.variantTitle,
+          price: Number(item.price),
+          variantTitle: item.variantTitle ?? undefined,
         })),
       });
       void sendTelegramMessage(telegramPayload).catch((err) => {
@@ -242,10 +273,10 @@ export async function POST(req: Request) {
       orderId: order.id,
       orderCode,
       qrUrl,
-      subtotal: validated.subtotal,
-      shippingFee: validated.shippingFee,
-      discountAmount,
-      totalAmount: finalTotalAmount,
+      subtotal: serializeMoneyVnd(validatedSubtotalBigInt),
+      shippingFee: serializeMoneyVnd(validatedShippingFeeBigInt),
+      discountAmount: serializeMoneyVnd(discountAmountBigInt),
+      totalAmount: serializeMoneyVnd(finalTotalAmount),
       expiresAt: order.expiresAt,
       bankInfo: {
         bankName: bankInfo.displayName,
@@ -276,7 +307,7 @@ export async function GET() {
       orderBy: { createdAt: 'desc' },
     });
 
-    return NextResponse.json({ orders });
+    return NextResponse.json({ orders: orders.map(serializeOrderDto) });
   } catch (error) {
     console.error('Get orders error:', error);
     return NextResponse.json({ error: 'Lỗi hệ thống' }, { status: 500 });

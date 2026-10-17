@@ -1,5 +1,5 @@
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@server/modules/auth/auth-options';
 import { PaymentView } from '@client/views/PaymentView';
 import { CustomerOrderService } from '@/server/modules/orders/customer-orders.service';
 import { getBankInfo } from '@server/modules/payment/vietqr.service';

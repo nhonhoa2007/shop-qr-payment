@@ -140,8 +140,8 @@ describe('Shop Wallet - refundOrderToWallet (Refund Engine)', () => {
     const res = await refundOrderToWallet(fakeTx, fakeOrder.id, 'Khách yêu cầu hủy đơn');
 
     assert.equal(res.success, true);
-    assert.equal(res.refundedAmount, 350_000);
-    assert.equal(res.newBalance, 450_000);
+    assert.equal(String(res.refundedAmount), '350000');
+    assert.equal(String(res.newBalance), '450000');
     assert.equal(res.transactionId, 'wtx_ref_001');
 
     assert.deepEqual(orderUpdatedWhere, {
@@ -335,8 +335,8 @@ describe('Shop Wallet - payOrderWithWallet', () => {
     const res = await payOrderWithWallet(fakeTx, 'user_1', 'o_pay_ok');
 
     assert.equal(res.success, true);
-    assert.equal(res.paidAmount, 180_000);
-    assert.equal(res.newBalance, 120_000);
+    assert.equal(String(res.paidAmount), '180000');
+    assert.equal(String(res.newBalance), '120000');
     assert.equal(res.transactionId, 'wtx_pay_001');
 
     assert.deepEqual(walletDeductedArgs, {
@@ -357,7 +357,7 @@ describe('Shop Wallet - payOrderWithWallet', () => {
     assert.deepEqual(txCreatedArgs, {
       data: {
         walletId: fakeWallet.id,
-        amount: -180_000,
+        amount: -180_000n,
         type: 'PURCHASE_PAYMENT',
         orderId: fakeOrder.id,
         description: 'Thanh toán thành công đơn hàng DH200',

@@ -194,7 +194,7 @@ async function main() {
         productId: prod.id,
         variantId: variant?.id ?? null,
         name: variant ? `${prod.name} (${variant.title})` : prod.name,
-        price: variant?.price ?? prod.price,
+        price: Number(variant?.price ?? prod.price),
         quantity: rand(1, 2),
       });
     }
