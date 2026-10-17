@@ -260,7 +260,7 @@ export async function updateProductWithVariants(
             sku: v.sku,
             title: v.title,
             price: v.price,
-            stock: v.stock,
+            stock: existingVariantMap.get(v.id)!.stock,
             color: v.color ?? null,
             size: v.size ?? null,
             image: v.image ?? null,
@@ -332,6 +332,7 @@ export async function updateProductWithVariants(
   }
 
   // Trường hợp cập nhật không truyền variants (chỉ update thông tin chung của sản phẩm)
+  // Lưu ý: tồn kho không được ghi đè trực tiếp; việc điều chỉnh tồn kho phải qua adjustStock
   const updatedProduct = await tx.product.update({
     where: { id: input.id },
     data: {
@@ -340,7 +341,6 @@ export async function updateProductWithVariants(
       ...(input.price !== undefined ? { price: input.price } : {}),
       ...(input.image !== undefined ? { image: input.image } : {}),
       ...(input.category !== undefined ? { category: input.category } : {}),
-      ...(input.stock !== undefined ? { stock: input.stock } : {}),
       ...(typeof input.isActive === 'boolean' ? { isActive: input.isActive } : {}),
     },
     include: {

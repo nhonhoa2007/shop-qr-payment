@@ -255,4 +255,52 @@ test('concurrent wallet payments on same order debit once and result in exactly 
   }
 });
 
+test('reservation and versioned stock adjustment preserve exact balance without overwriting', async () => {
+  const initialStock = 10;
+  const product = await db.product.create({
+    data: {
+      name: `stock-adjust-${tag}`,
+      price: 100_000n as any,
+      stock: initialStock,
+      stockVersion: 0,
+      inventoryMode: 'BASE' as any,
+      isActive: true,
+    },
+  });
+
+  try {
+    const { reserveOrderStock } = await import('@server/modules/inventory/inventory.service');
+    const { adjustStock } = await import('@server/modules/inventory/stock-adjustment.service');
+
+    const reservedResult = await db.$transaction(async (tx) => {
+      return await reserveOrderStock(tx, [{ productId: product.id, quantity: 3 }]);
+    });
+    assert.equal(reservedResult, null);
+
+    const adjustResult = await db.$transaction(async (tx) => {
+      return await adjustStock(
+        tx,
+        {
+          productId: product.id,
+          variantId: null,
+          delta: 5,
+          expectedVersion: 0,
+          reason: 'Nhập kho bổ sung',
+          operationKey: `op_adj_test_${tag}`,
+        },
+        'admin_1'
+      );
+    });
+
+    assert.equal(adjustResult.success, true);
+    assert.equal(adjustResult.newStock, 12);
+
+    const finalProduct = await db.product.findUniqueOrThrow({ where: { id: product.id } });
+    assert.equal(finalProduct.stock, 12);
+  } finally {
+    await db.stockAdjustment.deleteMany({ where: { productId: product.id } }).catch(() => {});
+    await db.product.delete({ where: { id: product.id } }).catch(() => {});
+  }
+});
+
 test.after(async () => { await db.$disconnect(); });

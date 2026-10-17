@@ -916,15 +916,17 @@ export function AdminProductsView({ initialProducts }: { initialProducts: Produc
                         type="number"
                         required
                         min={0}
-                        disabled={variants.length > 0}
+                        disabled={variants.length > 0 || Boolean(editingProduct)}
                         value={variants.length > 0 ? variantSummary.totalStock : form.stock}
                         onChange={(e) => setForm({ ...form, stock: Number(e.target.value) })}
                         className={`w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-medium ${
-                          variants.length > 0 ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''
+                          variants.length > 0 || Boolean(editingProduct) ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''
                         }`}
                       />
                       <p className="text-[11px] text-gray-400 mt-1">
-                        {variants.length > 0
+                        {editingProduct
+                          ? 'Tồn kho được bảo vệ; điều chỉnh qua endpoint điều chỉnh phiên bản'
+                          : variants.length > 0
                           ? `Đồng bộ từ tổng tồn kho của ${variants.length} biến thể`
                           : 'Số lượng hàng thực tế trong kho'}
                       </p>

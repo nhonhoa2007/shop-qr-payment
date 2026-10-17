@@ -78,6 +78,7 @@ model Product {
   image       String?
   category    String?
   stock         Int              @default(0)
+  stockVersion  Int              @default(0)
   isActive      Boolean          @default(true)
   inventoryMode InventoryMode    @default(BASE)
   orderItems    OrderItem[]
@@ -97,22 +98,40 @@ enum InventoryMode {
 }
 
 model ProductVariant {
-  id         String      @id @default(cuid())
-  productId  String
-  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
-  sku        String      @unique
-  title      String
-  color      String?
-  size       String?
-  price      BigInt
-  stock      Int         @default(0)
-  image      String?
-  isActive   Boolean     @default(true)
-  orderItems OrderItem[]
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+  id           String      @id @default(cuid())
+  productId    String
+  product      Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sku          String      @unique
+  title        String
+  color        String?
+  size         String?
+  price        BigInt
+  stock        Int         @default(0)
+  stockVersion Int         @default(0)
+  image        String?
+  isActive     Boolean     @default(true)
+  orderItems   OrderItem[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
 
   @@index([productId])
+}
+
+model StockAdjustment {
+  id            String   @id @default(cuid())
+  operationKey  String   @unique
+  productId     String
+  variantId     String?
+  delta         Int
+  previousStock Int
+  newStock      Int
+  version       Int
+  reason        String
+  actorId       String
+  createdAt     DateTime @default(now())
+
+  @@index([productId, variantId])
+  @@index([createdAt])
 }
 
 model Order {
