@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "verify": "npm run test && npm run test:integration && npm run lint && npm run arch:check && npm run build",
     "dev": "next dev",
     "build": "next build --webpack",
     "start": "next start",
