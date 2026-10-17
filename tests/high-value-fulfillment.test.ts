@@ -1,11 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  resolveManualFulfillment,
-  validateManualFulfillmentInput,
-  type ResolveFulfillmentReviewInput,
-} from '@server/modules/admin/fulfillment-review.controller';
-import { STAFF_PERMISSIONS, isStaffPermission } from '@shared/constants/permissions';
+import { validateManualFulfillmentInput } from '@server/modules/admin/fulfillment-review.controller';
+import { isStaffPermission } from '@shared/constants/permissions';
 
 describe('Staff Permission Allowlist Expansion (Task 8)', () => {
   it('should include new domain permissions in STAFF_PERMISSIONS', () => {

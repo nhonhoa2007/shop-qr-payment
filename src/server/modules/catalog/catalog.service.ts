@@ -11,13 +11,16 @@ export class CatalogService {
    * Lấy danh sách sản phẩm và danh mục cho trang chủ (có Redis Caching cho categories)
    * Hỗ trợ phân trang + sắp xếp server-side để tránh render toàn bộ catalog
    */
-  static async getHomeCatalog(params?: {
-    category?: string | null;
-    search?: string | null;
-    page?: number;
-    limit?: number;
-    sort?: CatalogSort;
-  }): Promise<{
+  static async getHomeCatalog(
+    params?: {
+      category?: string | null;
+      search?: string | null;
+      page?: number;
+      limit?: number;
+      sort?: CatalogSort;
+    },
+    db: typeof prisma = prisma
+  ): Promise<{
     products: Product[];
     allCategories: string[];
     total: number;
@@ -54,7 +57,7 @@ export class CatalogService {
       // 1. Tối ưu hóa Categories bằng Redis Cache (TTL 10 phút)
       let allCategories: string[] | null = await redis.get<string[]>('cache:categories');
       if (!allCategories || !Array.isArray(allCategories)) {
-        const rawCategories = await prisma.product.findMany({
+        const rawCategories = await db.product.findMany({
           where: { isActive: true },
           select: { category: true },
           distinct: ['category'],
@@ -66,10 +69,11 @@ export class CatalogService {
       }
 
       const [rawProducts, total] = await Promise.all([
-        prisma.product.findMany({
+        db.product.findMany({
           where,
           include: {
             reviews: {
+              where: { isApproved: true },
               select: { rating: true },
             },
             variants: {
@@ -80,7 +84,7 @@ export class CatalogService {
           skip: (page - 1) * limit,
           take: limit,
         }),
-        prisma.product.count({ where }),
+        db.product.count({ where }),
       ]);
 
       const products: Product[] = rawProducts.map((p) => {

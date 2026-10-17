@@ -8,7 +8,8 @@ import type { StaffPermission } from '@shared/constants/permissions';
 const createCredentialsProvider =
   typeof CredentialsProvider === 'function'
     ? CredentialsProvider
-    : (CredentialsProvider as any)?.default;
+    : (CredentialsProvider as unknown as { default: typeof CredentialsProvider })
+        ?.default;
 
 export const authOptions: AuthOptions = {
   providers: [

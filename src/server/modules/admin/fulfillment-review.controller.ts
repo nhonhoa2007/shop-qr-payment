@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@server/modules/auth/auth-options';
 import { prisma } from '@server/database/prisma';
 import { refundOrderToWallet } from '@server/modules/wallet/wallet.service';
+import type { CarrierName } from '@/types';
 
 export type ManualFulfillmentOutcome = 'CANCEL_AND_REFUND' | 'EXTERNAL_SHIPMENT';
 
@@ -140,7 +141,7 @@ export async function resolveManualFulfillment(
     const shipment = await tx.shipment.create({
       data: {
         orderId: order.id,
-        carrier: carrier as any,
+        carrier: carrier as CarrierName,
         trackingCode,
         shippingFee: BigInt(order.shippingFee),
         codAmount: order.paymentStatus === 'PAID' ? 0n : BigInt(order.totalAmount),
