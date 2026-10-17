@@ -309,9 +309,9 @@ describe('Shop Wallet - payOrderWithWallet', () => {
     const fakeTx = {
       order: {
         findUnique: async () => fakeOrder,
-        update: async (args: { data: unknown }) => {
+        updateMany: async (args: { data: unknown }) => {
           orderUpdatedData = args.data;
-          return {};
+          return { count: 1 };
         },
       },
       userWallet: {
@@ -328,7 +328,7 @@ describe('Shop Wallet - payOrderWithWallet', () => {
         },
       },
       transaction: {
-        upsert: async () => ({}),
+        create: async () => ({}),
       },
     } as unknown as TxClient;
 
@@ -342,10 +342,10 @@ describe('Shop Wallet - payOrderWithWallet', () => {
     assert.deepEqual(walletDeductedArgs, {
       where: {
         id: fakeWallet.id,
-        balance: { gte: 180_000 },
+        balance: { gte: 180_000n },
       },
       data: {
-        balance: { decrement: 180_000 },
+        balance: { decrement: 180_000n },
       },
     });
 
@@ -363,5 +363,60 @@ describe('Shop Wallet - payOrderWithWallet', () => {
         description: 'Thanh toán thành công đơn hàng DH200',
       },
     });
+  });
+
+  it('should reject payment if order CAS claim fails (count: 0) to prevent double-payment', async () => {
+    const fakeOrder = {
+      id: 'o_cas_fail',
+      orderCode: 'DH300',
+      userId: 'user_1',
+      totalAmount: 100_000,
+      paymentStatus: 'UNPAID',
+      status: 'PENDING',
+      expiresAt: new Date(Date.now() + 60_000),
+    };
+
+    let walletTxCreated = false;
+    const fakeTx = {
+      order: {
+        findUnique: async () => fakeOrder,
+        updateMany: async () => ({ count: 0 }),
+      },
+      userWallet: {
+        findUnique: async () => ({ id: 'wal_1', userId: 'user_1', balance: 500_000n }),
+        updateMany: async () => ({ count: 1 }),
+      },
+      walletTransaction: {
+        create: async () => {
+          walletTxCreated = true;
+          return {};
+        },
+      },
+    } as unknown as TxClient;
+
+    const res = await payOrderWithWallet(fakeTx, 'user_1', 'o_cas_fail');
+    assert.equal(res.success, false);
+    assert.equal(walletTxCreated, false);
+  });
+
+  it('should reject payment when now === expiresAt (exact expiry boundary)', async () => {
+    const expiryTime = new Date('2026-10-17T12:00:00Z');
+    const fakeOrder = {
+      id: 'o_expired_exact',
+      orderCode: 'DH301',
+      userId: 'user_1',
+      totalAmount: 100_000,
+      paymentStatus: 'UNPAID',
+      status: 'PENDING',
+      expiresAt: expiryTime,
+    };
+
+    const fakeTx = {
+      order: { findUnique: async () => fakeOrder },
+    } as unknown as TxClient;
+
+    const res = await payOrderWithWallet(fakeTx, 'user_1', 'o_expired_exact', expiryTime);
+    assert.equal(res.success, false);
+    assert.match(res.error!, /hết hạn/);
   });
 });

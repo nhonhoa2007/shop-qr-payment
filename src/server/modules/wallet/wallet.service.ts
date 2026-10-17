@@ -182,8 +182,10 @@ export async function refundOrderToWallet(
 export async function payOrderWithWallet(
   tx: TransactionClient,
   userId: string,
-  orderId: string
+  orderId: string,
+  now?: Date
 ): Promise<WalletOperationResult> {
+  const currentTime = now || new Date();
   const order = await tx.order.findUnique({
     where: { id: orderId },
   });
@@ -204,39 +206,58 @@ export async function payOrderWithWallet(
     return { success: false, error: 'Đơn hàng đã bị hủy, không thể thanh toán' };
   }
 
-  if (order.expiresAt < new Date()) {
+  if (order.expiresAt <= currentTime) {
     return { success: false, error: 'Đơn hàng đã hết hạn thanh toán' };
   }
 
   const wallet = await getOrCreateWallet(tx, userId);
+  const orderAmountBigInt = BigInt(order.totalAmount);
 
-  if (wallet.balance < order.totalAmount) {
+  if (wallet.balance < orderAmountBigInt) {
     return {
       success: false,
-      error: `Số dư ví không đủ (Hiện có: ${wallet.balance.toLocaleString('vi-VN')}đ, cần: ${order.totalAmount.toLocaleString('vi-VN')}đ)`,
+      error: `Số dư ví không đủ (Hiện có: ${Number(wallet.balance).toLocaleString('vi-VN')}đ, cần: ${Number(order.totalAmount).toLocaleString('vi-VN')}đ)`,
     };
   }
 
-  // Trừ số dư ví nguyên tử
+  // 1. Khóa trạng thái đơn hàng nguyên tử qua CAS
+  const orderClaim = await tx.order.updateMany({
+    where: {
+      id: order.id,
+      userId,
+      status: 'PENDING',
+      paymentStatus: 'UNPAID',
+      expiresAt: { gt: currentTime },
+    },
+    data: {
+      paymentStatus: 'PAID',
+      status: 'CONFIRMED',
+    },
+  });
+
+  if (orderClaim.count !== 1) {
+    return {
+      success: false,
+      error: 'Đơn hàng không ở trạng thái hợp lệ hoặc đã được xử lý bởi giao dịch khác',
+    };
+  }
+
+  // 2. Trừ số dư ví nguyên tử (nếu thất bại vì số dư thay đổi giữa lúc check và decrement, throw để rollback order claim)
   const updateResult = await tx.userWallet.updateMany({
     where: {
       id: wallet.id,
-      balance: { gte: order.totalAmount },
+      balance: { gte: orderAmountBigInt },
     },
     data: {
-      balance: { decrement: order.totalAmount },
+      balance: { decrement: orderAmountBigInt },
     },
   });
 
   if (updateResult.count !== 1) {
-    return {
-      success: false,
-      error: 'Số dư ví đã thay đổi trong quá trình xử lý, vui lòng thử lại',
-    };
+    throw new Error('Số dư ví đã thay đổi trong quá trình xử lý, vui lòng thử lại');
   }
 
-  // Ghi nhật ký biến động ví
-  const orderAmountBigInt = BigInt(order.totalAmount);
+  // 3. Ghi nhật ký biến động ví
   const txRecord = await tx.walletTransaction.create({
     data: {
       walletId: wallet.id,
@@ -247,34 +268,16 @@ export async function payOrderWithWallet(
     },
   });
 
-  // Cập nhật trạng thái đơn hàng
-  await tx.order.update({
-    where: { id: order.id },
+  // 4. Tạo bản ghi Transaction đối soát
+  await tx.transaction.create({
     data: {
-      paymentStatus: 'PAID',
-      status: 'CONFIRMED',
-    },
-  });
-
-  // Tạo hoặc cập nhật bản ghi Transaction đối soát
-  await tx.transaction.upsert({
-    where: { orderId: order.id },
-    update: {
-      amount: orderAmountBigInt,
-      bankName: 'SHOP_WALLET',
-      bankTransId: txRecord.id,
-      description: `Thanh toán qua Ví nội bộ: ${order.orderCode}`,
-      verified: true,
-      receivedAt: new Date(),
-    },
-    create: {
       orderId: order.id,
       amount: orderAmountBigInt,
       bankName: 'SHOP_WALLET',
       bankTransId: txRecord.id,
       description: `Thanh toán qua Ví nội bộ: ${order.orderCode}`,
       verified: true,
-      receivedAt: new Date(),
+      receivedAt: currentTime,
     },
   });
 

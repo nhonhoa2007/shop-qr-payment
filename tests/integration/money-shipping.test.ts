@@ -199,4 +199,60 @@ test('BigInt monetary columns support values above Int32 with exact serializatio
   }
 });
 
+test('concurrent wallet payments on same order debit once and result in exactly one PAID order', async () => {
+  const payAmount = 150_000n;
+  const user = await db.user.create({
+    data: { email: `wallet-concurrent-${tag}@example.com`, passwordHash: 'dummy' },
+  });
+  const wallet = await db.userWallet.create({
+    data: { userId: user.id, balance: 300_000n as any },
+  });
+  const order = await db.order.create({
+    data: {
+      orderCode: `DHC${Date.now()}${tag.toUpperCase()}`,
+      userId: user.id,
+      customerName: 'Concurrent Buyer',
+      customerPhone: '0900000000',
+      customerAddress: 'Test Address',
+      subtotal: payAmount as any,
+      totalAmount: payAmount as any,
+      status: 'PENDING',
+      paymentStatus: 'UNPAID',
+      expiresAt: new Date(Date.now() + 60_000),
+    },
+  });
+
+  try {
+    const { payOrderWithWallet } = await import('@server/modules/wallet/wallet.service');
+
+    const runPayment = () =>
+      db.$transaction(async (tx) => {
+        return await payOrderWithWallet(tx, user.id, order.id);
+      });
+
+    const [res1, res2] = await Promise.allSettled([runPayment(), runPayment()]);
+
+    const successes = [res1, res2].filter(
+      (r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled' && r.value.success === true
+    );
+    assert.equal(successes.length, 1);
+
+    const updatedOrder = await db.order.findUniqueOrThrow({ where: { id: order.id } });
+    assert.equal(updatedOrder.paymentStatus, 'PAID');
+    assert.equal(updatedOrder.status, 'CONFIRMED');
+
+    const updatedWallet = await db.userWallet.findUniqueOrThrow({ where: { id: wallet.id } });
+    assert.equal(updatedWallet.balance, 150_000n);
+
+    const txRecords = await db.walletTransaction.findMany({ where: { walletId: wallet.id, type: 'PURCHASE_PAYMENT' } });
+    assert.equal(txRecords.length, 1);
+  } finally {
+    await db.walletTransaction.deleteMany({ where: { walletId: wallet.id } }).catch(() => {});
+    await db.transaction.deleteMany({ where: { orderId: order.id } }).catch(() => {});
+    await db.userWallet.delete({ where: { id: wallet.id } }).catch(() => {});
+    await db.order.delete({ where: { id: order.id } }).catch(() => {});
+    await db.user.delete({ where: { id: user.id } }).catch(() => {});
+  }
+});
+
 test.after(async () => { await db.$disconnect(); });
