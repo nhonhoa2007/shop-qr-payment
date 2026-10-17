@@ -29,8 +29,19 @@ ALTER TABLE "Order" ALTER COLUMN "shippingFee" SET DEFAULT 0;
 ALTER TABLE "OrderItem" ALTER COLUMN "price" SET DATA TYPE BIGINT USING "price"::bigint;
 
 -- 3. Coupon promotion monetary fields
--- Coupon.discountValue: Fixed discount amount or percentage value
-ALTER TABLE "Coupon" ALTER COLUMN "discountValue" SET DATA TYPE BIGINT USING "discountValue"::bigint;
+-- Retain legacy discountValue as INTEGER for backward compatibility until Task 3
+-- Add explicit typed fields for fixed discount amount and percentage rate:
+ALTER TABLE "Coupon" ADD COLUMN "fixedDiscountAmount" BIGINT;
+ALTER TABLE "Coupon" ADD COLUMN "percentageRate" INTEGER;
+
+-- Backfill from discountValue based on discountType
+UPDATE "Coupon"
+SET "fixedDiscountAmount" = "discountValue"::bigint
+WHERE "discountType" = 'FIXED';
+
+UPDATE "Coupon"
+SET "percentageRate" = "discountValue"
+WHERE "discountType" = 'PERCENTAGE';
 
 -- Coupon.maxDiscount: Maximum discount cap for percentage discounts
 ALTER TABLE "Coupon" ALTER COLUMN "maxDiscount" SET DATA TYPE BIGINT USING "maxDiscount"::bigint;

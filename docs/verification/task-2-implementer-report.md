@@ -143,3 +143,21 @@ Every monetary field in the schema was migrated to `BIGINT` with explicit `USING
 - **Pure Helper Compilation:** TypeScript check on new money modules passes with zero errors (`tsc --noEmit`).
 - **TDD:** Followed RED then GREEN workflow.
 - **Dependencies:** `package.json`, `package-lock.json`, and dependencies remain completely unmodified.
+
+---
+
+## 7. Fix Round 1 (Addressing Task Review Findings)
+
+1. **Coupon Monetary vs Percentage Discrimination:**
+   - Retained `Coupon.discountValue` as `Int` for backward compatibility.
+   - Added explicit typed columns `fixedDiscountAmount BigInt?` and `percentageRate Int?` to `prisma/schema.prisma`.
+   - Updated `prisma/migrations/20261017000100_money_bigint/migration.sql` to add these columns and backfill them based on `discountType`.
+2. **Workspace Import Convention:**
+   - Fixed `src/shared/utils/money.ts:1` to import from `@shared/types/money` using the required path alias.
+3. **Integration Test Robustness:**
+   - Updated `tests/integration/money-shipping.test.ts` to track created entity IDs in a `created` map and clean up in `finally` even if subsequent creation steps fail.
+   - Asserted `typeof fetched.price === 'bigint'` directly without masking via `BigInt(...)`.
+4. **Verification Evidence:**
+   - `node --experimental-strip-types --import ./tests/register-alias.mjs --test tests/money.test.ts`: 6/6 PASS.
+   - `npm run arch:check`: 0 violations across 256 modules.
+

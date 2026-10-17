@@ -1,4 +1,4 @@
-import type { MoneyVnd } from '../types/money';
+import type { MoneyVnd } from '@shared/types/money';
 
 export const BUSINESS_MAX_VND = BigInt('9000000000000000');
 const ZERO_BIGINT = BigInt(0);

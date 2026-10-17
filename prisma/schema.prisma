@@ -244,9 +244,11 @@ model Coupon {
   id             String        @id @default(cuid())
   code           String        @unique
   description    String?
-  discountType   DiscountType
-  discountValue  BigInt
-  maxDiscount    BigInt?
+  discountType        DiscountType
+  discountValue       Int
+  fixedDiscountAmount BigInt?
+  percentageRate      Int?
+  maxDiscount         BigInt?
   minOrderAmount BigInt        @default(0)
   usageLimit     Int           @default(100)
   usedCount      Int           @default(0)

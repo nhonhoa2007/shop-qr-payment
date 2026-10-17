@@ -141,49 +141,61 @@ test('GHN return, replay, and late delivery release stock and open one refund ca
 
 test('BigInt monetary columns support values above Int32 with exact serialization', async () => {
   const highValue = 3_000_000_000n;
-  const product = await db.product.create({
-    data: { name: `high-value-${tag}`, price: highValue as any, stock: 1 },
-  });
-  const order = await db.order.create({
-    data: {
-      orderCode: `DH${Date.now()}${tag.toUpperCase()}`,
-      customerName: 'High Value Buyer',
-      customerPhone: '0900000000',
-      customerAddress: 'Test Address',
-      subtotal: highValue as any,
-      totalAmount: highValue as any,
-      expiresAt: new Date(Date.now() + 86_400_000),
-    },
-  });
-  const user = await db.user.create({
-    data: {
-      email: `wallet-user-${tag}@example.com`,
-      passwordHash: 'dummy',
-    },
-  });
-  const wallet = await db.userWallet.create({
-    data: {
-      userId: user.id,
-      balance: highValue as any,
-    },
-  });
+  const created: { productId?: string; orderId?: string; userId?: string; walletId?: string } = {};
 
   try {
+    const product = await db.product.create({
+      data: { name: `high-value-${tag}`, price: highValue as any, stock: 1 },
+    });
+    created.productId = product.id;
+
+    const order = await db.order.create({
+      data: {
+        orderCode: `DH${Date.now()}${tag.toUpperCase()}`,
+        customerName: 'High Value Buyer',
+        customerPhone: '0900000000',
+        customerAddress: 'Test Address',
+        subtotal: highValue as any,
+        totalAmount: highValue as any,
+        expiresAt: new Date(Date.now() + 86_400_000),
+      },
+    });
+    created.orderId = order.id;
+
+    const user = await db.user.create({
+      data: {
+        email: `wallet-user-${tag}@example.com`,
+        passwordHash: 'dummy',
+      },
+    });
+    created.userId = user.id;
+
+    const wallet = await db.userWallet.create({
+      data: {
+        userId: user.id,
+        balance: highValue as any,
+      },
+    });
+    created.walletId = wallet.id;
+
     const { serializeMoneyVnd } = await import('@shared/utils/money');
 
     const fetchedProduct = await db.product.findUniqueOrThrow({ where: { id: product.id } });
-    assert.equal(serializeMoneyVnd(BigInt(fetchedProduct.price)), '3000000000');
+    assert.equal(typeof fetchedProduct.price, 'bigint');
+    assert.equal(serializeMoneyVnd(fetchedProduct.price as unknown as bigint), '3000000000');
 
     const fetchedOrder = await db.order.findUniqueOrThrow({ where: { id: order.id } });
-    assert.equal(serializeMoneyVnd(BigInt(fetchedOrder.totalAmount)), '3000000000');
+    assert.equal(typeof fetchedOrder.totalAmount, 'bigint');
+    assert.equal(serializeMoneyVnd(fetchedOrder.totalAmount as unknown as bigint), '3000000000');
 
     const fetchedWallet = await db.userWallet.findUniqueOrThrow({ where: { id: wallet.id } });
-    assert.equal(serializeMoneyVnd(BigInt(fetchedWallet.balance)), '3000000000');
+    assert.equal(typeof fetchedWallet.balance, 'bigint');
+    assert.equal(serializeMoneyVnd(fetchedWallet.balance as unknown as bigint), '3000000000');
   } finally {
-    await db.userWallet.delete({ where: { id: wallet.id } });
-    await db.user.delete({ where: { id: user.id } });
-    await db.order.delete({ where: { id: order.id } });
-    await db.product.delete({ where: { id: product.id } });
+    if (created.walletId) await db.userWallet.delete({ where: { id: created.walletId } }).catch(() => {});
+    if (created.userId) await db.user.delete({ where: { id: created.userId } }).catch(() => {});
+    if (created.orderId) await db.order.delete({ where: { id: created.orderId } }).catch(() => {});
+    if (created.productId) await db.product.delete({ where: { id: created.productId } }).catch(() => {});
   }
 });
 
