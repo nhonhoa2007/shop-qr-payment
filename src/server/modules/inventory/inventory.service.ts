@@ -1,4 +1,5 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
+import { normalizeOrderStockItems } from '@shared/types/inventory';
 
 type TransactionClient = Prisma.TransactionClient | PrismaClient;
 
@@ -29,7 +30,8 @@ export async function reserveOrderStock(
   tx: TransactionClient,
   items: OrderStockItem[]
 ): Promise<string | null> {
-  for (const item of items) {
+  const normalizedItems = normalizeOrderStockItems(items);
+  for (const item of normalizedItems) {
     if (item.variantId) {
       const result = await tx.productVariant.updateMany({
         where: {
@@ -55,6 +57,7 @@ export async function reserveOrderStock(
         where: {
           id: item.productId,
           isActive: true,
+          inventoryMode: 'BASE',
           stock: { gte: item.quantity },
         },
         data: { stock: { decrement: item.quantity } },
@@ -83,7 +86,8 @@ export async function releaseOrderStock(
   tx: TransactionClient,
   items: OrderStockItem[]
 ): Promise<void> {
-  for (const item of items) {
+  const normalizedItems = normalizeOrderStockItems(items);
+  for (const item of normalizedItems) {
     if (item.variantId) {
       await tx.productVariant.update({
         where: { id: item.variantId },

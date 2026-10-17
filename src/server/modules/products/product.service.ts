@@ -196,6 +196,7 @@ export async function createProductWithVariants(
       category: input.category ?? null,
       stock: computedStock,
       isActive: input.isActive !== false,
+      inventoryMode: hasVariants ? 'VARIANT' : 'BASE',
       ...(hasVariants
         ? {
             variants: {

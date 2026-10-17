@@ -90,7 +90,15 @@ export function buildValidatedOrderItems(
       return { error: 'Sản phẩm không tồn tại hoặc đã ngừng bán' };
     }
 
-    if (item.variantId) {
+    const isVariantMode =
+      (product as { inventoryMode?: string }).inventoryMode === 'VARIANT' ||
+      (product.variants && product.variants.length > 0);
+
+    if (isVariantMode) {
+      if (!item.variantId) {
+        return { error: `Vui lòng chọn phân loại hàng cho sản phẩm "${product.name}"` };
+      }
+
       const variant = product.variants?.find((v) => v.id === item.variantId);
       if (!variant || !variant.isActive) {
         return { error: 'Biến thể sản phẩm không tồn tại hoặc đã ngừng bán' };
@@ -109,9 +117,8 @@ export function buildValidatedOrderItems(
         price: itemPrice,
       });
     } else {
-      const activeVariants = product.variants?.filter((v) => v.isActive) || [];
-      if (activeVariants.length > 0) {
-        return { error: `Vui lòng chọn phân loại hàng cho sản phẩm "${product.name}"` };
+      if (item.variantId) {
+        return { error: `Sản phẩm "${product.name}" không có phân loại hàng` };
       }
 
       if (product.stock < item.quantity) {

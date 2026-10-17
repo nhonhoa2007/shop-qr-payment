@@ -25,6 +25,7 @@ describe('Inventory Reservation Logic - reserveOrderStock', () => {
       where: {
         id: 'prod_1',
         isActive: true,
+        inventoryMode: 'BASE',
         stock: { gte: 2 },
       },
       data: { stock: { decrement: 2 } },

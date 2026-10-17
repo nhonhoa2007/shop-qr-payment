@@ -4,6 +4,7 @@
 
 import type { MoneyVnd, MoneySnapshot } from './money';
 export type { MoneyVnd, MoneySnapshot };
+export * from './inventory';
 
 export interface Product {
   id: string;
@@ -14,6 +15,7 @@ export interface Product {
   category: string | null;
   stock: number;
   isActive: boolean;
+  inventoryMode?: import('./inventory').InventoryMode;
   variants?: ProductVariant[];
   reviews?: Review[];
   avgRating?: number;
