@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@server/database/prisma';
 import { mapGHNStatusToShipmentStatus, verifyGHNWebhookAuth } from '@server/modules/shipping/ghn.service';
 import { releaseOrderStock } from '@server/modules/inventory/inventory.service';
+import { refundOrderToWallet } from '@server/modules/wallet/wallet.service';
 import { createNotification } from '@server/modules/notifications/notifications.service';
 import { pusherServer } from '@server/infrastructure/pusher';
 import type { Prisma } from '@prisma/client';
@@ -67,75 +68,47 @@ export async function POST(req: Request) {
     }
 
     const mapping = mapGHNStatusToShipmentStatus(rawStatus);
-    const existingLogs = Array.isArray(shipment.shippingLogs)
-      ? (shipment.shippingLogs as Prisma.JsonArray)
-      : [];
-
-    const newLogEntry: Prisma.JsonObject = {
-      status: mapping.shipmentStatus,
-      rawGhnStatus: rawStatus,
-      description: typeof body.Description === 'string' ? body.Description : mapping.description,
-      timestamp: new Date().toISOString(),
-    };
-
-    const updatedLogs = [...existingLogs, newLogEntry];
-
-    // Cập nhật Shipment & Trạng thái Đơn hàng trong Transaction
-    await prisma.$transaction(async (tx) => {
-      await tx.shipment.update({
-        where: { id: shipment.id },
-        data: {
-          status: mapping.shipmentStatus,
-          shippingLogs: updatedLogs,
-        },
+    const changed = await prisma.$transaction(async (tx) => {
+      const fresh = await tx.shipment.findUniqueOrThrow({ where: { id: shipment.id }, include: { order: { include: { items: true } } } });
+      const terminal = ['DELIVERED', 'RETURNED', 'CANCELLED'];
+      if (fresh.status === mapping.shipmentStatus ||
+          (terminal.includes(fresh.status) && !(fresh.status === 'DELIVERED' && mapping.shipmentStatus === 'RETURNED'))) return false;
+      const rank: Record<string, number> = { READY_TO_PICK: 0, PICKING: 1, DELIVERING: 2, DELIVERED: 3, RETURNED: 3, CANCELLED: 3 };
+      if ((rank[mapping.shipmentStatus] ?? 0) < (rank[fresh.status] ?? 0)) return false;
+      if (fresh.order.status === 'CANCELLED') return false;
+      const logs = Array.isArray(fresh.shippingLogs) ? fresh.shippingLogs as Prisma.JsonArray : [];
+      const updated = await tx.shipment.updateMany({
+        where: { id: fresh.id, status: fresh.status },
+        data: { status: mapping.shipmentStatus, shippingLogs: [...logs, {
+          status: mapping.shipmentStatus, rawGhnStatus: rawStatus,
+          description: typeof body.Description === 'string' ? body.Description : mapping.description,
+          timestamp: new Date().toISOString(),
+        }] },
       });
-
-      // 1. Nếu giao hàng thành công (DELIVERED)
+      if (updated.count !== 1) return false;
       if (mapping.shipmentStatus === 'DELIVERED') {
-        const updateData: { status: 'COMPLETED'; paymentStatus?: 'PAID' } = {
-          status: 'COMPLETED',
-        };
-        // Với đơn COD, khi bưu tá báo DELIVERED (đã nhận hàng và nộp tiền COD), cập nhật paymentStatus = PAID
-        if (shipment.order.paymentStatus === 'UNPAID') {
-          updateData.paymentStatus = 'PAID';
+        await tx.order.updateMany({ where: { id: fresh.orderId, status: { notIn: ['CANCELLED', 'COMPLETED'] } }, data: { status: 'COMPLETED' } });
+      } else if (mapping.shipmentStatus === 'CANCELLED' || mapping.shipmentStatus === 'RETURNED') {
+        if (fresh.order.paymentStatus === 'PAID') {
+          const refund = await refundOrderToWallet(tx, fresh.orderId, `GHN báo ${mapping.shipmentStatus}`);
+          if (!refund.success) throw new Error(refund.error || 'Không thể hoàn tiền');
+        } else {
+          const cancelled = await tx.order.updateMany({ where: { id: fresh.orderId, status: { not: 'CANCELLED' }, paymentStatus: fresh.order.paymentStatus }, data: { status: 'CANCELLED' } });
+          if (cancelled.count !== 1) throw new Error('Trạng thái thanh toán đã đổi; cần xử lý lại webhook');
+          if (cancelled.count === 1) {
+            await releaseOrderStock(tx, fresh.order.items);
+            if (fresh.order.couponId) {
+              await tx.coupon.update({ where: { id: fresh.order.couponId }, data: { usedCount: { decrement: 1 } } });
+              if (fresh.order.userId) await tx.couponUsage.deleteMany({ where: { couponId: fresh.order.couponId, orderId: fresh.orderId, userId: fresh.order.userId } });
+            }
+          }
         }
-
-        await tx.order.update({
-          where: { id: shipment.orderId },
-          data: updateData,
-        });
+      } else if (mapping.orderStatus) {
+        await tx.order.updateMany({ where: { id: fresh.orderId, status: { notIn: ['CANCELLED', 'COMPLETED'] } }, data: { status: mapping.orderStatus } });
       }
-      // 2. Nếu đơn vận chuyển bị hủy hoặc hoàn trả hàng (CANCELLED / RETURN)
-      else if (
-        (mapping.shipmentStatus === 'CANCELLED' || mapping.shipmentStatus === 'RETURNED') &&
-        shipment.order.status !== 'CANCELLED'
-      ) {
-        await tx.order.update({
-          where: { id: shipment.orderId },
-          data: {
-            status: 'CANCELLED',
-          },
-        });
-
-        // Hoàn trả lại tồn kho về lại hệ thống
-        if (shipment.order.items && shipment.order.items.length > 0) {
-          await releaseOrderStock(tx, shipment.order.items);
-        }
-      }
-      // 3. Các trạng thái chuyển tiếp bình thường (SHIPPING, PROCESSING, ...)
-      else if (
-        mapping.orderStatus &&
-        shipment.order.status !== 'COMPLETED' &&
-        shipment.order.status !== 'CANCELLED'
-      ) {
-        await tx.order.update({
-          where: { id: shipment.orderId },
-          data: {
-            status: mapping.orderStatus,
-          },
-        });
-      }
+      return true;
     });
+    if (!changed) return NextResponse.json({ success: true, duplicate: true });
 
     // Bắn thông báo và realtime Pusher
     if (shipment.order.userId) {

@@ -56,7 +56,7 @@ export function parseTopupCodeFromDescription(description: string | null | undef
 
 export function getTransactionAmount(transaction: BankTransactionPayload): number | null {
   const amount = Number(transaction.amount);
-  return Number.isFinite(amount) ? Math.abs(Math.round(amount)) : null;
+  return Number.isSafeInteger(amount) && amount > 0 ? amount : null;
 }
 
 export function getTransactionId(transaction: BankTransactionPayload): string | null {
@@ -70,13 +70,15 @@ export type WebhookProcessDecision =
       action: 'SKIP';
       reason:
         | 'DUPLICATE_TRANSACTION'
+        | 'MISSING_TRANSACTION_ID'
         | 'NO_ORDER_CODE'
         | 'INVALID_AMOUNT'
         | 'ORDER_NOT_FOUND'
         | 'ALREADY_PAID'
         | 'ORDER_EXPIRED'
         | 'ORDER_CANCELLED'
-        | 'UNDERPAID';
+        | 'UNDERPAID'
+        | 'OVERPAID';
     }
   | {
       action: 'PROCESS';
@@ -119,6 +121,7 @@ export function evaluateWebhookDecision(
   }
 ): WebhookProcessDecision {
   const transactionId = getTransactionId(txn);
+  if (!transactionId) return { action: 'SKIP', reason: 'MISSING_TRANSACTION_ID' };
   if (transactionId && context.isDuplicateTransaction) {
     return { action: 'SKIP', reason: 'DUPLICATE_TRANSACTION' };
   }
@@ -151,6 +154,9 @@ export function evaluateWebhookDecision(
 
   if (amount < context.order.totalAmount) {
     return { action: 'SKIP', reason: 'UNDERPAID' };
+  }
+  if (amount > context.order.totalAmount) {
+    return { action: 'SKIP', reason: 'OVERPAID' };
   }
 
   return {

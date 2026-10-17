@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useCartStore } from '@client/stores/cart-store';
 import { formatVND } from '@shared/utils';
+import { calculateDiscount } from '@shared/utils/checkout';
 import { getErrorMessage } from '@shared/errors';
 import {
   Tag,
@@ -21,6 +22,13 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { VIETNAM_LOCATIONS } from '@shared/constants/vietnam-locations';
+import {
+  classifyLocationAccuracy,
+  formatAccuracy,
+  isBetterLocationSample,
+  type DeviceLocationSample,
+  type LocationQuality,
+} from '@client/lib/geolocation';
 
 interface CheckoutFormProps {
   initialName?: string;
@@ -40,6 +48,30 @@ interface AppliedCoupon {
 }
 
 type PaymentMethodType = 'VIETQR' | 'WALLET';
+type LocationMatchLevel = 'NONE' | 'PROVINCE' | 'DISTRICT' | 'WARD';
+
+interface ReverseGeocodeSuggestion {
+  provinceId: string | null;
+  provinceName: string | null;
+  districtId: number | null;
+  districtName: string | null;
+  wardCode: string | null;
+  wardName: string | null;
+  specificAddress: string;
+  fullDisplayName: string;
+  matchLevel: LocationMatchLevel;
+  isMatched: boolean;
+}
+
+interface DetectedLocationState {
+  label: string;
+  accuracy: number;
+  quality: LocationQuality;
+  matchLevel: LocationMatchLevel;
+}
+
+const LOCATION_COLLECTION_MS = 10_000;
+const LOCATION_REQUEST_TIMEOUT_MS = 20_000;
 
 export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFormProps) {
   const router = useRouter();
@@ -60,19 +92,25 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
   const [walletFetchFailed, setWalletFetchFailed] = useState(false);
 
   // Address location state
-  const [selectedProvinceId, setSelectedProvinceId] = useState('hcm');
-  const [selectedDistrictId, setSelectedDistrictId] = useState(1442);
-  const [selectedWardCode, setSelectedWardCode] = useState('20101');
+  const [selectedProvinceId, setSelectedProvinceId] = useState('');
+  const [selectedDistrictId, setSelectedDistrictId] = useState(0);
+  const [selectedWardCode, setSelectedWardCode] = useState('');
   const [specificAddress, setSpecificAddress] = useState('');
 
-  // Geolocation quick autofill state
+  // Geolocation only provides an editable suggestion; user-confirmed fields remain authoritative.
   const [locating, setLocating] = useState(false);
-  const [detectedAddressText, setDetectedAddressText] = useState<string | null>(null);
+  const [detectedLocation, setDetectedLocation] = useState<DetectedLocationState | null>(null);
+  const locationRunRef = useRef(0);
+  const locationWatchRef = useRef<number | null>(null);
+  const locationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const locationAbortRef = useRef<AbortController | null>(null);
+  const addressRevisionRef = useRef(0);
 
   // Shipping fee calculation state
-  const [shippingFee, setShippingFee] = useState(30_000);
+  const [shippingFee, setShippingFee] = useState(0);
+  const [quotedSubtotal, setQuotedSubtotal] = useState<number | null>(null);
   const [isFreeShipping, setIsFreeShipping] = useState(false);
-  const [calculatingShipping, setCalculatingShipping] = useState(false);
+  const [settledQuoteKey, setSettledQuoteKey] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     customerName: initialName,
@@ -80,8 +118,6 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
     customerEmail: initialEmail,
     note: '',
   });
-
-  const subtotal = getTotalAmount();
 
   // Fetch ví nội bộ nếu người dùng đã đăng nhập
   useEffect(() => {
@@ -104,288 +140,263 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
     }
   }, [session?.user?.id]);
 
-  // Location helpers
+  // Location helpers — no implicit fallback to the first location in the dataset.
   const currentProvince = useMemo(
-    () => VIETNAM_LOCATIONS.find((p) => p.id === selectedProvinceId) || VIETNAM_LOCATIONS[0],
+    () => VIETNAM_LOCATIONS.find((province) => province.id === selectedProvinceId) ?? null,
     [selectedProvinceId]
   );
-  const districts = currentProvince.districts;
+  const districts = useMemo(() => currentProvince?.districts ?? [], [currentProvince]);
   const currentDistrict = useMemo(
-    () => districts.find((d) => d.id === selectedDistrictId) || districts[0],
+    () => districts.find((district) => district.id === selectedDistrictId) ?? null,
     [districts, selectedDistrictId]
   );
-  const wards = currentDistrict.wards;
+  const wards = useMemo(() => currentDistrict?.wards ?? [], [currentDistrict]);
   const currentWard = useMemo(
-    () => wards.find((w) => w.code === selectedWardCode) || wards[0],
+    () => wards.find((ward) => ward.code === selectedWardCode) ?? null,
     [wards, selectedWardCode]
   );
+  const destinationReady = Boolean(currentProvince && currentDistrict && currentWard);
 
-  // Estimate total package weight
-  const estimatedWeight = useMemo(() => {
-    return items.reduce((sum, item) => sum + 300 * item.quantity, 0) || 500;
-  }, [items]);
+  const quoteKey = JSON.stringify({ toDistrictId: selectedDistrictId, toWardCode: selectedWardCode, items: items.map((item) => ({ productId: item.productId, variantId: item.variantId, quantity: item.quantity })) });
+  const quoteReady = destinationReady && settledQuoteKey === quoteKey;
+  const subtotal = quoteReady && quotedSubtotal !== null ? quotedSubtotal : getTotalAmount();
+  const calculatingShipping = destinationReady && !quoteReady;
 
-  // Auto-calculate dynamic GHN shipping fee
+  // Auto-calculate dynamic GHN shipping fee only after the full hierarchy is valid.
   useEffect(() => {
-    let ignore = false;
+    if (!destinationReady) return;
 
+    let ignore = false;
     fetch('/api/shipping/fee', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        toDistrictId: selectedDistrictId,
-        toWardCode: selectedWardCode,
-        subtotal,
-        weight: estimatedWeight,
-      }),
+      body: quoteKey,
     })
-      .then((res) => res.json())
+      .then(async (res) => { const data = await res.json(); if (!res.ok) throw new Error(data.error || 'Không thể tính phí GHN'); return data; })
       .then((data) => {
         if (!ignore && data.success && data.data) {
           setShippingFee(data.data.totalFee);
+          setQuotedSubtotal(data.data.subtotal);
           setIsFreeShipping(data.data.isFreeShipping);
-          setCalculatingShipping(false);
+          setSettledQuoteKey(quoteKey);
+          setError('');
         }
       })
       .catch((err) => {
         console.warn('Lỗi tính phí GHN:', err);
-        if (!ignore) setCalculatingShipping(false);
+        if (!ignore) { setSettledQuoteKey(null); setError(err instanceof Error ? err.message : 'Không thể tính phí GHN'); }
       });
 
-    return () => {
-      ignore = true;
-    };
-  }, [selectedDistrictId, selectedWardCode, subtotal, estimatedWeight]);
+    return () => { ignore = true; };
+  }, [destinationReady, quoteKey]);
 
-  // Handle province change
+  useEffect(() => () => {
+    locationRunRef.current += 1;
+    if (locationWatchRef.current !== null) navigator.geolocation.clearWatch(locationWatchRef.current);
+    if (locationTimerRef.current) clearTimeout(locationTimerRef.current);
+    locationAbortRef.current?.abort();
+  }, []);
+
+  const markAddressEdited = () => {
+    addressRevisionRef.current += 1;
+    setDetectedLocation(null);
+  };
+
   const handleProvinceChange = (provinceId: string) => {
-    setCalculatingShipping(true);
+    markAddressEdited();
     setSelectedProvinceId(provinceId);
-    const prov = VIETNAM_LOCATIONS.find((p) => p.id === provinceId) || VIETNAM_LOCATIONS[0];
-    const firstDist = prov.districts[0];
-    if (firstDist) {
-      setSelectedDistrictId(firstDist.id);
-      if (firstDist.wards[0]) {
-        setSelectedWardCode(firstDist.wards[0].code);
-      }
-    }
+    setSelectedDistrictId(0);
+    setSelectedWardCode('');
   };
 
-  // Handle district change
   const handleDistrictChange = (districtId: number) => {
-    setCalculatingShipping(true);
+    markAddressEdited();
     setSelectedDistrictId(districtId);
-    const dist = districts.find((d) => d.id === districtId);
-    if (dist && dist.wards[0]) {
-      setSelectedWardCode(dist.wards[0].code);
-    }
+    setSelectedWardCode('');
   };
 
-  // Handle ward change
   const handleWardChange = (wardCode: string) => {
-    setCalculatingShipping(true);
+    markAddressEdited();
     setSelectedWardCode(wardCode);
   };
 
-  // Áp dụng thông tin vị trí đã giải mã vào form và kích hoạt tính phí ship GHN
-  const applyDetectedLocation = (data: {
-    provinceId?: string;
-    districtId?: number;
-    wardCode?: string;
-    specificAddress?: string;
-    fullDisplayName?: string;
-  }) => {
-    const { provinceId, districtId, wardCode, specificAddress: detectedSpecific, fullDisplayName } = data;
-
-    setCalculatingShipping(true);
-
-    let targetProv = VIETNAM_LOCATIONS[0];
-    if (provinceId) {
-      const p = VIETNAM_LOCATIONS.find((item) => item.id === provinceId);
-      if (p) {
-        targetProv = p;
-        setSelectedProvinceId(p.id);
-      }
-    }
-
-    let targetDist = targetProv.districts[0];
-    if (districtId) {
-      const d = targetProv.districts.find((item) => item.id === districtId);
-      if (d) {
-        targetDist = d;
-        setSelectedDistrictId(d.id);
-      } else if (targetProv.districts[0]) {
-        setSelectedDistrictId(targetProv.districts[0].id);
-      }
-    }
-
-    if (wardCode) {
-      const w = targetDist?.wards?.find((item) => item.code === wardCode);
-      if (w) {
-        setSelectedWardCode(w.code);
-      } else if (targetDist?.wards?.[0]) {
-        setSelectedWardCode(targetDist.wards[0].code);
-      }
-    }
-
-    if (detectedSpecific && detectedSpecific.trim().length > 0) {
-      setSpecificAddress(detectedSpecific.trim());
-    } else if (fullDisplayName) {
-      const firstSegment = fullDisplayName.split(',')[0]?.trim();
-      if (firstSegment && !firstSegment.toLowerCase().includes('việt nam')) {
-        setSpecificAddress(firstSegment);
-      }
-    }
-
-    const label = fullDisplayName || detectedSpecific || 'Đã định vị thành công';
-    setDetectedAddressText(label);
-    toast.success('Đã tự động xác định địa chỉ và tính phí GHN!', {
-      description: label,
-      duration: 5000,
-    });
-  };
-
-  // Chuẩn W3C Geolocation API (https://www.w3.org/TR/geolocation-API/)
-  const handleLocateCurrentPosition = () => {
-    if (typeof window === 'undefined' || !('geolocation' in navigator)) {
-      toast.error('Trình duyệt của bạn không hỗ trợ W3C Geolocation API.');
+  const applyDetectedLocation = (
+    data: ReverseGeocodeSuggestion,
+    sample: DeviceLocationSample,
+    startRevision: number
+  ) => {
+    if (addressRevisionRef.current !== startRevision) {
+      toast.info('Bạn đã sửa địa chỉ trong lúc định vị nên gợi ý mới không được áp dụng.');
       return;
     }
 
+    const province = data.provinceId
+      ? VIETNAM_LOCATIONS.find((item) => item.id === data.provinceId) ?? null
+      : null;
+    const district = province && data.districtId
+      ? province.districts.find((item) => item.id === data.districtId) ?? null
+      : null;
+    const ward = district && data.wardCode
+      ? district.wards.find((item) => item.code === data.wardCode) ?? null
+      : null;
+
+    const hierarchyChanged = Boolean(
+      province && (
+        province.id !== selectedProvinceId ||
+        (district?.id ?? 0) !== selectedDistrictId ||
+        (ward?.code ?? '') !== selectedWardCode
+      )
+    );
+    const detectedSpecificAddress = data.specificAddress.trim();
+
+    if (province) {
+      setSelectedProvinceId(province.id);
+      setSelectedDistrictId(district?.id ?? 0);
+      setSelectedWardCode(ward?.code ?? '');
+
+      // Không giữ số nhà cũ khi địa giới đổi. Nếu provider không có số nhà/đường,
+      // để trống để người dùng bắt buộc xác nhận thay vì ghép hai địa chỉ khác nhau.
+      if (hierarchyChanged) setSpecificAddress(detectedSpecificAddress);
+      else if (detectedSpecificAddress) setSpecificAddress(detectedSpecificAddress);
+    }
+    // Không áp địa chỉ đường khi chưa khớp được tỉnh: tránh ghép với địa giới cũ.
+
+    const quality = classifyLocationAccuracy(sample.accuracy);
+    const label = data.fullDisplayName || [data.wardName, data.districtName, data.provinceName].filter(Boolean).join(', ');
+    setDetectedLocation({
+      label: label || 'Đã nhận tọa độ nhưng chưa nhận diện được địa chỉ',
+      accuracy: sample.accuracy,
+      quality,
+      matchLevel: data.matchLevel,
+    });
+
+    if (data.matchLevel === 'WARD') {
+      toast.success('Đã điền địa chỉ gợi ý. Vui lòng kiểm tra trước khi đặt hàng.');
+    } else {
+      toast.info('Chỉ nhận diện được một phần khu vực. Vui lòng chọn các mục còn thiếu.');
+    }
+  };
+
+  const handleLocateCurrentPosition = () => {
+    if (typeof window === 'undefined' || !('geolocation' in navigator)) {
+      toast.error('Trình duyệt không hỗ trợ định vị. Vui lòng chọn địa chỉ thủ công.');
+      return;
+    }
+
+    const runId = ++locationRunRef.current;
+    const startRevision = addressRevisionRef.current;
+    let bestSample: DeviceLocationSample | null = null;
+    let completed = false;
+
+    if (locationWatchRef.current !== null) navigator.geolocation.clearWatch(locationWatchRef.current);
+    if (locationTimerRef.current) clearTimeout(locationTimerRef.current);
+    locationAbortRef.current?.abort();
     setLocating(true);
-    toast.info('Đang yêu cầu vị trí qua W3C Geolocation API...');
+    setDetectedLocation(null);
 
-    // Cờ chống chạy trùng: một số nền tảng (vd. Chromium trên Linux thiếu geoclue)
-    // treo request vĩnh viễn không gọi callback, cần watchdog để thoát.
-    let settled = false;
-
-    const finishWithIpFallback = async (originalError?: GeolocationPositionError) => {
-      if (settled) return;
-      settled = true;
-      try {
-        toast.info('GPS thiết bị không khả dụng, đang tự động định vị qua mạng...');
-        const res = await fetch('/api/shipping/geocode/reverse', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ useIp: true }),
-        });
-        const result = await res.json();
-        if (result.success && result.data) {
-          applyDetectedLocation(result.data);
-          return;
-        }
-      } catch (fallbackErr) {
-        console.warn('[Geolocation] IP fallback failed:', fallbackErr);
-      } finally {
-        setLocating(false);
+    const cleanup = () => {
+      if (locationWatchRef.current !== null) {
+        navigator.geolocation.clearWatch(locationWatchRef.current);
+        locationWatchRef.current = null;
       }
-
-      // Nếu cả IP fallback cũng thất bại thì mới thông báo cho người dùng
-      // (hằng số theo đặc tả W3C: 1 = PERMISSION_DENIED, 2 = POSITION_UNAVAILABLE, 3 = TIMEOUT)
-      switch (originalError?.code) {
-        case 1:
-          toast.error('Dịch vụ vị trí trên hệ điều hành từ chối truy cập. Vui lòng chọn địa chỉ thủ công.');
-          break;
-        case 2:
-          toast.error('Dịch vụ vị trí của hệ điều hành không phản hồi. Vui lòng chọn địa chỉ thủ công.');
-          break;
-        case 3:
-          toast.error('Quá thời gian yêu cầu vị trí. Vui lòng thử lại.');
-          break;
-        default:
-          toast.error('Không xác định được vị trí. Vui lòng chọn địa chỉ thủ công.');
-          break;
+      if (locationTimerRef.current) {
+        clearTimeout(locationTimerRef.current);
+        locationTimerRef.current = null;
       }
     };
 
-    const handleSuccess = async (position: GeolocationPosition) => {
-      if (settled) return;
-      settled = true;
-      try {
-        const { latitude, longitude, accuracy } = position.coords;
-        console.log(
-          `[W3C Geolocation] Đã nhận tọa độ: lat=${latitude}, lon=${longitude}, độ chính xác=${accuracy}m`
-        );
+    const reverseBestSample = async () => {
+      if (completed || runId !== locationRunRef.current) return;
+      completed = true;
+      cleanup();
 
-        const res = await fetch('/api/shipping/geocode/reverse', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ latitude, longitude }),
-        });
-
-        const result = await res.json();
-        if (result.success && result.data?.isMatched) {
-          applyDetectedLocation(result.data);
-        } else if (result.success && result.data && !result.data.isMatched) {
-          // Không nhận diện được khu vực hành chính — trung thực thay vì áp
-          // địa chỉ mặc định sai. Người dùng vẫn có thể chọn thủ công.
-          setLocating(false);
-          toast.info('Chưa nhận diện được địa chỉ chính xác từ GPS. Vui lòng chọn địa chỉ thủ công.');
-        } else {
-          toast.error(result.error || 'Không thể giải mã địa chỉ từ tọa độ GPS');
-        }
-      } catch (err) {
-        console.error('[W3C Geolocation] Lỗi khi gửi tọa độ lên máy chủ:', err);
-        toast.error('Lỗi kết nối khi phân tích tọa độ địa chỉ');
-      } finally {
+      if (!bestSample) {
         setLocating(false);
-      }
-    };
-
-    const handleError = (error: GeolocationPositionError, isHighAccuracyAttempt: boolean) => {
-      if (settled) return;
-      // Khuyến nghị W3C: Nếu thử High Accuracy thất bại do không có chip GPS (phổ biến trên máy tính), tự động thử lại với Low Accuracy
-      if (isHighAccuracyAttempt && (error.code === error.POSITION_UNAVAILABLE || error.code === error.TIMEOUT)) {
-        console.log('[W3C Geolocation] High accuracy không khả dụng, chuyển sang Low Accuracy...');
-        requestPosition(false);
+        toast.error('Không lấy được vị trí thiết bị. Vui lòng chọn địa chỉ thủ công.');
         return;
       }
 
-      console.warn(`[W3C Geolocation] OS location service error (Code ${error.code}): ${error.message}. Chuyển sang định vị dự phòng qua IP...`);
-      void finishWithIpFallback(error);
-    };
-
-    const requestPosition = (highAccuracy: boolean) => {
-      navigator.geolocation.getCurrentPosition(handleSuccess, (err) => handleError(err, highAccuracy), {
-        enableHighAccuracy: highAccuracy,
-        timeout: highAccuracy ? 5000 : 8000,
-        maximumAge: 0,
-      });
-    };
-
-    // Bắt đầu yêu cầu định vị theo đặc tả W3C
-    requestPosition(true);
-
-    // Watchdog: theo spec, callback PHẢI được gọi trong `timeout`, nhưng một số nền
-    // tảng vi phạm (request treo vĩnh viễn) — sau 20s (5s high + 8s low + dự phòng)
-    // nếu chưa settle thì ép chạy IP fallback thay vì quay spinner mãi mãi.
-    const watchdog = setTimeout(() => {
-      if (!settled) {
-        console.warn('[W3C Geolocation] Watchdog: request bị treo, ép chạy IP fallback.');
-        void finishWithIpFallback(undefined);
+      const sample: DeviceLocationSample = bestSample;
+      const quality = classifyLocationAccuracy(sample.accuracy);
+      if (quality === 'UNRELIABLE') {
+        setDetectedLocation({
+          label: 'Vị trí thiết bị chưa đủ chính xác để điền địa chỉ',
+          accuracy: sample.accuracy,
+          quality,
+          matchLevel: 'NONE',
+        });
+        setLocating(false);
+        toast.info('Vị trí sai lệch quá lớn. Vui lòng chọn địa chỉ thủ công.');
+        return;
       }
-    }, 20000);
 
-    // Dọn watchdog nếu component unmount giữa chừng
-    // (setTimeout vẫn chạy nhưng finishWithIpFallback sẽ tự no-op qua cờ settled;
-    // không giữ tham chiếu thêm vì getCurrentPosition không có hàm hủy đồng bộ)
-    void watchdog;
+      const controller = new AbortController();
+      locationAbortRef.current = controller;
+      const requestTimeout = setTimeout(() => controller.abort(), LOCATION_REQUEST_TIMEOUT_MS);
+      try {
+        const response = await fetch('/api/shipping/geocode/reverse', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            latitude: sample.latitude,
+            longitude: sample.longitude,
+            accuracy: sample.accuracy,
+          }),
+          signal: controller.signal,
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success || !result.data) {
+          throw new Error(result.error || 'Không thể phân tích vị trí');
+        }
+        if (runId === locationRunRef.current) {
+          applyDetectedLocation(result.data as ReverseGeocodeSuggestion, sample, startRevision);
+        }
+      } catch (err) {
+        if (runId === locationRunRef.current && !(err instanceof DOMException && err.name === 'AbortError')) {
+          toast.error(err instanceof Error ? err.message : 'Không thể phân tích vị trí.');
+        } else if (runId === locationRunRef.current) {
+          toast.error('Phân tích vị trí quá thời gian. Vui lòng thử lại.');
+        }
+      } finally {
+        clearTimeout(requestTimeout);
+        if (runId === locationRunRef.current) {
+          locationAbortRef.current = null;
+          setLocating(false);
+        }
+      }
+    };
+
+    locationWatchRef.current = navigator.geolocation.watchPosition(
+      (position) => {
+        if (completed || runId !== locationRunRef.current) return;
+        const sample: DeviceLocationSample = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+          timestamp: position.timestamp,
+        };
+        if (isBetterLocationSample(sample, bestSample)) bestSample = sample;
+        if (classifyLocationAccuracy(sample.accuracy) === 'PRECISE') void reverseBestSample();
+      },
+      (geoError) => {
+        if (completed || runId !== locationRunRef.current) return;
+        completed = true;
+        cleanup();
+        setLocating(false);
+        const message = geoError.code === geoError.PERMISSION_DENIED
+          ? 'Quyền vị trí đã bị từ chối. Vui lòng chọn địa chỉ thủ công.'
+          : 'Không lấy được vị trí thiết bị. Vui lòng chọn địa chỉ thủ công.';
+        toast.error(message);
+      },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: LOCATION_REQUEST_TIMEOUT_MS }
+    );
+
+    locationTimerRef.current = setTimeout(() => void reverseBestSample(), LOCATION_COLLECTION_MS);
   };
 
   // Calculate discount & totals
-  const discountAmount = useMemo(() => {
-    if (!appliedCoupon) return 0;
-    if (appliedCoupon.discountType === 'FIXED') {
-      return Math.min(appliedCoupon.discountValue, subtotal);
-    }
-    if (appliedCoupon.discountType === 'PERCENTAGE') {
-      const raw = Math.round((subtotal * appliedCoupon.discountValue) / 100);
-      return appliedCoupon.maxDiscount ? Math.min(raw, appliedCoupon.maxDiscount) : raw;
-    }
-    return 0;
-  }, [appliedCoupon, subtotal]);
-
   const effectiveShippingFee = isFreeShipping || subtotal >= 500_000 ? 0 : shippingFee;
+  const discountAmount = appliedCoupon ? calculateDiscount(appliedCoupon, subtotal, effectiveShippingFee) : 0;
   const finalTotalAmount = Math.max(0, subtotal + effectiveShippingFee - discountAmount);
 
   // Kiểm tra số dư ví có đủ thanh toán đơn hàng không
@@ -393,12 +404,8 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
 
   // Full formatted customer address
   const fullAddress = useMemo(() => {
-    const parts = [
-      specificAddress.trim(),
-      currentWard?.name,
-      currentDistrict?.name,
-      currentProvince?.name,
-    ].filter(Boolean);
+    const parts = [specificAddress.trim(), currentWard?.name, currentDistrict?.name, currentProvince?.name]
+      .filter(Boolean);
     return parts.join(', ');
   }, [specificAddress, currentWard, currentDistrict, currentProvince]);
 
@@ -440,6 +447,8 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (!destinationReady) { setError('Vui lòng chọn đủ tỉnh/thành, quận/huyện và phường/xã.'); return; }
+    if (!quoteReady || calculatingShipping) { setError('Chưa lấy được phí GHN. Vui lòng thử chọn lại địa bàn.'); return; }
 
     if (!form.customerPhone.trim() || form.customerPhone.length < 9) {
       setError('Vui lòng nhập số điện thoại hợp lệ');
@@ -467,6 +476,10 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
           customerPhone: form.customerPhone,
           customerEmail: form.customerEmail || undefined,
           customerAddress: fullAddress,
+          toDistrictId: selectedDistrictId,
+          toWardCode: selectedWardCode,
+          quotedShippingFee: effectiveShippingFee,
+          quotedSubtotal: subtotal,
           note: form.note || undefined,
           couponCode: appliedCoupon ? appliedCoupon.code : undefined,
           items: items.map((i) => ({
@@ -479,6 +492,11 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
 
       const data = (await res.json()) as CreateOrderResponse;
       if (!res.ok || !data.orderId) {
+        if (res.status === 409) {
+          const quote = data as CreateOrderResponse & { shippingFee?: number; subtotal?: number };
+          if (typeof quote.shippingFee === 'number') { setShippingFee(quote.shippingFee); setIsFreeShipping(quote.shippingFee === 0); }
+          if (typeof quote.subtotal === 'number') setQuotedSubtotal(quote.subtotal);
+        }
         throw new Error(data.error || 'Lỗi tạo đơn hàng');
       }
 
@@ -603,7 +621,7 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
             onClick={handleLocateCurrentPosition}
             disabled={locating}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-medium bg-shop-violet/10 text-shop-violet hover:bg-shop-violet/15 active:scale-95 transition disabled:opacity-50 self-start sm:self-auto cursor-pointer shadow-soft-sm"
-            title="Lấy tọa độ vị trí hiện tại và tự động điền địa chỉ"
+            title="Lấy vị trí hiện tại để gợi ý địa chỉ"
           >
             {locating ? (
               <>
@@ -613,26 +631,37 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
             ) : (
               <>
                 <Navigation className="w-3.5 h-3.5 fill-shop-violet/20" />
-                <span>Lấy vị trí hiện tại (1 chạm)</span>
+                <span>Gợi ý từ vị trí hiện tại</span>
               </>
             )}
           </button>
         </div>
 
-        {detectedAddressText && (
-          <div className="mb-4 bg-emerald-50 border border-emerald-200/70 rounded-[18px] p-3 flex items-start gap-2.5 text-xs text-emerald-800 animate-fadeIn">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <span className="font-semibold block text-emerald-900 mb-0.5">Vị trí đã định vị:</span>
-              <span className="text-emerald-700 leading-relaxed block">{detectedAddressText}</span>
+        {detectedLocation && (
+          <div className={`mb-4 rounded-[18px] p-3 flex items-start gap-2.5 text-xs animate-fadeIn border ${
+            detectedLocation.quality === 'UNRELIABLE'
+              ? 'bg-amber-50 border-amber-200/70 text-amber-900'
+              : 'bg-emerald-50 border-emerald-200/70 text-emerald-900'
+          }`}>
+            <CheckCircle2 className={`w-4 h-4 flex-shrink-0 mt-0.5 ${
+              detectedLocation.quality === 'UNRELIABLE' ? 'text-amber-600' : 'text-emerald-600'
+            }`} />
+            <div className="flex-1 min-w-0">
+              <span className="font-semibold block mb-0.5">
+                {detectedLocation.matchLevel === 'WARD' ? 'Địa chỉ gợi ý — cần kiểm tra' : 'Vị trí chỉ mang tính ước lượng'}
+              </span>
+              <span className="leading-relaxed block">{detectedLocation.label}</span>
+              <span className="block mt-1 opacity-80">
+                Sai lệch thiết bị: {formatAccuracy(detectedLocation.accuracy)}. Vui lòng xác nhận số nhà và khu vực bên dưới.
+              </span>
             </div>
             <button
               type="button"
               onClick={handleLocateCurrentPosition}
               disabled={locating}
-              className="text-[11px] font-medium text-emerald-800 hover:text-emerald-950 underline flex-shrink-0 cursor-pointer"
+              className="text-[11px] font-medium underline flex-shrink-0 cursor-pointer disabled:opacity-50"
             >
-              Làm mới
+              Thử lại
             </button>
           </div>
         )}
@@ -649,10 +678,12 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
               </label>
               <select
                 id="checkout-province"
+                required
                 value={selectedProvinceId}
                 onChange={(e) => handleProvinceChange(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-full border border-ink-black/10 bg-white text-xs font-medium text-ink-black focus:outline-none focus:border-shop-violet/40 transition"
               >
+                <option value="">Chọn tỉnh / thành phố</option>
                 {VIETNAM_LOCATIONS.map((prov) => (
                   <option key={prov.id} value={prov.id}>
                     {prov.name}
@@ -671,10 +702,13 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
               </label>
               <select
                 id="checkout-district"
-                value={selectedDistrictId}
+                required
+                disabled={!currentProvince}
+                value={selectedDistrictId || ''}
                 onChange={(e) => handleDistrictChange(Number(e.target.value))}
-                className="w-full px-3.5 py-2.5 rounded-full border border-ink-black/10 bg-white text-xs font-medium text-ink-black focus:outline-none focus:border-shop-violet/40 transition"
+                className="w-full px-3.5 py-2.5 rounded-full border border-ink-black/10 bg-white text-xs font-medium text-ink-black focus:outline-none focus:border-shop-violet/40 transition disabled:bg-gray-50 disabled:text-muted-gray"
               >
+                <option value="">Chọn quận / huyện</option>
                 {districts.map((dist) => (
                   <option key={dist.id} value={dist.id}>
                     {dist.name}
@@ -693,10 +727,13 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
               </label>
               <select
                 id="checkout-ward"
+                required
+                disabled={!currentDistrict || wards.length === 0}
                 value={selectedWardCode}
                 onChange={(e) => handleWardChange(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-full border border-ink-black/10 bg-white text-xs font-medium text-ink-black focus:outline-none focus:border-shop-violet/40 transition"
+                className="w-full px-3.5 py-2.5 rounded-full border border-ink-black/10 bg-white text-xs font-medium text-ink-black focus:outline-none focus:border-shop-violet/40 transition disabled:bg-gray-50 disabled:text-muted-gray"
               >
+                <option value="">{currentDistrict && wards.length === 0 ? 'Khu vực chưa có dữ liệu GHN' : 'Chọn phường / xã'}</option>
                 {wards.map((ward) => (
                   <option key={ward.code} value={ward.code}>
                     {ward.name}
@@ -720,7 +757,10 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
               required
               autoComplete="street-address"
               value={specificAddress}
-              onChange={(e) => setSpecificAddress(e.target.value)}
+              onChange={(e) => {
+                markAddressEdited();
+                setSpecificAddress(e.target.value);
+              }}
               className="w-full px-4 py-2.5 rounded-full border border-ink-black/10 bg-white text-sm text-ink-black placeholder:text-muted-gray focus:outline-none focus:border-shop-violet/40 transition tracking-[-0.014em]"
               placeholder="Ví dụ: 123 Lê Lợi, Tòa nhà Bitexco..."
             />
@@ -744,7 +784,9 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
             </div>
 
             <div className="text-right">
-              {calculatingShipping ? (
+              {!destinationReady ? (
+                <span className="text-[11px] text-muted-gray">Chọn đủ địa bàn</span>
+              ) : calculatingShipping ? (
                 <div className="flex items-center gap-1.5 text-xs text-muted-gray">
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-shop-violet" />
                   <span>Đang tính cước...</span>
@@ -962,7 +1004,7 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
 
       <button
         type="submit"
-        disabled={loading}
+        disabled={loading || calculatingShipping || !quoteReady || !destinationReady}
         className="w-full bg-shop-violet hover:bg-shop-violet-deep text-white font-medium py-3.5 px-6 rounded-full transition shadow-violet disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm tracking-[-0.014em]"
       >
         {loading ? (

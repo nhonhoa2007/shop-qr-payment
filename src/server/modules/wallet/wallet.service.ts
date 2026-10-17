@@ -87,15 +87,17 @@ export async function refundOrderToWallet(
   if (order.paymentStatus !== 'PAID') {
     return { success: false, error: 'Chỉ có thể hoàn tiền cho đơn hàng đã thanh toán (PAID)' };
   }
+  if (order.status === 'CANCELLED') return { success: false, error: 'Đơn hàng đã được hủy trước đó' };
 
   // Guard against double-refund using Atomic CAS with tx.order.updateMany
   const updateResult = await tx.order.updateMany({
     where: {
       id: order.id,
       paymentStatus: 'PAID',
+      status: { not: 'CANCELLED' },
     },
     data: {
-      paymentStatus: 'REFUNDED',
+      paymentStatus: order.userId ? 'REFUNDED' : 'PAID',
       status: 'CANCELLED',
     },
   });
@@ -107,6 +109,10 @@ export async function refundOrderToWallet(
   // Release order stock
   if (order.items && order.items.length > 0) {
     await releaseOrderStock(tx, order.items);
+  }
+  if (order.couponId) {
+    await tx.coupon.update({ where: { id: order.couponId }, data: { usedCount: { decrement: 1 } } });
+    if (order.userId) await tx.couponUsage.deleteMany({ where: { couponId: order.couponId, orderId: order.id, userId: order.userId } });
   }
 
   // Nếu là tài khoản thành viên có userId -> Hoàn vào ví
@@ -137,6 +143,11 @@ export async function refundOrderToWallet(
   }
 
   // Khách vãng lai (không có tài khoản đăng nhập)
+  await tx.refundCase.upsert({
+    where: { sourceKey: `order:${order.id}` },
+    create: { sourceKey: `order:${order.id}`, orderId: order.id, amount: order.totalAmount, reason: reason || 'Đơn đã thanh toán bị hủy; cần hoàn tiền cho khách vãng lai' },
+    update: {},
+  });
   return {
     success: true,
     refundedAmount: order.totalAmount,
@@ -178,7 +189,7 @@ export async function payOrderWithWallet(
     return { success: false, error: 'Không tìm thấy đơn hàng' };
   }
 
-  if (order.userId && order.userId !== userId) {
+  if (order.userId !== userId) {
     return { success: false, error: 'Bạn không có quyền thanh toán đơn hàng này' };
   }
 

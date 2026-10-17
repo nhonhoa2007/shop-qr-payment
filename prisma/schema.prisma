@@ -118,6 +118,8 @@ model Order {
   customerPhone   String
   customerEmail   String?
   customerAddress String
+  toDistrictId    Int?
+  toWardCode      String?
   items           OrderItem[]
   totalAmount     Int
   subtotal        Int           @default(0)
@@ -131,6 +133,9 @@ model Order {
   transaction     Transaction?
   chatRoom        ChatRoom?
   shipment        Shipment?
+  bankTransfers   BankTransfer[]
+  refundCases     RefundCase[]
+  fulfillmentState FulfillmentState @default(NONE)
   qrContent       String?
   note            String?
   expiresAt       DateTime
@@ -156,6 +161,67 @@ enum PaymentStatus {
   PAID
   EXPIRED
   REFUNDED
+}
+
+enum FulfillmentState {
+  NONE
+  REQUESTING
+  REVIEW
+  CREATED
+}
+
+enum BankTransferStatus {
+  PENDING_REVIEW
+  APPLIED_ORDER
+  APPLIED_TOPUP
+  REFUNDED
+}
+
+model BankTransfer {
+  id              String             @id @default(cuid())
+  fingerprint     String             @unique
+  bankTransId     String?            @unique
+  amount          Int
+  description     String
+  bankName        String?
+  receivedAt      DateTime?
+  rawWebhookData  Json
+  orderId         String?
+  order           Order?             @relation(fields: [orderId], references: [id])
+  topupCode       String?
+  status          BankTransferStatus @default(PENDING_REVIEW)
+  reviewReason    String?
+  reviewedById    String?
+  reviewedAt      DateTime?
+  resolutionNote  String?
+  refundCase      RefundCase?
+  createdAt       DateTime           @default(now())
+
+  @@index([status, createdAt])
+  @@index([orderId])
+}
+
+enum RefundCaseStatus {
+  OPEN
+  COMPLETED
+}
+
+model RefundCase {
+  id               String           @id @default(cuid())
+  sourceKey        String           @unique
+  orderId          String?
+  order            Order?           @relation(fields: [orderId], references: [id])
+  bankTransferId   String?          @unique
+  bankTransfer     BankTransfer?    @relation(fields: [bankTransferId], references: [id])
+  amount           Int
+  reason           String
+  status           RefundCaseStatus @default(OPEN)
+  resolvedById     String?
+  resolutionNote   String?
+  resolvedAt       DateTime?
+  createdAt        DateTime         @default(now())
+
+  @@index([status, createdAt])
 }
 
 model OrderItem {

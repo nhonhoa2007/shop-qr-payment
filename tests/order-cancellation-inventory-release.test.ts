@@ -345,6 +345,7 @@ describe('Order Cancellation - Wallet Refund & Double-Refund Protection (Pillar 
     assert.deepEqual(atomicWhereCaptured, {
       id: 'ord_paid_member',
       paymentStatus: 'PAID',
+      status: { not: 'CANCELLED' },
     });
   });
 
@@ -396,6 +397,7 @@ describe('Order Cancellation - Wallet Refund & Double-Refund Protection (Pillar 
         updateMany: async () => ({ count: 1 }),
       },
       product: { update: async () => ({}) },
+      refundCase: { upsert: async () => ({ id: 'refund_guest_1' }) },
       userWallet: {
         findUnique: async () => {
           walletTouched = true;

@@ -5,7 +5,6 @@ import { generateVietQRUrl, getBankInfo } from '@server/modules/payment/vietqr.s
 import { generateOrderCode } from '@shared/utils';
 import { createNotification } from '@server/modules/notifications/notifications.service';
 import { authOptions } from '@server/modules/auth/auth-options';
-import { parseOrderItems, buildValidatedOrderItems } from '@shared/validations';
 import { expireUnpaidOrders, reserveOrderStock } from '@server/modules/inventory/inventory.service';
 import { normalizeEmail } from '@server/modules/auth/otp.service';
 import { validateCoupon } from '@server/modules/admin/coupon.service';
@@ -14,6 +13,7 @@ import { checkDistributedRateLimit, getClientIp } from '@server/infrastructure/r
 import { pusherServer } from '@server/infrastructure/pusher';
 import { resolveOperatorAccess } from '@server/modules/admin/guards';
 import { formatNewOrderMessage, sendTelegramMessage } from '@server/infrastructure/telegram';
+import { quoteShipping, QuoteError } from '@server/modules/shipping/shipping-quote.service';
 
 interface CreateOrderBody {
   items?: unknown;
@@ -23,6 +23,10 @@ interface CreateOrderBody {
   customerEmail?: unknown;
   couponCode?: unknown;
   note?: unknown;
+  toDistrictId?: unknown;
+  toWardCode?: unknown;
+  quotedShippingFee?: unknown;
+  quotedSubtotal?: unknown;
 }
 
 function normalizeText(value: unknown): string {
@@ -53,34 +57,24 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Vui lòng điền đầy đủ thông tin' }, { status: 400 });
     }
 
-    const parsed = parseOrderItems(body.items);
-    if (parsed.error || !parsed.items) {
-      return NextResponse.json({ error: parsed.error || 'Dữ liệu giỏ hàng không hợp lệ' }, { status: 400 });
-    }
-
-    const productIds = [...new Set(parsed.items.map((item) => item.productId))];
-    const products = await prisma.product.findMany({
-      where: { id: { in: productIds } },
-      include: {
-        variants: {
-          where: { isActive: true },
-        },
-      },
-    });
-    const validated = buildValidatedOrderItems(parsed.items, products);
-    if (validated.error || !validated.orderItems || validated.totalAmount === undefined) {
-      return NextResponse.json({ error: validated.error || 'Dữ liệu giỏ hàng không hợp lệ' }, { status: 400 });
+    const validated = await quoteShipping(body);
+    if (!Number.isInteger(body.quotedShippingFee) || body.quotedShippingFee !== validated.shippingFee || !Number.isInteger(body.quotedSubtotal) || body.quotedSubtotal !== validated.subtotal) {
+      return NextResponse.json({
+        error: 'Giá hàng hoặc phí vận chuyển đã thay đổi. Vui lòng xác nhận tổng tiền mới.',
+        shippingFee: validated.shippingFee,
+        subtotal: validated.subtotal,
+      }, { status: 409 });
     }
 
     // Handle Coupon discount
-    let couponRecord: { id: string; code: string; discountType: string; discountValue: number; maxDiscount: number | null; minOrderAmount: number } | null = null;
+    let couponRecord: { id: string; code: string; discountType: string; discountValue: number; maxDiscount: number | null; minOrderAmount: number; perUserLimit: number } | null = null;
     let discountAmount = 0;
 
     if (couponCodeInput) {
       const couponValidation = await validateCoupon(
         couponCodeInput,
         session?.user?.id || null,
-        validated.subtotal!
+        validated.subtotal
       );
 
       if (!couponValidation.valid || !couponValidation.coupon) {
@@ -90,12 +84,12 @@ export async function POST(req: Request) {
       couponRecord = couponValidation.coupon;
       discountAmount = calculateDiscount(
         couponRecord,
-        validated.subtotal!,
-        validated.shippingFee!
+        validated.subtotal,
+        validated.shippingFee
       );
     }
 
-    const finalTotalAmount = Math.max(0, validated.subtotal! + validated.shippingFee! - discountAmount);
+    const finalTotalAmount = Math.max(0, validated.subtotal + validated.shippingFee - discountAmount);
     const orderCode = generateOrderCode();
     const bankInfo = getBankInfo();
     const qrUrl = generateVietQRUrl({
@@ -119,9 +113,11 @@ export async function POST(req: Request) {
           customerName,
           customerPhone,
           customerAddress,
+          toDistrictId: validated.toDistrictId,
+          toWardCode: validated.toWardCode,
           customerEmail: customerEmail ? normalizeEmail(customerEmail) : null,
-          subtotal: validated.subtotal!,
-          shippingFee: validated.shippingFee!,
+          subtotal: validated.subtotal,
+          shippingFee: validated.shippingFee,
           discountAmount,
           couponId: couponRecord?.id || null,
           couponCode: couponRecord?.code || null,
@@ -143,12 +139,15 @@ export async function POST(req: Request) {
       });
 
       if (couponRecord) {
-        await tx.coupon.update({
-          where: { id: couponRecord.id },
+        const claimed = await tx.coupon.updateMany({
+          where: { id: couponRecord.id, isActive: true, usedCount: { lt: (await tx.coupon.findUniqueOrThrow({ where: { id: couponRecord.id }, select: { usageLimit: true } })).usageLimit } },
           data: { usedCount: { increment: 1 } },
         });
+        if (claimed.count !== 1) throw new Error('Mã giảm giá đã hết lượt sử dụng');
 
         if (session?.user?.id) {
+          const usageCount = await tx.couponUsage.count({ where: { couponId: couponRecord.id, userId: session.user.id } });
+          if (usageCount >= couponRecord.perUserLimit) throw new Error('Bạn đã sử dụng hết lượt mã giảm giá này');
           await tx.couponUsage.create({
             data: {
               couponId: couponRecord.id,
@@ -220,8 +219,8 @@ export async function POST(req: Request) {
         customerName,
         customerPhone,
         customerAddress,
-        subtotal: validated.subtotal!,
-        shippingFee: validated.shippingFee!,
+        subtotal: validated.subtotal,
+        shippingFee: validated.shippingFee,
         discountAmount,
         couponCode: couponRecord?.code || null,
         totalAmount: finalTotalAmount,
@@ -256,7 +255,7 @@ export async function POST(req: Request) {
     });
   } catch (error) {
     console.error('Create order error:', error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Lỗi tạo đơn hàng' }, { status: 500 });
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Lỗi tạo đơn hàng' }, { status: error instanceof QuoteError ? error.status : 500 });
   }
 }
 

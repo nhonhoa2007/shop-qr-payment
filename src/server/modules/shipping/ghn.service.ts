@@ -54,6 +54,11 @@ export interface GHNCreateOrderResult {
   rawResponse?: unknown;
 }
 
+export class GHNShipmentError extends Error {
+  mayHaveCreated: boolean;
+  constructor(message: string, mayHaveCreated = false) { super(message); this.mayHaveCreated = mayHaveCreated; }
+}
+
 export interface GHNStatusMapping {
   shipmentStatus: ShipmentStatus;
   orderStatus?: OrderStatus;
@@ -127,14 +132,8 @@ export function mapGHNStatusToShipmentStatus(ghnStatus: string): GHNStatusMappin
  * @param params.serviceTypeId - Loại dịch vụ GHN (mặc định 2: Chuẩn / E-commerce)
  * @returns `GHNCalculateFeeResult` chứa tổng phí vận chuyển, phí bảo hiểm và trạng thái freeship
  *
- * @business Rules & Heuristic Fallback
- * 1. Ngưỡng miễn phí vận chuyển (Free Shipping Threshold):
- *    - Nếu `subtotal >= 500,000 VND`, cước phí tự động trả về `0 VND` (`isFreeShipping: true`).
- * 2. Tích hợp trực tiếp GHN OpenAPI v2:
- *    - Gửi request đến `POST /v2/shipping-order/fee` kèm Header `Token` và `ShopId`.
- * 3. Fallback theo bậc thang khối lượng (Heuristic Fallback):
- *    - Khi không có kết nối API hoặc chạy local offline: Cước cố định 30,000 VND cho 500g đầu tiên,
- *      cộng thêm 5,000 VND cho mỗi 500g tiếp theo (`30k + ceil((weight - 500) / 500) * 5k`).
+ * Luôn hỏi GHN, kể cả khi shop miễn phí ship từ 500.000đ, để biết cước thực tế shop chịu.
+ * Kết quả FALLBACK chỉ phục vụ các phép thử/công cụ cũ; quoteShipping từ chối đặt đơn với kết quả đó.
  */
 export async function calculateGHNFee(
   params: GHNCalculateFeeParams
@@ -142,17 +141,7 @@ export async function calculateGHNFee(
   const weight = params.weight && params.weight > 0 ? params.weight : 500;
   const subtotal = params.subtotal || 0;
 
-  // Chính sách miễn phí vận chuyển cho đơn hàng đạt ngưỡng (>= 500,000 VND)
-  if (subtotal >= 500_000) {
-    return {
-      totalFee: 0,
-      serviceFee: 0,
-      insuranceFee: 0,
-      isFreeShipping: true,
-      carrier: 'GHN',
-      source: 'FALLBACK',
-    };
-  }
+  const isFreeShipping = subtotal >= 500_000;
 
   // Nếu có API Token, gọi trực tiếp endpoint GHN OpenAPI v2
   if (GHN_TOKEN && params.toDistrictId && params.toWardCode) {
@@ -177,12 +166,13 @@ export async function calculateGHNFee(
 
       if (response.ok) {
         const data = await response.json();
-        if (data.code === 200 && data.data?.total) {
+        const actualFee = Number(data.data?.total);
+        if (data.code === 200 && Number.isFinite(actualFee) && actualFee >= 0) {
           return {
-            totalFee: Math.round(Number(data.data.total)),
-            serviceFee: Math.round(Number(data.data.service_fee || data.data.total)),
+            totalFee: isFreeShipping ? 0 : Math.round(actualFee),
+            serviceFee: Math.round(Number(data.data.service_fee ?? actualFee)),
             insuranceFee: Math.round(Number(data.data.insurance_fee || 0)),
-            isFreeShipping: false,
+            isFreeShipping,
             carrier: 'GHN',
             source: 'GHN_API',
           };
@@ -198,10 +188,10 @@ export async function calculateGHNFee(
   const calculatedFee = 30_000 + additionalWeightUnits * 5_000;
 
   return {
-    totalFee: calculatedFee,
+    totalFee: isFreeShipping ? 0 : calculatedFee,
     serviceFee: calculatedFee,
     insuranceFee: 0,
-    isFreeShipping: false,
+    isFreeShipping,
     carrier: 'GHN',
     source: 'FALLBACK',
   };
@@ -227,6 +217,9 @@ export async function createGHNShipment(
       ? params.weight
       : params.items.reduce((sum, item) => sum + (item.weight || 250) * item.quantity, 0);
 
+  if (process.env.NODE_ENV === 'production' && (!GHN_TOKEN || !GHN_SHOP_ID || !params.toDistrictId || !params.toWardCode)) {
+    throw new GHNShipmentError('Thiếu cấu hình GHN hoặc địa bàn nhận hàng');
+  }
   if (GHN_TOKEN && GHN_SHOP_ID && params.toDistrictId && params.toWardCode) {
     try {
       const response = await fetch(`${GHN_API_BASE_URL}v2/shipping-order/create`, {
@@ -260,7 +253,7 @@ export async function createGHNShipment(
 
       if (response.ok) {
         const json = await response.json();
-        if (json.code === 200 && json.data) {
+        if (json.code === 200 && typeof json.data?.order_code === 'string' && json.data.order_code.trim()) {
           return {
             success: true,
             trackingCode: json.data.order_code,
@@ -274,10 +267,19 @@ export async function createGHNShipment(
           };
         }
       }
+      if (process.env.NODE_ENV === 'production') {
+        throw new GHNShipmentError(`GHN không trả mã vận đơn hợp lệ (HTTP ${response.status}); cần kiểm tra trước khi gửi lại`, response.ok || response.status >= 500);
+      }
     } catch (err) {
+      if (process.env.NODE_ENV === 'production') {
+        if (err instanceof GHNShipmentError) throw err;
+        throw new GHNShipmentError('Không rõ GHN đã tạo vận đơn hay chưa; cần kiểm tra trước khi gửi lại', true);
+      }
       console.error('GHN create order error, fallback to mock generation:', err);
     }
   }
+
+  if (process.env.NODE_ENV === 'production') throw new GHNShipmentError('GHN không trả mã vận đơn hợp lệ', true);
 
   // Mock generation an toàn cho sandbox/development:
   const timestamp = Date.now().toString(36).toUpperCase();
