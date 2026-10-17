@@ -109,5 +109,6 @@ export function getShipmentStatusColor(status: string): string {
 }
 
 export * from './product-variants.ts';
+export * from './money';
 
 

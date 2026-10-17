@@ -74,7 +74,7 @@ model Product {
   id          String           @id @default(cuid())
   name        String
   description String?
-  price       Int
+  price       BigInt
   image       String?
   category    String?
   stock       Int              @default(0)
@@ -98,7 +98,7 @@ model ProductVariant {
   title      String
   color      String?
   size       String?
-  price      Int
+  price      BigInt
   stock      Int         @default(0)
   image      String?
   isActive   Boolean     @default(true)
@@ -121,10 +121,10 @@ model Order {
   toDistrictId    Int?
   toWardCode      String?
   items           OrderItem[]
-  totalAmount     Int
-  subtotal        Int           @default(0)
-  discountAmount  Int           @default(0)
-  shippingFee     Int           @default(0)
+  totalAmount     BigInt
+  subtotal        BigInt        @default(0)
+  discountAmount  BigInt        @default(0)
+  shippingFee     BigInt        @default(0)
   couponId        String?
   couponCode      String?
   coupon          Coupon?       @relation(fields: [couponId], references: [id])
@@ -181,7 +181,7 @@ model BankTransfer {
   id              String             @id @default(cuid())
   fingerprint     String             @unique
   bankTransId     String?            @unique
-  amount          Int
+  amount          BigInt
   description     String
   bankName        String?
   receivedAt      DateTime?
@@ -213,7 +213,7 @@ model RefundCase {
   order            Order?           @relation(fields: [orderId], references: [id])
   bankTransferId   String?          @unique
   bankTransfer     BankTransfer?    @relation(fields: [bankTransferId], references: [id])
-  amount           Int
+  amount           BigInt
   reason           String
   status           RefundCaseStatus @default(OPEN)
   resolvedById     String?
@@ -234,7 +234,7 @@ model OrderItem {
   variantTitle String?
   variant      ProductVariant? @relation(fields: [variantId], references: [id])
   quantity     Int
-  price        Int
+  price        BigInt
 
   @@index([orderId])
   @@index([productId])
@@ -245,9 +245,9 @@ model Coupon {
   code           String        @unique
   description    String?
   discountType   DiscountType
-  discountValue  Int
-  maxDiscount    Int?
-  minOrderAmount Int           @default(0)
+  discountValue  BigInt
+  maxDiscount    BigInt?
+  minOrderAmount BigInt        @default(0)
   usageLimit     Int           @default(100)
   usedCount      Int           @default(0)
   perUserLimit   Int           @default(1)
@@ -312,7 +312,7 @@ model Transaction {
   orderId        String    @unique
   order          Order     @relation(fields: [orderId], references: [id])
   bankTransId    String?   @unique
-  amount         Int
+  amount         BigInt
   description    String
   bankName       String?
   senderAccount  String?
@@ -402,8 +402,8 @@ model Shipment {
   order            Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
   carrier          CarrierName    @default(GHN)
   trackingCode     String         @unique
-  shippingFee      Int
-  codAmount        Int            @default(0)
+  shippingFee      BigInt
+  codAmount        BigInt         @default(0)
   status           ShipmentStatus @default(READY_TO_PICK)
   estimatedArrival DateTime?
   shippingLogs     Json?
@@ -434,7 +434,7 @@ model UserWallet {
   id           String              @id @default(cuid())
   userId       String              @unique
   user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  balance      Int                 @default(0)
+  balance      BigInt              @default(0)
   transactions WalletTransaction[]
   createdAt    DateTime            @default(now())
   updatedAt    DateTime            @updatedAt
@@ -444,7 +444,7 @@ model WalletTransaction {
   id          String       @id @default(cuid())
   walletId    String
   wallet      UserWallet   @relation(fields: [walletId], references: [id], onDelete: Cascade)
-  amount      Int
+  amount      BigInt
   type        WalletTxType
   orderId     String?
   description String

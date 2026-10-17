@@ -535,3 +535,5 @@ export interface WalletTopupSession {
   completedAt?: string;
   bankTransId?: string;
 }
+
+export * from './money';
