@@ -2,270 +2,244 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Tạo catalog điện tử có cấu trúc cho 2 laptop, 2 điện thoại và 6 phụ kiện, với provenance, typed attributes, option/SKU thực tế, lọc/so sánh cơ bản và checkout tương thích.
+**Goal:** Tạo catalog điện tử có cấu trúc cho 2 laptop, 2 điện thoại và 6 phụ kiện bằng validated JSONB, provenance hợp nhất và checkout snapshot mà chỉ thêm ba Prisma models.
 
-**Architecture:** Mô hình lai chuẩn hóa Brand/Category/AttributeDefinition và typed values, giữ Product/ProductVariant làm aggregate bán hàng. Catalog read model xuất DTO shared với MoneyVnd; legacy products tiếp tục đọc được nhưng bị đánh dấu và không được giả thông số/provenance.
+**Architecture:** `Brand`, `Category` và `DataSource` là ba model mới. Category chứa versioned spec/scoring/warranty schemas; Product/Variant chứa validated specs/options/images/config JSON. Filter production dùng allowlisted JSON paths với GIN/expression indexes; không tạo EAV/option/image/source child tables.
 
-**Tech Stack:** Prisma/PostgreSQL, TypeScript strict, Next.js 16 App Router/Server Components, Redis cache, Node native tests.
+**Tech Stack:** Prisma/PostgreSQL JSONB+GIN, TypeScript strict, shared validators, Next.js 16, Redis cache, Node native tests.
 
 **Spec:** `docs/superpowers/specs/2026-10-17-electronics-commerce-intelligence-design.md`
 
 ## Global Constraints
 
-- M1 chỉ bắt đầu khi M0 exit criteria pass.
-- Không redesign UI; chỉ form/table/filter/detail tối thiểu.
-- Không dùng JSON tự do làm nguồn duy nhất cho thuộc tính cần validate/filter/compare.
-- `UNKNOWN` khác `UNSUPPORTED`; null legacy không được tự suy diễn.
-- Product có `VARIANT` inventory mode phải mua bằng SKU/variant cụ thể.
-- Price/sort/filter dùng effective active SKU price; DTO money là decimal string.
-- Nguồn catalog phải có publisher/URL/market/license status/checkedAt/version.
-- New active electronics SKU phải có packing data trước khi checkout.
-- Client không import Prisma/server; DTO nằm ở `@shared`.
+- M1 bắt đầu sau M0; schema trước M1 có 22 models và phải kết thúc đúng 25.
+- Chỉ tạo `Brand`, `Category`, `DataSource`.
+- Cấm `AttributeDefinition`, `CategoryAttribute`, `ProductAttributeValue`, `ProductOptionDefinition`, `ProductOptionValue`, `ProductImage`, `ProductSource`.
+- JSON catalog phải có shared schema, server validation, schemaVersion và canonical hash.
+- `UNKNOWN` khác `UNSUPPORTED`; không invent legacy metadata.
+- Effective price dùng active/sellable SKU BigInt; Product `VARIANT` bắt buộc exact variant.
+- New active electronics SKU phải có packing data và warranty resolution trước checkout.
+- UI chỉ tối thiểu; client không import server/Prisma.
 
 ## Review Focus
 
-- Hai attribute cùng label nhưng khác code/unit không bị so sánh hoặc filter nhầm.
-- Category move không để lại value không hợp lệ mà vẫn publish sản phẩm.
-- Effective price sort đúng với sản phẩm nhiều SKU, inactive/zero-stock variants và legacy base products.
-- Review/source mapping vào parent model không tự lan sang mọi variant.
-- Cache catalog/detail bị invalidate sau product/source/attribute update.
+- Arbitrary/unknown JSON keys, wrong types, units hoặc stale schemaVersion bị từ chối.
+- Category schema update không để product cũ silently publish với invalid specs.
+- JSON filter allowlist chống path/operator injection và có index/query-plan evidence.
+- Source mapping parent model không tự fan-out sang mọi variant/market.
+- Cache invalidation phản ánh source/spec/variant changes ngay.
 
 ---
 
-### Task 1: Define electronics catalog enums and schema
+### Task 1: Add the schema budget gate and M1 registry
 
 **Files:**
-- Modify: `prisma/schema.prisma`
-- Create: `prisma/migrations/<timestamp>_electronics_catalog/migration.sql`
-- Create: `src/shared/types/catalog.ts`
-- Modify: `src/shared/types/index.ts`
-- Test: `tests/electronics-catalog-schema.test.ts`
+- Create: `scripts/check-prisma-model-budget.mjs`
+- Create: `docs/architecture/prisma-model-registry.md`
+- Modify: `package.json`
+- Test: `tests/prisma-model-budget.test.ts`
 
 **Interfaces:**
-- Produces:
+- Produces command `npm run schema:budget`.
+- Budget config: expected M1 count `25`, target ceiling `37`, hard cap `40`, forbidden model names from spec.
+
+- [ ] **Step 1: Write failing budget tests**
+
+Assert current parser counts every `model` block, rejects count 41, rejects forbidden `ProductImage`, and reports added/removed names against registry.
+
+- [ ] **Step 2: Run targeted test and confirm missing script failure**
+
+- [ ] **Step 3: Implement parser, package script and registry**
+
+Registry lists all 22 M0 models and planned transition; command accepts `--expected=25` for milestone gates without weakening hard cap.
+
+- [ ] **Step 4: Run tests and current hard-cap check**
+
+Expected parser tests PASS; current M0 count reports 22 and <=40.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add scripts/check-prisma-model-budget.mjs docs/architecture/prisma-model-registry.md package.json tests/prisma-model-budget.test.ts
+git commit -m "test: enforce Prisma model budget"
+```
+
+---
+
+### Task 2: Define JSON catalog contracts and pure validation
+
+**Files:**
+- Create: `src/shared/types/catalog.ts`
+- Create: `src/shared/validations/catalog-json.ts`
+- Create: `src/shared/utils/measurements.ts`
+- Modify: `src/shared/types/index.ts`
+- Test: `tests/catalog-json-validation.test.ts`
+
+**Interfaces:**
 
 ```ts
 export type ProductKind = 'LAPTOP' | 'PHONE' | 'ACCESSORY' | 'LEGACY';
 export type ProductSegment = 'BUDGET' | 'MID_RANGE' | 'PREMIUM' | 'FLAGSHIP';
-export type AttributeValueType = 'TEXT' | 'INTEGER' | 'DECIMAL' | 'BOOLEAN' | 'ENUM';
-export type SourceStatus = 'DISCOVERED' | 'LICENSE_REVIEW' | 'MAPPING_REVIEW' | 'APPROVED' | 'ACTIVE' | 'REJECTED' | 'REVOKED';
 export type KnowledgeState = 'KNOWN' | 'UNKNOWN' | 'UNSUPPORTED';
+export type SourceStatus = 'DISCOVERED' | 'LICENSE_REVIEW' | 'MAPPING_REVIEW' | 'APPROVED' | 'ACTIVE' | 'REJECTED' | 'REVOKED';
+export interface VersionedJson<T> { schemaVersion: number; value: T }
+export function validateCategorySpecSchema(input: unknown): CategorySpecSchema;
+export function validateProductSpecs(input: unknown, schema: CategorySpecSchema): ProductSpecs;
+export function validateVariantOptions(input: unknown, schema: CategorySpecSchema): VariantOptions;
+export function canonicalJsonHash(input: unknown): string;
 ```
 
-Schema adds Brand, Category(parent), AttributeDefinition, CategoryAttribute, ProductAttributeValue, ProductOptionDefinition/Value, ProductImage, ProductSource; Product gets brandId/categoryId/kind/segment/legacy flag, ProductVariant gets stable option values and serializationRequired.
+- [ ] **Step 1: Write failing validation tests**
 
-- [ ] **Step 1: Write failing schema contract test**
+Assert required fields, types, enum values, canonical units, bounded image arrays/URLs, exactly-one KNOWN value, UNKNOWN/UNSUPPORTED semantics, duplicate option codes, unknown keys and stale version behavior.
 
-Parse schema text or Prisma DMMF and assert required models/enums/unique constraints:
-- Brand.slug unique;
-- Category.slug unique and parent relation;
-- AttributeDefinition.code unique;
-- one ProductAttributeValue per product/variant/attribute scope;
-- ProductSource has status/checkedAt/checksum;
-- ProductVariant.sku remains unique.
+- [ ] **Step 2: Verify module-missing failure**
 
-- [ ] **Step 2: Verify test fails**
+- [ ] **Step 3: Implement pure validators and canonicalization**
 
-Run targeted test; expected missing models.
+No Prisma in shared/pure validator; stable sorted JSON is used for hash/option identity.
 
-- [ ] **Step 3: Add schema and migration**
+- [ ] **Step 4: Run targeted tests and commit**
 
-Use typed nullable columns on ProductAttributeValue (`textValue`, `integerValue`, `decimalValue`, `booleanValue`, `enumValue`, `knowledgeState`) with application invariant exactly one value for `KNOWN`, no value for UNKNOWN/UNSUPPORTED. Decimal attribute is measurement, not VND money.
+```bash
+git add src/shared/types/catalog.ts src/shared/validations/catalog-json.ts src/shared/utils/measurements.ts src/shared/types/index.ts tests/catalog-json-validation.test.ts
+git commit -m "feat: validate compact catalog JSON"
+```
 
-- [ ] **Step 4: Backfill legacy records**
+---
 
-Create LEGACY root/category and map existing category strings without inventing brand/spec/source. Preserve current Product IDs and OrderItem relations.
+### Task 3: Add Brand, Category and DataSource only
 
-- [ ] **Step 5: Validate**
+**Files:**
+- Modify: `prisma/schema.prisma`
+- Create: `prisma/migrations/<timestamp>_compact_electronics_catalog/migration.sql`
+- Test: `tests/electronics-catalog-schema.test.ts`
+- Modify: `docs/architecture/prisma-model-registry.md`
 
-Run: `npx prisma validate`
+**Interfaces:**
+- `Category`: parent, slug/kind, `specSchema`, `specSchemaVersion`, `scoringConfig`, `warrantyConfig`.
+- `DataSource`: sourceType/status/provenance/mapping/payload/isSynthetic/reviewer/version/checksum.
+- Product: brand/category/kind/segment/isLegacy/specs/images/editorialTags/warrantyConfig/catalogVersion.
+- Variant: optionValues/optionHash/specOverrides/images/warrantyConfig/serializationRequired.
 
-Run targeted schema test; expected PASS.
+- [ ] **Step 1: Write failing schema contract tests**
+
+Assert exactly three added models, required relations/unique/indexes, JSON fields and no forbidden model. Assert final schema count 25.
+
+- [ ] **Step 2: Verify fail**
+
+- [ ] **Step 3: Add expand migration**
+
+Keep legacy `category`, `image`, `color`, `size` fields readable during transition. Add PostgreSQL GIN indexes for specs/options/source payload and expression indexes only for documented hot filters.
+
+- [ ] **Step 4: Backfill LEGACY category without inventing data**
+
+Preserve Product/OrderItem IDs and null/UNKNOWN provenance.
+
+- [ ] **Step 5: Validate and run budget gate**
+
+```bash
+npx prisma validate
+npm run schema:budget -- --expected=25
+```
+
+Expected PASS, exact count 25.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add prisma src/shared/types/catalog.ts src/shared/types/index.ts tests/electronics-catalog-schema.test.ts
-git commit -m "feat: model structured electronics catalog"
+git add prisma docs/architecture/prisma-model-registry.md tests/electronics-catalog-schema.test.ts
+git commit -m "feat: add compact electronics catalog schema"
 ```
 
 ---
 
-### Task 2: Implement attribute schema/value validation
+### Task 4: Implement DataSource lifecycle and catalog readiness
 
 **Files:**
-- Create: `src/server/modules/catalog/attribute-validation.service.ts`
-- Create: `src/shared/utils/measurements.ts`
-- Test: `tests/catalog-attributes.test.ts`
-
-**Interfaces:**
-- Produces:
-
-```ts
-export interface AttributeInput { attributeCode: string; state: KnowledgeState; value?: unknown }
-export interface ValidatedAttributeValue { definitionId: string; state: KnowledgeState; typedValue: string | number | boolean | null; normalizedUnit: string | null }
-export function validateAttributesForCategory(input: AttributeInput[], schema: CategoryAttributeSchema[]): AttributeValidationResult;
-export function normalizeMeasurement(value: number, fromUnit: string, canonicalUnit: string): number;
-```
-
-- [ ] **Step 1: Write failing tests**
-
-Assert required attribute missing fails; UNKNOWN passes without value; UNSUPPORTED passes only when category allows it; INTEGER rejects decimal; ENUM rejects unknown option; cm/mm and GB/TB normalize correctly; duplicate code fails; irrelevant category attribute fails.
-
-- [ ] **Step 2: Verify fail**
-
-Run targeted test; expected module missing.
-
-- [ ] **Step 3: Implement minimal pure validator**
-
-Do not query Prisma inside pure function; controller/service loads schema then invokes it.
-
-- [ ] **Step 4: Verify pass and commit**
-
-```bash
-git add src/server/modules/catalog/attribute-validation.service.ts src/shared/utils/measurements.ts tests/catalog-attributes.test.ts
-git commit -m "feat: validate typed electronics attributes"
-```
-
----
-
-### Task 3: Generalize product variants from color/size to option values
-
-**Files:**
-- Create: `src/shared/types/product-options.ts`
-- Create: `src/server/modules/products/product-option.service.ts`
-- Modify: `src/shared/types/index.ts:145-158,476-509`
-- Modify: `src/server/modules/products/product.service.ts`
-- Modify: `src/client/views/admin/AdminProductsView.tsx`
-- Modify: `src/client/views/ProductDetailView.tsx`
-- Keep compatibility shim: `src/client/components/product/ProductDetailView.tsx`
-- Modify: `src/client/stores/cart-store.ts`
-- Test: `tests/product-options.test.ts`
-- Test: `tests/product-variants-ui.test.ts`
-- Test: `tests/cart-store.test.ts`
-
-**Interfaces:**
-- Produces:
-
-```ts
-export interface ProductOptionDto { code: string; label: string; value: string }
-export interface ProductVariantDto { id: string; sku: string; title: string; options: ProductOptionDto[]; price: MoneyVnd; stock: number; isActive: boolean }
-export function buildVariantTitle(options: ProductOptionDto[]): string;
-export function variantKey(options: ProductOptionDto[]): string;
-```
-
-- [ ] **Step 1: Write failing pure option tests**
-
-Assert option order deterministic by definition sort order, duplicate combination rejected, title for RAM/Storage/Color stable, color/size legacy migrates to options, cart identity includes variantId not title.
-
-- [ ] **Step 2: Verify fail**
-
-- [ ] **Step 3: Implement option service and DTO migration**
-
-Keep legacy color/size read adapter during migration; all new writes use options. Do not delete legacy columns until M7 cleanup after data verification.
-
-- [ ] **Step 4: Update minimal admin/detail selectors**
-
-Admin edits option definitions/values and explicit SKU combinations; do not generate invalid Cartesian products implicitly. Detail page shows option selectors and exact SKU availability.
-
-- [ ] **Step 5: Run targeted tests**
-
-Expected PASS.
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add src/shared src/server/modules/products src/client/views src/client/stores tests/product-options.test.ts tests/product-variants-ui.test.ts tests/cart-store.test.ts
-git commit -m "feat: support electronics SKU options"
-```
-
----
-
-### Task 4: Add product provenance and publish readiness
-
-**Files:**
-- Create: `src/server/modules/catalog/product-source.service.ts`
+- Create: `src/server/modules/catalog/data-source.service.ts`
 - Create: `src/server/modules/catalog/catalog-readiness.service.ts`
 - Create: `src/server/modules/admin/catalog-sources.controller.ts`
 - Create: `src/app/api/admin/data-sources/route.ts`
-- Modify: `src/server/modules/products/product.service.ts`
-- Test: `tests/product-sources.test.ts`
+- Test: `tests/data-sources.test.ts`
 - Test: `tests/catalog-readiness.test.ts`
 
 **Interfaces:**
-- Produces:
 
 ```ts
-export interface ProductSourceInput { productId: string; variantId?: string | null; publisher: string; url: string; market: string; licenseStatus: SourceStatus; checkedAt: string; checksum: string; version: string }
+export interface DataSourceInput { sourceType: string; productId?: string; variantId?: string; publisher: string; url: string; market: string; licenseDecision: string; checkedAt: string; checksum: string; version: string; payload: unknown }
 export interface CatalogReadiness { publishable: boolean; missing: string[]; warnings: string[] }
+export async function transitionDataSource(input: SourceTransitionInput, db?: CatalogDb): Promise<DataSourceDto>;
 export async function evaluateCatalogReadiness(productId: string, db?: CatalogDb): Promise<CatalogReadiness>;
 ```
 
-- [ ] **Step 1: Write failing source state tests**
+- [ ] **Step 1: Write failing lifecycle/mapping tests**
 
-Assert only allowed state transitions; ACTIVE requires URL/publisher/license decision/checksum/reviewer; REVOKED cannot participate; changing checksum requires review; variant mapping stays scoped.
+Only valid transitions; ACTIVE requires reviewed license, checksum, exact market/product/variant mapping and validated payload; revoke excludes source; changed checksum returns review state; parent mapping does not fan out.
 
 - [ ] **Step 2: Write failing readiness tests**
 
-New laptop/phone requires brand/category, category-required attributes, active source, packing data, at least one sellable SKU, warranty policy reference. Legacy product may remain readable but readiness false until normalized.
+Laptop/phone require Brand/Category, valid current specs schema, active catalog source, packing, warranty resolution and sellable SKU. Legacy stays readable but not ready.
 
-- [ ] **Step 3: Verify failures, implement services/controllers**
+- [ ] **Step 3: Implement services/controller with knowledge/ADMIN gates**
 
-Use `knowledge` permission for review workflow; ACTIVE transition/publish remains ADMIN initially per spec.
+`knowledge` STAFF prepares; ADMIN activates/publishes.
 
 - [ ] **Step 4: Run tests and commit**
 
 ```bash
-git add src/server/modules/catalog src/server/modules/admin/catalog-sources.controller.ts src/app/api/admin/data-sources tests/product-sources.test.ts tests/catalog-readiness.test.ts
-git commit -m "feat: gate catalog publication on verified sources"
+git add src/server/modules/catalog src/server/modules/admin/catalog-sources.controller.ts src/app/api/admin/data-sources tests/data-sources.test.ts tests/catalog-readiness.test.ts
+git commit -m "feat: gate compact catalog provenance"
 ```
 
 ---
 
-### Task 5: Build catalog write service around one transaction
+### Task 5: Build transactional catalog writes
 
 **Files:**
 - Create: `src/server/modules/catalog/catalog-write.service.ts`
-- Modify: `src/server/modules/products/products.controller.ts`
 - Modify: `src/server/modules/products/product.service.ts`
+- Modify: `src/server/modules/products/products.controller.ts`
+- Modify: minimal admin product view
 - Test: `tests/electronics-product-write.test.ts`
-- Test: `tests/products-operator-guard.test.ts`
 
 **Interfaces:**
-- Produces:
 
 ```ts
 export interface UpsertElectronicsProductInput {
   product: ProductCoreInput;
-  variants: ProductVariantInput[];
-  attributes: AttributeInput[];
-  images: ProductImageInput[];
-  sources: ProductSourceInput[];
+  specs: unknown;
+  images: unknown;
+  warrantyConfig?: unknown;
+  variants: Array<ProductVariantInput & { optionValues: unknown; specOverrides?: unknown; images?: unknown }>;
+  sources: DataSourceInput[];
   expectedVersion?: number;
 }
 export async function upsertElectronicsProduct(input: UpsertElectronicsProductInput, actor: GuardUser, db?: PrismaLike): Promise<ProductDetailDto>;
 ```
 
-- [ ] **Step 1: Write failing transaction tests**
+- [ ] **Step 1: Write failing rollback/CAS tests**
 
-Assert invalid attribute rolls back Product/Variant/Source writes; duplicate SKU/option combination rolls back; stale expectedVersion returns conflict; source cannot be activated by STAFF without ADMIN publish authorization.
+Invalid JSON/source, duplicate optionHash/SKU, stale expectedVersion and unauthorized activation roll back all writes. Legacy color/size adapter produces canonical options but new writes use JSON only.
 
 - [ ] **Step 2: Verify fail**
 
-- [ ] **Step 3: Implement orchestrator and keep route facade thin**
+- [ ] **Step 3: Implement one transactional orchestrator**
 
-Reuse Task 2/3/4 services. General product PUT delegates legacy or electronics path explicitly; no mixed partial mutation.
+Reuse pure validators/readiness; never merge arbitrary partial JSON without validation.
 
-- [ ] **Step 4: Run tests and commit**
+- [ ] **Step 4: Add minimal structured form and run tests**
+
+- [ ] **Step 5: Commit**
 
 ```bash
-git add src/server/modules/catalog/catalog-write.service.ts src/server/modules/products tests/electronics-product-write.test.ts tests/products-operator-guard.test.ts
-git commit -m "feat: write electronics products transactionally"
+git add src/server/modules/catalog/catalog-write.service.ts src/server/modules/products src/client/views/admin tests/electronics-product-write.test.ts
+git commit -m "feat: write compact electronics catalog safely"
 ```
 
 ---
 
-### Task 6: Build electronics catalog read model, filters and effective-price sorting
+### Task 6: Query JSON specs and effective SKU price
 
 **Files:**
 - Create: `src/shared/types/catalog-query.ts`
@@ -274,64 +248,56 @@ git commit -m "feat: write electronics products transactionally"
 - Modify: `src/app/page.tsx`
 - Test: `tests/catalog-query.test.ts`
 - Test: `tests/catalog-effective-price.test.ts`
+- Create: `docs/verification/m1-json-query-plan.md`
 
 **Interfaces:**
-- Produces:
 
 ```ts
-export interface CatalogQuery { search?: string; category?: string; brand?: string[]; segment?: ProductSegment[]; minPrice?: MoneyVnd; maxPrice?: MoneyVnd; inStock?: boolean; attributes?: Record<string, string[]>; page: number; limit: number; sort: 'newest' | 'price-asc' | 'price-desc' }
-export interface CatalogItemDto { id: string; name: string; brand: string | null; category: string; segment: ProductSegment | null; effectivePrice: MoneySnapshot; image: string | null; available: boolean; legacy: boolean }
+export interface CatalogQuery { search?: string; category?: string; brand?: string[]; segment?: ProductSegment[]; minPrice?: MoneyVnd; maxPrice?: MoneyVnd; inStock?: boolean; specs?: Record<string, string[]>; page: number; limit: number; sort: 'newest'|'price-asc'|'price-desc' }
 export async function queryCatalog(query: CatalogQuery): Promise<PaginatedResponse<CatalogItemDto>>;
 ```
 
-- [ ] **Step 1: Write failing query normalization tests**
+- [ ] **Step 1: Write failing normalization/security tests**
 
-Reject invalid/unknown filter codes rather than interpolate; clamp page/limit; normalize units; empty arrays ignored; search escapes wildcard semantics as intended.
+Reject unknown spec codes/path/operator and wrong units; clamp page/limit; no raw SQL interpolation from input.
 
-- [ ] **Step 2: Write failing effective-price tests**
+- [ ] **Step 2: Write effective-price tests**
 
-For VARIANT product, effective price is minimum active **sellable** SKU price; inactive/zero-stock handling follows `inStock` filter; BASE/LEGACY uses product price. Price sort is numeric BigInt in DB, not string/JS number.
+VARIANT uses minimum active sellable SKU; BASE/LEGACY uses product price; sort stays BigInt in DB.
 
-- [ ] **Step 3: Verify fail, implement query service**
+- [ ] **Step 3: Implement allowlisted Prisma/parameterized JSON query**
 
-Use Prisma relational filters for typed attributes; no client-side full catalog filtering.
+- [ ] **Step 4: Capture EXPLAIN evidence for hot filters**
 
-- [ ] **Step 4: Invalidate cache by catalog version**
+Verify GIN/expression index use on disposable representative data; add index only with evidence.
 
-Product/source/attribute write increments catalog revision or deletes deterministic cache keys; tests assert updated query/detail is visible.
-
-- [ ] **Step 5: Run tests and commit**
+- [ ] **Step 5: Add revision-based cache invalidation, run tests and commit**
 
 ```bash
-git add src/shared/types/catalog-query.ts src/server/modules/catalog src/app/page.tsx tests/catalog-query.test.ts tests/catalog-effective-price.test.ts
-git commit -m "feat: query electronics catalog by structured filters"
+git add src/shared/types/catalog-query.ts src/server/modules/catalog src/app/page.tsx tests/catalog-query.test.ts tests/catalog-effective-price.test.ts docs/verification/m1-json-query-plan.md
+git commit -m "feat: query validated electronics specs"
 ```
 
 ---
 
-### Task 7: Expose structured product detail and comparison-ready data
+### Task 7: Expose comparison-ready detail DTO
 
 **Files:**
 - Create: `src/shared/types/product-detail.ts`
-- Modify: `src/server/modules/catalog/catalog.service.ts:134-189`
-- Modify: `src/app/products/[id]/page.tsx`
-- Modify: `src/client/views/ProductDetailView.tsx`
-- Keep compatibility shim: `src/client/components/product/ProductDetailView.tsx`
+- Modify: catalog detail service/page/view
 - Test: `tests/product-detail-dto.test.ts`
 
 **Interfaces:**
-- Produces:
 
 ```ts
 export interface ProductDetailDto {
   id: string;
-  name: string;
   brand: BrandDto | null;
   category: CategoryDto;
   segment: ProductSegment | null;
-  attributes: Array<{ code: string; label: string; state: KnowledgeState; value: string | number | boolean | null; unit: string | null; comparable: boolean }>;
+  specs: ProductSpecsDto;
   variants: ProductVariantDto[];
-  images: ProductImageDto[];
+  images: CatalogImageDto[];
   sources: EvidenceRef[];
   effectivePrice: MoneySnapshot;
   legacy: boolean;
@@ -340,26 +306,22 @@ export interface ProductDetailDto {
 
 - [ ] **Step 1: Write failing DTO tests**
 
-Assert UNKNOWN and UNSUPPORTED serialize distinctly, inactive sources excluded from public DTO, variant options and images scoped correctly, BigInt price serialized, legacy details do not invent brand/spec.
+UNKNOWN/UNSUPPORTED distinct; JSON is parsed to typed DTO, never leaked raw; inactive/revoked sources excluded; exact variant option/spec overrides/images; BigInt serialized; legacy data not invented.
 
-- [ ] **Step 2: Verify fail, implement mapper and cached detail**
+- [ ] **Step 2: Implement mapper/cache and minimal rendering**
 
-Cache key includes catalog/source revision.
+Cache key contains product/category-schema/source revision.
 
-- [ ] **Step 3: Update minimal detail rendering**
-
-Render grouped specifications and source “checked at” metadata; preserve add-to-cart/wishlist/reviews behavior.
-
-- [ ] **Step 4: Run tests/build and commit**
+- [ ] **Step 3: Run tests/build and commit**
 
 ```bash
-git add src/shared/types/product-detail.ts src/server/modules/catalog/catalog.service.ts src/app/products src/client/views/ProductDetailView.tsx tests/product-detail-dto.test.ts
-git commit -m "feat: expose sourced electronics product details"
+git add src/shared/types/product-detail.ts src/server/modules/catalog src/app/products src/client/views tests/product-detail-dto.test.ts
+git commit -m "feat: expose compact electronics product details"
 ```
 
 ---
 
-### Task 8: Seed the 10-model vertical slice with explicit synthetic/source labels
+### Task 8: Seed the 10-product vertical slice
 
 **Files:**
 - Create: `prisma/seed-electronics-catalog.ts`
@@ -369,109 +331,94 @@ git commit -m "feat: expose sourced electronics product details"
 - Test: `tests/electronics-seed.test.ts`
 
 **Interfaces:**
-- Produces script `npm run seed:electronics` that is idempotent by stable brand/category/product/source keys and labels all synthetic data.
+- `npm run seed:electronics` is idempotent by stable slug/SKU/source checksum and marks synthetic data.
 
-- [ ] **Step 1: Write failing seed fixture validation test**
+- [ ] **Step 1: Write failing fixture/readiness tests**
 
-Assert exactly 2 LAPTOP, 2 PHONE, 6 ACCESSORY models; each non-legacy model passes readiness; no duplicate SKU/source checksum; source records identify synthetic vs real and do not claim unverified license.
+Exactly 2 laptops, 2 phones, 6 accessories; valid JSON schemas/specs/options; no duplicate optionHash/SKU/source; source origin/license transparent.
 
-- [ ] **Step 2: Verify fail, author fixtures and idempotent upserts**
+- [ ] **Step 2: Implement fixtures/upserts and run twice on disposable DB**
 
-Do not copy protected external reviews/images. Use local/demo-safe assets and manufacturer facts only when source/permission record exists; otherwise mark UNKNOWN.
+Expected stable counts and no protected external corpus/image copies.
 
-- [ ] **Step 3: Run seed twice on disposable DB**
-
-Expected identical counts and no duplicate variants/sources.
-
-- [ ] **Step 4: Run readiness/catalog/detail tests**
-
-Expected PASS for all 10 models.
-
-- [ ] **Step 5: Commit**
+- [ ] **Step 3: Run readiness/query/detail suites and commit**
 
 ```bash
 git add prisma/seed-electronics-catalog.ts prisma/seed-demo-data.ts package.json docs/data/electronics-vertical-slice-sources.md tests/electronics-seed.test.ts
-git commit -m "feat: seed electronics catalog vertical slice"
+git commit -m "feat: seed compact electronics vertical slice"
 ```
 
 ---
 
-### Task 9: Preserve checkout/order snapshots with electronics SKU data
+### Task 9: Snapshot electronics terms on OrderItem
 
 **Files:**
 - Modify: `prisma/schema.prisma`
-- Create: `prisma/migrations/<timestamp>_order_item_snapshots/migration.sql`
-- Modify: `src/shared/validations/index.ts`
-- Modify: `src/server/modules/orders/orders.controller.ts`
-- Modify: `src/server/modules/shipping/shipping-quote.service.ts`
-- Modify: order DTO serializers
+- Create: `prisma/migrations/<timestamp>_order_item_electronics_snapshots/migration.sql`
+- Modify: checkout/order/shipping services and DTO serializer
 - Test: `tests/order-item-snapshot.test.ts`
 - Test: `tests/checkout.test.ts`
 - Test: `tests/integration/money-shipping.test.ts`
 
 **Interfaces:**
-- OrderItem snapshot fields: productName, sku, variantOptions JSON, unitPrice BigInt, warranty policy reference/terms snapshot, packing line snapshot.
+- OrderItem fields/snapshots: productName, SKU, variantOptions JSON, unitPrice BigInt, warrantySnapshot JSON, packingLineSnapshot JSON, schema/source revision.
 
-- [ ] **Step 1: Write failing snapshot tests**
+- [ ] **Step 1: Write failing immutable snapshot tests**
 
-Create order, mutate/deactivate/delete-safe catalog data, then assert historical order DTO still shows original name/SKU/options/price/warranty/packing. Client-sent snapshot fields must be ignored.
+Create order then mutate catalog/schema/source; historical DTO retains original terms. Client snapshot input ignored.
 
-- [ ] **Step 2: Verify fail**
+- [ ] **Step 2: Add fields/backfill known legacy values only**
 
-- [ ] **Step 3: Add snapshot fields and populate only from server validation result**
+Unknown historical warranty/packing remains explicit UNKNOWN/null.
 
-Backfill legacy OrderItems with known product name/variant title and explicit unknown policy/packing metadata; do not invent terms.
+- [ ] **Step 3: Run checkout/integration/budget gates and commit**
 
-- [ ] **Step 4: Run checkout/integration tests**
-
-Expected PASS; M0 money and packing invariants remain intact.
-
-- [ ] **Step 5: Commit**
+Schema adds no model; expected count remains 25.
 
 ```bash
-git add prisma src/shared/validations/index.ts src/server/modules/orders src/server/modules/shipping tests/order-item-snapshot.test.ts tests/checkout.test.ts tests/integration/money-shipping.test.ts
-git commit -m "feat: snapshot electronics SKU terms on orders"
+git add prisma src/server/modules/orders src/server/modules/shipping tests/order-item-snapshot.test.ts tests/checkout.test.ts tests/integration/money-shipping.test.ts
+git commit -m "feat: snapshot compact catalog terms on orders"
 ```
 
 ---
 
-### Task 10: Run M1 full gate and document legacy migration
+### Task 10: Verify M1 and document migration
 
 **Files:**
 - Create: `docs/verification/2026-10-17-m1-catalog.md`
 - Create: `docs/data/legacy-product-normalization.md`
+- Modify: `docs/architecture/prisma-model-registry.md`
 
 **Interfaces:**
-- Produces verified list of legacy products, missing fields, readiness state and normalization procedure.
+- Produces the M1 verification evidence, legacy normalization procedure and locked 25-model registry consumed by M2/M5.
 
-- [ ] **Step 1: Run schema/seed/catalog targeted suites**
+- [ ] **Step 1: Run targeted/schema/query/seed tests**
 
-Expected PASS.
-
-- [ ] **Step 2: Run full verification**
+- [ ] **Step 2: Run full gates**
 
 ```bash
 npm run verify
+npx prisma validate
+npm run schema:budget -- --expected=25
 ```
 
-Expected PASS.
+- [ ] **Step 3: Rehearse migration/rollback and seed twice**
 
-- [ ] **Step 3: Rehearse migration and seed twice on disposable DB**
+Assert IDs/history preserved and no invented data.
 
-Assert historical order/product IDs preserved; 10 vertical-slice models ready; legacy products remain readable and not silently published as electronics.
-
-- [ ] **Step 4: Record evidence and commit**
+- [ ] **Step 4: Record actual output and commit**
 
 ```bash
-git add docs/verification/2026-10-17-m1-catalog.md docs/data/legacy-product-normalization.md
-git commit -m "docs: verify electronics catalog migration"
+git add docs/verification/2026-10-17-m1-catalog.md docs/data/legacy-product-normalization.md docs/architecture/prisma-model-registry.md
+git commit -m "docs: verify compact M1 catalog"
 ```
 
 ## M1 Exit Criteria
 
-- [ ] 2 laptop, 2 phone, 6 accessory models pass readiness.
-- [ ] Brand/category/typed attributes/options/images/sources round-trip through DB and DTO.
-- [ ] Catalog filter/sort uses typed data and effective SKU price.
-- [ ] Legacy data remains accessible without invented metadata.
-- [ ] Checkout stores immutable SKU/money/warranty/packing snapshots.
-- [ ] `npm run verify` and migration rehearsal pass.
+- [ ] Exactly 25 Prisma models; only Brand/Category/DataSource were added.
+- [ ] No forbidden EAV/option/image/source child model.
+- [ ] JSON specs/options/images/configs validate, version and round-trip.
+- [ ] Filters use allowlisted indexed JSON paths and effective SKU BigInt price.
+- [ ] 10-product vertical slice passes readiness; legacy remains honest/readable.
+- [ ] OrderItem commercial/warranty/packing snapshot is immutable.
+- [ ] Full gate, migration rehearsal and `schema:budget` pass.

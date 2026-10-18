@@ -2,121 +2,164 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Chuyển Shop QR Payment thành cửa hàng điện tử có catalog cấu trúc, so sánh/P/P có căn cứ, trợ lý AI được grounding, kho nhập hàng và hậu mãi có thể truy vết mà không làm yếu các bất biến tiền–kho hiện tại.
+**Goal:** Chuyển Shop QR Payment thành cửa hàng điện tử có catalog JSONB được kiểm soát, comparison/P/P có căn cứ, trợ lý AI grounded, và lifecycle kho/hậu mãi truy vết được trong đúng 34 Prisma models.
 
-**Architecture:** Triển khai theo chuỗi M0–M7 với các contract ổn định giữa catalog, scoring, assistant, inventory và after-sales. Mỗi workstream có plan riêng, tạo ra phần mềm chạy được và quality gate độc lập; workstream sau chỉ bắt đầu khi exit criteria của workstream trước đã đạt.
+**Architecture:** Product/Variant tiếp tục là aggregate bán hàng; catalog biến đổi nhanh nằm trong validated JSONB, còn lifecycle/ledger/high-cardinality measurements dùng relational models. Các milestone tăng dần đến peak 36 trong M5 expand, retire bốn bảng legacy để còn 32, rồi kết thúc M6/M7 ở 34; automated budget gate ngăn schema vượt hard cap 40.
 
-**Tech Stack:** Next.js 16 App Router, React 19, TypeScript strict, Prisma 6/PostgreSQL, Redis/Upstash, Zustand, Pusher, Node native test runner, dependency-cruiser.
+**Tech Stack:** Next.js 16 App Router, React 19, TypeScript strict, Prisma 6/PostgreSQL JSONB+GIN, Redis/Upstash, Pusher, Node native test runner, dependency-cruiser.
 
 **Spec:** `docs/superpowers/specs/2026-10-17-electronics-commerce-intelligence-design.md`
 
 ## Global Constraints
 
-- Không redesign UI; chỉ bổ sung UI tối thiểu để sử dụng và kiểm chứng feature.
-- Không chuyển thành marketplace đa người bán.
-- `@client` không import `@server` hoặc `@prisma/client`; `@shared` không phụ thuộc ngược client/server.
-- Đọc guide phù hợp trong `node_modules/next/dist/docs/` trước mỗi thay đổi Next.js.
-- Mọi giá/tồn/doanh số/quyền được backend quyết định; AI không phải nguồn sự thật và không được mutate domain state.
-- Model cấu hình mặc định là `ag/gemini-3.8-flash-high`; transport thật bị block cho đến khi có tài liệu endpoint/request mẫu.
-- Chỉ nguồn `ACTIVE` đã qua license review mới tham gia scoring/retrieval production.
-- External, internal và synthetic review không được trộn provenance hoặc nhãn.
-- Tiền VND được migrate thống nhất sang BigInt; không dùng JavaScript `number` cho amount domain sau migration.
-- Mọi movement/refund/receipt/recompute nhạy cảm phải idempotent bằng operation key hoặc source/version key duy nhất.
-- Bảo tồn User, wallet, orders và lịch sử tài chính; migration dùng maintenance window có backup/rehearsal/rollback.
-- Chưa chạy quality gate thì không được tuyên bố feature hoàn tất.
+- Không redesign UI; chỉ bổ sung UI tối thiểu để dùng và kiểm chứng feature.
+- `@client` không import `@server`/Prisma; `@shared` không phụ thuộc ngược.
+- Đọc local Next.js 16 guide trước khi sửa route/page/cache/streaming.
+- AI không tính hoặc mutate price/stock/sales/score/compatibility/domain state.
+- Chỉ DataSource `ACTIVE` đúng product/variant/market/version tham gia production.
+- VND dùng BigInt trong domain/DB và MoneyVnd decimal string ở JSON.
+- Mọi movement/refund/receipt/recompute có idempotency key/fingerprint.
+- **Registry đích đúng 34 Prisma models; ADR cần có khi vượt 34; target ceiling 37; hard cap 40.**
+- Forbidden-model list trong spec không được xuất hiện; JSON domain phải validated/versioned/canonical và indexed khi query.
+- Mỗi schema migration phải chạy `npm run schema:budget`, rehearsal và reconciliation.
+- Không tuyên bố gate pass nếu chưa chạy và đọc output thật.
 
 ## Review Focus
 
-- Hai request wallet payment/expiry đồng thời phải chỉ tạo một kết quả tài chính và không double debit.
-- SKU điện tử có tất cả variant inactive không được quay lại đường bán base product.
-- Mapping review/benchmark mơ hồ hoặc license bị revoke phải bị loại khỏi score/retrieval ngay.
-- Assistant phải từ chối claim số học/citation không có trong evidence bundle và không leak dữ liệu hội thoại người khác.
-- Return/receipt/webhook replay phải không double refund, double restock hoặc tạo trùng serial.
+- Expand/contract migration không vượt 37 models và không mất Transaction/CouponUsage/chat/stock history.
+- JSONB filter chỉ dùng allowlisted path/operator/unit; malformed/stale schema version bị chặn.
+- Source revoke loại evidence khỏi score/retrieval/cache ngay.
+- Assistant không chấp nhận citation/numeric claim ngoài evidence hoặc leak conversation khác.
+- Receipt/return/webhook replay không double stock/refund/serial assignment.
 
 ---
 
-## Plan Set và Dependency Graph
+## Locked Model Registry và Budget
+
+### Core sau compaction — 18
+
+`User`, `StaffPermission`, `OtpCode`, `Product`, `ProductVariant`, `Order`, `BankTransfer`, `RefundCase`, `OrderItem`, `Coupon`, `Review`, `Wishlist`, `ChatRoom`, `Message`, `Notification`, `Shipment`, `UserWallet`, `WalletTransaction`.
+
+### Catalog & intelligence — 8
+
+`Brand`, `Category`, `DataSource`, `BenchmarkMeasurement`, `ProductScoreSnapshot`, `AssistantConversation`, `AssistantMessage`, `CompatibilityRule`.
+
+### Operations & after-sales — 8
+
+`Supplier`, `PurchaseOrder`, `PurchaseOrderItem`, `InventoryMovement`, `SerializedUnit`, `WarrantyClaim`, `ReturnRequest`, `AdminAuditLog`.
+
+### Retirement map
+
+- `StockAdjustment` → `InventoryMovement(ADJUST)`;
+- `Transaction` → `BankTransfer(APPLIED_ORDER)`;
+- `CouponUsage` → coupon claims on `Order` + CAS counters;
+- `ChatRoomParticipant` → direct 1:1 fields on `ChatRoom`.
+
+### Count progression
+
+| Gate | Count | Assertion |
+|---|---:|---|
+| M0 | 22 | Current safety baseline |
+| M1 | 25 | +Brand/Category/DataSource |
+| M2 | 27 | +BenchmarkMeasurement/ProductScoreSnapshot |
+| M3 | 29 | +AssistantConversation/AssistantMessage |
+| M4 | 30 | +CompatibilityRule |
+| M5 expand | 36 | +six operation models; peak <=37 |
+| M5 contract | 32 | −four legacy models |
+| M6 | 34 | +WarrantyClaim/ReturnRequest |
+| M7 | 34 | No model additions |
+
+---
+
+## Dependency Graph
 
 ```text
-M0 Safety foundation
-  └── M1 Electronics catalog vertical slice
-        └── M2 Comparison & scoring
-              └── M3 Assistant
-                    └── M4 Compatibility
-        └── M5 Procurement, inventory ledger & audit
-              └── M6 Warranty & returns
-                    └── M7 Hardening, data expansion & defense docs
+M0 COMPLETE (22)
+  └── M1 Catalog JSONB + provenance (25)
+        ├── M2 Scoring/comparison (27)
+        │     └── M3 Grounded assistant (29)
+        │           └── M4 Compatibility (30)
+        └── M5 Procurement/ledger/serial/audit + compaction (36→32)
+              └── M6 Warranty/return/refund (34)
+                    └── M7 hardening/data/docs (34)
 ```
 
-| Thứ tự | Plan | Deliverable độc lập | Điều kiện bắt đầu |
-|---|---|---|---|
-| 1 | `2026-10-17-m0-commerce-safety-foundation.md` | Tiền, wallet, kho biến thể và vận chuyển an toàn cho thiết bị giá trị cao | Worktree sạch, baseline được ghi nhận |
-| 2 | `2026-10-17-m1-electronics-catalog.md` | Vertical slice 2 laptop + 2 điện thoại + 6 phụ kiện, catalog cấu trúc và provenance | M0 pass toàn bộ gate |
-| 3 | `2026-10-17-m2-m4-commerce-intelligence.md` | Comparison, scoring, assistant provider-neutral và compatibility engine | M1 schema/API ổn định |
-| 4 | `2026-10-17-m5-m6-operations-aftersales.md` | Supplier/PO/ledger/serial/audit, warranty và partial return/refund | M0 + M1; procurement/ledger có thể triển khai song song với M2–M4 sau khi shared contracts được khóa |
-| 5 | `2026-10-17-m7-hardening-release.md` | 40–60 model, migration rehearsal, eval online, UML/report/demo | M0–M6 hoàn tất |
+| Plan | Deliverable | Entry condition | Exit count |
+|---|---|---|---:|
+| `2026-10-17-m0-commerce-safety-foundation.md` | Money/inventory/shipping safety seams | Complete | 22 |
+| `2026-10-17-m1-electronics-catalog.md` | 10-product vertical slice, JSON catalog/provenance/order snapshots | M0 | 25 |
+| `2026-10-17-m2-m4-commerce-intelligence.md` | Comparison/scoring/assistant/compatibility | M1 | 30 |
+| `2026-10-17-m5-m6-operations-aftersales.md` | PO/ledger/serial/audit/compaction/warranty/returns | M1; shared contracts locked | 34 |
+| `2026-10-17-m7-hardening-release.md` | 40–60 product models, reconciliation/eval/docs | M0–M6 | 34 |
 
 ## Execution Protocol
 
-1. Không implement trực tiếp trên checkout hiện có vì đang có nhiều thay đổi chưa commit.
-2. Khi bắt đầu thực thi, dùng `superpowers:using-git-worktrees` để tạo isolated worktree từ baseline mà người dùng chọn.
-3. Mỗi task tuân thủ TDD: failing test → xác nhận fail đúng lý do → minimal implementation → targeted test → quality gate liên quan → commit.
-4. Mỗi task được review trước khi task tiếp theo bắt đầu; task schema/migration và transaction cần reviewer chú trọng rollback/idempotency.
-5. Không chạy eval gọi model thật nếu chưa có phê duyệt ngân sách và provider credentials; unit test dùng fake adapter.
-6. Nếu actual provider thiếu structured output/streaming/usage, cập nhật adapter plan nhưng không đổi domain contract.
+1. Thực thi trong isolated worktree theo project workflow.
+2. Mỗi task: failing test → đúng failure → minimal implementation → targeted tests → budget/quality gate → commit.
+3. Task schema phải review migration SQL, rollback, count transition và forbidden models.
+4. Schema count assertion lấy từ parser/DMMF, không hard-code bằng tài liệu thủ công duy nhất.
+5. Không gọi AI thật nếu chưa có transport docs, credentials và live budget approval.
+6. Mỗi milestone cập nhật `docs/architecture/prisma-model-registry.md` bằng actual count.
 
 ## Milestone Gates
 
-### Gate M0
+### Gate M1 — 25 models
 
-- Wallet payment CAS và payment-vs-expiry integration tests pass.
-- Amount BigInt migration rehearsal/rollback pass trên database clone.
-- Base/variant inventory mode không còn ambiguous; admin không overwrite reservation.
-- Quote và fulfillment dùng cùng packing snapshot; high-value order vào manual review đúng policy.
-- `npm run test`, `npm run test:integration`, lint, arch, build pass.
+- Category spec/scoring/warranty JSON được validate và version;
+- Product specs/options/images JSON round-trip và JSON filter query đúng;
+- DataSource lifecycle/provenance enforced;
+- 10-product vertical slice + immutable OrderItem snapshots;
+- Model registry exactly 25.
 
-### Gate M1
+### Gate M2–M4 — 30 models
 
-- 10 model vertical slice có brand/category/typed attributes/options/images/sources.
-- Search/filter/sort/detail hoạt động với effective SKU price.
-- Legacy products còn đọc được nhưng không giả dữ liệu mới.
-- Checkout/order snapshots vẫn đúng sau schema migration.
+- Scores deterministic/immutable/coverage-aware;
+- Comparison service là nguồn chung cho UI/API/assistant;
+- Assistant grounding/ownership/quota/retention tests pass;
+- Compatibility chỉ COMPATIBLE khi đủ predicates;
+- Model counts M2=27, M3=29, M4=30.
 
-### Gate M2–M4
+### Gate M5–M6 — 34 models
 
-- Score deterministic, versioned, coverage/confidence rõ và abstain khi thiếu data.
-- Comparison dùng một service chung cho API/UI/assistant.
-- Assistant không có unsupported claim trong offline eval; provider thật vẫn có thể block.
-- Compatibility chỉ trả `COMPATIBLE` khi rule đủ bằng chứng; còn lại `INCOMPATIBLE` hoặc `UNKNOWN` có lý do.
+- M5 expand peak exactly 36, never >37;
+- Four legacy tables reconciled và dropped, M5 exit exactly 32;
+- Movement/projection/PO/serial/audit pass concurrency tests;
+- Warranty/return/refund pass ownership/conservation/replay;
+- M6 exit exactly 34.
 
-### Gate M5–M6
+### Gate M7 — 34 models
 
-- Inventory movement/receipt/return replay không lệch balance.
-- Laptop/phone không fulfillment nếu chưa gán serial/IMEI, trừ luồng legacy có audit.
-- Warranty/return FSM chặn transition sai và kiểm tra ownership.
-- Partial refund allocation có conservation invariant và cumulative cap.
-
-### Gate M7
-
-- 40–60 model đạt data coverage được công bố; nguồn ngoài có hồ sơ license.
-- Online eval có cost report và kết quả được lưu; không có claim “AI chính xác nhất” nếu metric không chứng minh.
-- Backup/migrate/rollback rehearsal và data reconciliation pass.
-- README, UML, báo cáo học thuật, seed demo và kịch bản bảo vệ phản ánh đúng code.
+- 40–60 means product models, not Prisma models;
+- No migration creates a model;
+- Import/reconciliation/eval/CI/docs traceability complete;
+- Registry remains exactly 34 and hard cap gate passes.
 
 ## Cross-Plan Interfaces (Locked)
 
-Các tên sau là contract giữa các plan; thay đổi phải cập nhật tất cả plan phụ trước khi implement tiếp:
-
 ```ts
-export type MoneyVnd = string; // decimal integer JSON representation
-export type DataAvailability = 'AVAILABLE' | 'INSUFFICIENT_DATA' | 'UNKNOWN';
+export type MoneyVnd = string;
+export type KnowledgeState = 'KNOWN' | 'UNKNOWN' | 'UNSUPPORTED';
 export type EvidenceOrigin = 'SHOP' | 'EXTERNAL' | 'SYNTHETIC';
 export type CompatibilityStatus = 'COMPATIBLE' | 'INCOMPATIBLE' | 'UNKNOWN';
+
+export interface VersionedJson<T> {
+  schemaVersion: number;
+  value: T;
+}
 
 export interface MoneySnapshot {
   amount: MoneyVnd;
   currency: 'VND';
   revision: string;
+}
+
+export interface EvidenceRef {
+  id: string;
+  origin: EvidenceOrigin;
+  label: string;
+  sourceUrl: string | null;
+  checkedAt: string;
+  version: string;
 }
 
 export interface ScoreSnapshotDto {
@@ -132,26 +175,17 @@ export interface ScoreSnapshotDto {
   calculatedAt: string;
   missingEvidence: string[];
 }
-
-export interface EvidenceRef {
-  id: string;
-  origin: EvidenceOrigin;
-  label: string;
-  sourceUrl: string | null;
-  checkedAt: string;
-}
 ```
 
 ## Master Completion Checklist
 
-- [ ] M0 plan complete and gate passed.
-- [ ] M1 plan complete and gate passed.
-- [ ] M2–M4 plan complete and gate passed.
-- [ ] M5–M6 plan complete and gate passed.
-- [ ] M7 plan complete and release evidence archived.
-- [ ] Run full verification: `npm run test && npm run test:integration && npm run lint && npm run arch:check && npm run build`.
-- [ ] Run `npx prisma validate` and migration rehearsal against a disposable PostgreSQL clone.
-- [ ] Review spec-to-code traceability and update documentation.
-- [ ] Use `superpowers:requesting-code-review` for whole-branch review.
-- [ ] Use `superpowers:verification-before-completion` before any completion claim.
-- [ ] Use `superpowers:finishing-a-development-branch` to decide integration.
+- [ ] M0 complete and its unresolved baseline failures recorded truthfully.
+- [ ] M1 complete, model count 25.
+- [ ] M2–M4 complete, model count progression 27→29→30.
+- [ ] M5 expand peak 36, contract exit 32 with reconciliation evidence.
+- [ ] M6 complete, final count 34.
+- [ ] M7 complete without new model, count remains 34.
+- [ ] `npm run verify`, `npx prisma validate`, `npm run schema:budget` pass.
+- [ ] Migration rehearsal/rollback passes on disposable PostgreSQL.
+- [ ] Spec-to-code traceability and model registry updated.
+- [ ] Whole-branch code review and verification-before-completion performed.

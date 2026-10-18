@@ -2,233 +2,205 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Xây comparison/P/P có provenance, trợ lý AI provider-neutral có grounding và compatibility engine deterministic cho catalog điện tử.
+**Goal:** Xây comparison/P/P có provenance, trợ lý AI grounded và compatibility deterministic trong tám compact catalog/intelligence models.
 
-**Architecture:** Intelligence services là nguồn duy nhất cho comparison, scoring và evidence; assistant chỉ diễn giải evidence và bị validator chặn claim không có căn cứ. Compatibility do rule engine quyết định, AI không quyết định; provider transport thật là một task bị block cho đến khi có tài liệu endpoint/request mẫu.
+**Architecture:** M2 thêm `BenchmarkMeasurement` và immutable `ProductScoreSnapshot`; rubric nằm trong `Category.scoringConfig`, review evidence aggregate nằm trong `DataSource.payload`. M3 thêm hai assistant models với citations/usage/claims JSON; M4 chỉ thêm `CompatibilityRule`, còn assertions được tính on-demand và cache Redis.
 
-**Tech Stack:** Prisma/PostgreSQL, TypeScript strict, Next.js 16 route facades, Redis/DB quota backend, Node native tests, fake AI adapter.
+**Tech Stack:** Prisma/PostgreSQL JSONB, TypeScript strict, Redis atomic quota/cache, Next.js 16 thin facades, fake AI provider, Node native tests.
 
 **Spec:** `docs/superpowers/specs/2026-10-17-electronics-commerce-intelligence-design.md`
 
 ## Global Constraints
 
-- M2 bắt đầu sau M0+M1 gates; dùng nguyên tên locked DTOs trong master roadmap.
-- Score không dùng doanh số; doanh số chỉ là tín hiệu phổ biến có cửa sổ thời gian.
-- External review không được biến thành shop verified review; synthetic luôn được công bố.
-- Chỉ ACTIVE source đúng product/variant/market/version tham gia production.
-- AI không tính giá/score/sales/compatibility và không mutate domain state.
-- Provider transport không được đoán là OpenAI-compatible/Gemini-native.
-- AI quota fail closed khi backend quota không chắc chắn; không tái sử dụng helper Redis hiện tại.
-- Không stream claim cho user trước khi grounding validation; JSON final là baseline.
+- M1 gate pass, schema count 25.
+- M2 thêm đúng 2 models → 27; M3 thêm đúng 2 → 29; M4 thêm đúng 1 → 30.
+- Cấm `ExternalReview`, `ReviewAspectSignal`, `ScoringRubric`, `Citation`, `AssistantUsage`, `CompatibilityAssertion` và quota model.
+- External review dùng approved aggregate payload, không copy thành shop Review.
+- Rubric/config/payload/citations/usage/conditions JSON phải validated/versioned/canonical.
+- Score không dùng sales; live price/stock/sales không nằm trong RAG tĩnh.
+- Provider transport thật không được đoán giao thức.
+- AI không mutate domain hoặc quyết định compatibility.
 - UI chỉ tối thiểu.
 
 ## Review Focus
 
-- Revoked/ambiguous/wrong-market evidence bị loại ngay cả khi cache cũ tồn tại.
-- Score giữ chính xác BigInt money, abstain khi thiếu coverage và không đổi khi sales đổi.
-- Assistant không chấp nhận citation ID/giá/spec/variant ngoài evidence bundle.
-- Conversation ownership chống cross-user/cross-anonymous access và retention 30 ngày.
-- USB-C giống nhau nhưng thiếu protocol/power phải trả UNKNOWN, không COMPATIBLE.
+- Revoked/wrong-market/ambiguous DataSource bị loại dù cache cũ còn.
+- BigInt price giữ chính xác qua fixed-point scoring và JSON DTO.
+- Category scoring config update không rewrite immutable snapshots.
+- Assistant rejects invented citation/variant/spec/price và cross-owner access.
+- USB-C thiếu protocol/power trả UNKNOWN, không COMPATIBLE.
 
 ---
 
-### Task 1: Store and approve external evidence with exact mapping
+## M2 — Evidence, scoring và comparison (25 → 27 models)
+
+### Task 1: Extend DataSource evidence payloads and add benchmarks
 
 **Files:**
 - Modify: `prisma/schema.prisma`
-- Create: `prisma/migrations/<timestamp>_intelligence_sources/migration.sql`
+- Create: `prisma/migrations/<timestamp>_compact_intelligence_evidence/migration.sql`
 - Create: `src/shared/types/intelligence.ts`
+- Create: `src/shared/validations/evidence-json.ts`
 - Create: `src/server/modules/intelligence/sources.service.ts`
-- Create: `src/server/modules/intelligence/sources.controller.ts`
-- Create: `src/app/api/admin/data-sources/route.ts`
 - Test: `tests/intelligence-sources.test.ts`
 - Test: `tests/integration/intelligence-sources.test.ts`
+- Modify: model registry
 
 **Interfaces:**
 
 ```ts
-approveSource(input: SourceApprovalInput): Promise<SourceApprovalResult>;
-listActiveEvidence(query: EvidenceQuery): Promise<EvidenceRecord[]>;
-resolveExternalMapping(candidate: MappingCandidate): MappingDecision;
+export interface ReviewAggregatePayload { schemaVersion: number; sampleSize: number; ratingSummary: unknown; aspects: ReviewAspectAggregate[]; analyzerVersion: string }
+export interface EvidenceQuery { productId: string; variantId?: string; market: string; sourceTypes: string[] }
+export async function listActiveEvidence(query: EvidenceQuery): Promise<EvidenceRecord[]>;
+export function resolveExternalMapping(candidate: MappingCandidate): MappingDecision;
 ```
 
-- [ ] **Step 1: Write failing source/mapping tests**
+- [ ] **Step 1: Write failing evidence schema/mapping tests**
 
-DISCOVERED/REVOKED/unlicensed/ambiguous/synthetic excluded from production; exact brand+model+market+configuration admitted; parent identifier does not fan out; external verified flag stays EXTERNAL.
+Invalid payload, DISCOVERED/REVOKED/unlicensed/ambiguous/synthetic excluded; exact brand/model/market/config admitted; parent ID does not fan out; external verified label stays EXTERNAL.
 
-- [ ] **Step 2: Write failing concurrent approval/revocation integration test**
+- [ ] **Step 2: Write concurrent activation/revocation cache test**
 
-One auditable state wins; read after revoke returns no evidence even with prior cache.
+One version wins; read after revoke immediately excludes evidence.
 
-- [ ] **Step 3: Verify fail, add schema/services/guards**
+- [ ] **Step 3: Add only `BenchmarkMeasurement` model and evidence services**
 
-Models: ExternalReviewSource/Review, BenchmarkSource/Measurement, ReviewAspectSignal and approval events. `knowledge` STAFF prepares review; ADMIN activates source.
+Measurement has source/product/variant/metric/value/unit/methodology/measuredAt and uniqueness/version keys. Review aspects remain JSON aggregate on DataSource.
 
-- [ ] **Step 4: Run tests/schema validation and commit**
+- [ ] **Step 4: Validate count 26, tests and commit**
 
 ```bash
-git add prisma src/shared/types/intelligence.ts src/server/modules/intelligence src/app/api/admin/data-sources tests/intelligence-sources.test.ts tests/integration/intelligence-sources.test.ts
-git commit -m "feat: gate electronics evidence by source approval"
+npm run schema:budget -- --expected=26
+```
+
+```bash
+git add prisma src/shared/types/intelligence.ts src/shared/validations/evidence-json.ts src/server/modules/intelligence tests docs/architecture/prisma-model-registry.md
+git commit -m "feat: store compact commerce evidence"
 ```
 
 ---
 
-### Task 2: Implement pure use-case scoring and versioned rubric
+### Task 2: Implement versioned scoring config and pure engine
 
 **Files:**
-- Modify: `prisma/schema.prisma`
-- Create: `prisma/migrations/<timestamp>_scoring/migration.sql`
+- Create: `src/shared/validations/scoring-config.ts`
 - Create: `src/server/modules/intelligence/scoring.engine.ts`
-- Create: `src/server/modules/intelligence/scoring-rubric.service.ts`
+- Create: `src/server/modules/intelligence/scoring-config.service.ts`
 - Test: `tests/scoring-engine.test.ts`
+- Test: `tests/scoring-config.test.ts`
 
 **Interfaces:**
 
 ```ts
-scoreProduct(input: ScoreInput, rubric: PublishedRubric): ScoreComputation;
-adjustedRating({mean,count,cohortMean,priorCount}): number;
-normalizeMetric(metric, cohort, direction: 'HIGHER'|'LOWER'): number;
+export function validateScoringConfig(input: unknown): PublishedScoringConfig;
+export function scoreProduct(input: ScoreInput, config: PublishedScoringConfig): ScoreComputation;
+export function adjustedRating(input: BayesianRatingInput): number;
+export function normalizeMetric(metric: number, cohort: number[], direction: 'HIGHER'|'LOWER'): number;
 ```
 
-- [ ] **Step 1: Write failing deterministic/math tests**
+- [ ] **Step 1: Write failing config/math tests**
 
-Same inputs/version same score/source hash; gaming vs office differs; 2×5-star shrinks more than 200×4.7; lower-is-better reverses; missing mandatory metrics abstain; sales perturbation has no effect; >Int32 price exact.
+Same input/version gives same result/hash; office/gaming differ; 2×5-star shrinks more than 200×4.7; lower-is-better reverses; missing mandatory metric abstains; sales perturbation no effect; >Int32 price exact; invalid weights/version rejected.
 
-- [ ] **Step 2: Verify fail**
+- [ ] **Step 2: Implement config validation and pure fixed-point engine**
 
-- [ ] **Step 3: Implement rubrics/configured formula**
-
-Start with 0.65 price efficiency + 0.25 experience + 0.10 support, category/use-case specific; support-inapplicable redistribution in versioned config. Normalize comparable cohort only; keep BigInt price until fixed-point ratio conversion.
-
-- [ ] **Step 4: Implement coverage/confidence and Bayesian source separation**
-
-SHOP/EXTERNAL computed separately then weighted by rubric. Below coverage threshold emits `INSUFFICIENT_DATA`, null score, missingEvidence.
-
-- [ ] **Step 5: Run tests and commit**
-
-```bash
-git add prisma src/server/modules/intelligence/scoring.engine.ts src/server/modules/intelligence/scoring-rubric.service.ts tests/scoring-engine.test.ts
-git commit -m "feat: version use-case scoring with evidence coverage"
-```
-
----
-
-### Task 3: Publish immutable score snapshots and GOOD_VALUE safely
-
-**Files:**
-- Create: `src/server/modules/intelligence/scoring.service.ts`
-- Create: `src/server/modules/intelligence/scoring.controller.ts`
-- Create: `src/app/api/scores/[productId]/route.ts`
-- Create: `src/app/api/admin/scoring-rubrics/route.ts`
-- Test: `tests/integration/scoring-publication.test.ts`
-
-**Interfaces:**
-
-```ts
-recomputeScores({categoryId,useCase,rubricVersion,operationKey,demoMode}): Promise<RecomputeReport>;
-getProductScores(productId, variantId?): Promise<ScoreSnapshotDto[]>;
-```
-
-- [ ] **Step 1: Write failing publication tests**
-
-Concurrent same operation one snapshot; source/price revision creates new immutable snapshot; revoke/change immediately serves stale/insufficient rather than old GOOD_VALUE; STAFF cannot publish; MoneySnapshot amount string.
-
-- [ ] **Step 2: Verify fail, implement append-only snapshot/current selection**
-
-Use operationKey+sourceSetHash+price revision. Label GOOD_VALUE only when published rubric threshold+coverage pass; ADMIN hide override stores reason and approval event.
+Initial config: 0.65 price efficiency + 0.25 experience + 0.10 support; category/use-case-specific and versioned in Category JSON.
 
 - [ ] **Step 3: Run tests and commit**
 
 ```bash
-git add src/server/modules/intelligence/scoring.service.ts src/server/modules/intelligence/scoring.controller.ts src/app/api/scores src/app/api/admin/scoring-rubrics tests/integration/scoring-publication.test.ts
-git commit -m "feat: publish immutable score snapshots"
+git add src/shared/validations/scoring-config.ts src/server/modules/intelligence/scoring.engine.ts src/server/modules/intelligence/scoring-config.service.ts tests/scoring-engine.test.ts tests/scoring-config.test.ts
+git commit -m "feat: calculate versioned use-case scores"
 ```
 
 ---
 
-### Task 4: Build net sales and separated review-aspect aggregates
+### Task 3: Publish immutable score snapshots
 
 **Files:**
-- Modify: `prisma/schema.prisma` (Order.completedAt if M6 seam absent)
-- Create: migration
-- Modify: completion transitions in order/GHN controllers
-- Create: `src/server/modules/intelligence/sales.service.ts`
-- Create: `src/server/modules/intelligence/review-aggregate.service.ts`
-- Create: `tests/fixtures/uci-sentiment-licensed.json`
-- Test: `tests/review-aspects.test.ts`
-- Test: `tests/integration/net-sales.test.ts`
+- Modify: `prisma/schema.prisma`
+- Create: `prisma/migrations/<timestamp>_product_score_snapshots/migration.sql`
+- Create: scoring service/controller/routes
+- Test: `tests/integration/scoring-publication.test.ts`
+- Modify: model registry
 
 **Interfaces:**
 
 ```ts
-getNetSales({productIds,from,to}): Promise<NetSalesDto[]>;
-getReviewAspects(productIds): Promise<ReviewSummaryDto[]>;
+export async function recomputeScores(input: RecomputeInput): Promise<RecomputeReport>;
+export async function getProductScores(productId: string, variantId?: string): Promise<ScoreSnapshotDto[]>;
 ```
 
-- [ ] **Step 1: Write failing sales tests**
+- [ ] **Step 1: Write failing publication/replay tests**
 
-Only COMPLETED at actual completedAt in window; pending/cancelled excluded; resolved returned quantity deducted when M6 seam exists; uncertain legacy returns yield unavailable, not fabricated net sales.
+Concurrent same operation one snapshot; source/price/config revision creates new row; old row immutable; revoke serves stale/insufficient rather than old GOOD_VALUE; STAFF cannot publish; snapshot contains config/breakdown/sourceRefs JSON and MoneySnapshot string.
 
-- [ ] **Step 2: Write failing review aggregation tests**
+- [ ] **Step 2: Add only `ProductScoreSnapshot` and service**
 
-SHOP/EXTERNAL/SYNTHETIC separate; hidden internal/revoked external excluded; analyzerVersion retained; mixed-positive-negative aspects can coexist; shipping complaint not device-quality signal.
+GOOD_VALUE is derived only from active snapshot/config coverage and audited override metadata, not separate tag table.
 
-- [ ] **Step 3: Implement services and transition timestamp**
-
-UCI fixture is eval-only, never product attribution/score source.
-
-- [ ] **Step 4: Run tests and commit**
+- [ ] **Step 3: Validate M2 count 27 and commit**
 
 ```bash
-git add prisma src/server/modules/intelligence src/server/modules/orders src/server/modules/shipping tests/review-aspects.test.ts tests/integration/net-sales.test.ts tests/fixtures
-git commit -m "feat: aggregate net sales and review evidence"
+npm run schema:budget -- --expected=27
+```
+
+```bash
+git add prisma src/server/modules/intelligence src/app/api/scores src/app/api/admin/scoring-rubrics tests/integration/scoring-publication.test.ts docs/architecture/prisma-model-registry.md
+git commit -m "feat: publish immutable compact score snapshots"
 ```
 
 ---
 
-### Task 5: Implement one comparison service for API/UI/assistant
+### Task 4: Build sales/review aggregates and comparison service
 
 **Files:**
-- Create: `src/shared/types/comparison.ts`
-- Create: `src/server/modules/intelligence/comparison.service.ts`
-- Create: `src/server/modules/intelligence/comparison.controller.ts`
-- Create: `src/app/api/compare/route.ts`
-- Create: `src/app/api/products/[id]/comparison-data/route.ts`
-- Create/Modify: minimal compare client component
+- Modify: Order completion timestamp if absent
+- Create: `src/server/modules/intelligence/sales.service.ts`
+- Create: `src/server/modules/intelligence/review-aggregate.service.ts`
+- Create: comparison shared type/service/controller/routes/minimal UI
+- Create: `tests/fixtures/uci-sentiment-licensed.json`
+- Test: `tests/review-aspects.test.ts`
+- Test: `tests/integration/net-sales.test.ts`
 - Test: `tests/comparison.test.ts`
 
 **Interfaces:**
 
 ```ts
-compareProducts({selections,window}): Promise<ComparisonDto>;
+export async function getNetSales(input: SalesWindowInput): Promise<NetSalesDto[]>;
+export async function getReviewAspects(productIds: string[]): Promise<ReviewSummaryDto[]>;
+export async function compareProducts(input: CompareInput): Promise<ComparisonDto>;
 ```
 
-- [ ] **Step 1: Write failing validation/content tests**
+- [ ] **Step 1: Write sales/review tests**
 
-Exactly 2–3 distinct selections, same leaf category, exact variant, canonical unit comparisons, UNKNOWN != UNSUPPORTED, live effective prices, score confidence/coverage, sales period, separated review sources, no unsolicited winner.
+Only completedAt in window; resolved return quantity deducted; SHOP/EXTERNAL/SYNTHETIC separate; hidden/revoked excluded; UCI fixture eval-only.
 
-- [ ] **Step 2: Verify fail, implement service/controller/routes**
+- [ ] **Step 2: Write comparison tests**
 
-All consumers call service; no comparison logic in component/assistant prompt.
+Exactly 2–3 distinct exact variants in same leaf category; canonical units; UNKNOWN != UNSUPPORTED; live price; scores/confidence/sales window/source-separated reviews; no unsolicited winner.
 
-- [ ] **Step 3: Add minimal table/selection UI and run build**
+- [ ] **Step 3: Implement services and minimal compare UI**
 
-- [ ] **Step 4: Commit**
+All consumers call one service.
+
+- [ ] **Step 4: Run M2 gate and commit**
 
 ```bash
-git add src/shared/types/comparison.ts src/server/modules/intelligence src/app/api/compare src/app/api/products src/client tests/comparison.test.ts
-git commit -m "feat: compare products with traceable evidence"
+git add prisma src/shared/types/comparison.ts src/server/modules/intelligence src/app/api src/client tests
+git commit -m "feat: compare products with compact evidence"
 ```
 
 ---
 
-### Task 6: Define provider-neutral AI contract, fake and fail-closed quota
+## M3 — Grounded assistant (27 → 29 models)
+
+### Task 5: Define provider-neutral contract and Redis atomic quota
 
 **Files:**
 - Create: `src/server/infrastructure/ai/provider.ts`
 - Create: `src/server/infrastructure/ai/fake-provider.ts`
 - Create: `src/server/infrastructure/ai/quota.ts`
-- Modify: `prisma/schema.prisma` + quota lease migration if DB-backed
 - Modify: `.env.example`
 - Test: `tests/assistant-provider.test.ts`
 - Test: `tests/assistant-quota.test.ts`
@@ -236,34 +208,30 @@ git commit -m "feat: compare products with traceable evidence"
 **Interfaces:**
 
 ```ts
-interface AiProvider { generate(input: AiGenerationRequest, options: {signal: AbortSignal}): Promise<AiGenerationResult> }
-reserveAiBudget(input): Promise<BudgetLease>;
-settleAiBudget(lease, usage): Promise<void>;
-releaseAiBudget(lease): Promise<void>;
+export interface AiProvider { generate(input: AiGenerationRequest, options: { signal: AbortSignal }): Promise<AiGenerationResult> }
+export async function reserveAiBudget(input: BudgetInput): Promise<BudgetLease>;
+export async function settleAiBudget(lease: BudgetLease, usage: Usage): Promise<void>;
+export async function releaseAiBudget(lease: BudgetLease): Promise<void>;
 ```
 
-- [ ] **Step 1: Write failing fake/provider behavior tests**
+- [ ] **Step 1: Write fake/provider and quota failure/concurrency tests**
 
-Success, malformed, hallucinated, timeout, cancellation, refusal; zero network calls.
+Malformed/hallucinated/timeout/cancel/refusal; per-user/IP/global caps; backend error denies; TTL orphan recovery; no network.
 
-- [ ] **Step 2: Write failing quota concurrency/failure tests**
+- [ ] **Step 2: Implement without Prisma quota model**
 
-Per-user/IP/global caps+concurrency; concurrent lease cannot exceed; backend error denies; timeout releases concurrency but settles known usage; TTL recovers orphan lease.
+Use verified atomic Redis primitive/Lua with in-memory test fake; fail closed.
 
-- [ ] **Step 3: Implement contracts/fake/atomic quota**
-
-Do not use current `checkDistributedRateLimit`; use DB transaction or verified atomic Redis script. `.env.example` placeholders only.
-
-- [ ] **Step 4: Run tests and commit**
+- [ ] **Step 3: Run tests and commit**
 
 ```bash
-git add prisma src/server/infrastructure/ai .env.example tests/assistant-provider.test.ts tests/assistant-quota.test.ts
-git commit -m "feat: define safe assistant provider and quota boundary"
+git add src/server/infrastructure/ai .env.example tests/assistant-provider.test.ts tests/assistant-quota.test.ts
+git commit -m "feat: define safe assistant provider boundary"
 ```
 
 ---
 
-### Task 7: Build evidence bundle and strict grounding validator
+### Task 6: Build strict evidence bundle and grounding validator
 
 **Files:**
 - Create: `src/shared/types/assistant.ts`
@@ -274,77 +242,73 @@ git commit -m "feat: define safe assistant provider and quota boundary"
 **Interfaces:**
 
 ```ts
-buildEvidenceBundle(input): Promise<EvidenceBundle>;
-validateAssistantAnswer(raw, bundle): GroundingResult;
-buildDeterministicAnswer(bundle, reason): AssistantAnswerDto;
+export async function buildEvidenceBundle(input: EvidenceBundleInput): Promise<EvidenceBundle>;
+export function validateAssistantAnswer(raw: unknown, bundle: EvidenceBundle): GroundingResult;
+export function buildDeterministicAnswer(bundle: EvidenceBundle, reason: string): AssistantAnswerDto;
 ```
 
-- [ ] **Step 1: Write failing adversarial grounding tests**
+- [ ] **Step 1: Write adversarial tests**
 
-Wrong citation ID, other-market variant, old price, invented RAM/stock/score, arbitrary URL and prompt injection rejected; exact evidence accepted; revoked source fallback; synthetic disclaimer.
+Wrong citation, market/variant, old price, invented RAM/stock/score, arbitrary URL and source prompt injection rejected; exact evidence accepted; revoked fallback; synthetic disclosure.
 
-- [ ] **Step 2: Verify fail, define strict DTO/claim/evidence allowlists**
+- [ ] **Step 2: Implement strict DTO/claim/citation allowlists and fallback**
 
-Claims carry productId/variantId/evidenceIds/kind/text. Prices/inventory/sales are live evidence, not static RAG cache.
-
-- [ ] **Step 3: Implement deterministic fallback and run tests**
-
-- [ ] **Step 4: Commit**
+- [ ] **Step 3: Run tests and commit**
 
 ```bash
 git add src/shared/types/assistant.ts src/server/modules/assistant tests/assistant-grounding.test.ts
-git commit -m "feat: validate grounded assistant responses"
+git commit -m "feat: validate grounded assistant answers"
 ```
 
 ---
 
-### Task 8: Add owned assistant conversations, orchestration and retention
+### Task 7: Add compact conversations, orchestration and retention
 
 **Files:**
-- Modify: `prisma/schema.prisma` + migration
-- Create: `src/server/modules/assistant/conversation.service.ts`
-- Create: `src/server/modules/assistant/assistant.service.ts`
-- Create: `src/server/modules/assistant/assistant.controller.ts`
-- Create: assistant API routes
-- Create: `src/client/components/assistant/AssistantPanel.tsx`
-- Create: retention cron route following existing auth pattern
+- Modify: `prisma/schema.prisma`
+- Create: `prisma/migrations/<timestamp>_assistant_conversations/migration.sql`
+- Create: assistant services/controllers/routes/panel/retention cron
 - Test: `tests/assistant-service.test.ts`
 - Test: `tests/integration/assistant-conversations.test.ts`
+- Modify: model registry
 
 **Interfaces:**
 
 ```ts
-createConversation(principal): Promise<ConversationDto>;
-appendUserMessage(input): Promise<AssistantMessageDto>;
-deleteConversation(id, principal): Promise<boolean>;
-purgeExpiredConversations(now): Promise<number>;
-answerQuestion(input, provider, signal): Promise<AssistantAnswerDto>;
+export async function createConversation(principal: Principal): Promise<ConversationDto>;
+export async function appendUserMessage(input: AppendMessageInput): Promise<AssistantMessageDto>;
+export async function answerQuestion(input: AnswerInput, provider: AiProvider, signal: AbortSignal): Promise<AssistantAnswerDto>;
+export async function purgeExpiredConversations(now: Date): Promise<number>;
 ```
 
-- [ ] **Step 1: Write failing ownership/retention tests**
+- [ ] **Step 1: Write ownership/retention tests**
 
-No cross-user/cross-anon access; anonymous token stored hashed; 30-day purge; early delete idempotent; STAFF metadata-only unless opt-in handoff/ADMIN audited investigation.
+No cross-user/anon; anonymous token hash; 30-day purge; early delete idempotent; STAFF metadata-only except handoff/ADMIN audited investigation.
 
-- [ ] **Step 2: Write failing orchestration tests**
+- [ ] **Step 2: Write orchestration/JSON persistence tests**
 
-Overall comparison first then exactly one need question; follow-up applies need; no PII/order history/warranty image in provider payload; quota/provider timeout/malformed response fallback deterministic; usage persisted redacted.
+Overall first then one need question; no PII/order history/warranty image; provider failure fallback; citations/usage/claims JSON validated and redacted.
 
-- [ ] **Step 3: Verify fail, add separate schema/services/routes**
+- [ ] **Step 3: Add exactly `AssistantConversation` and `AssistantMessage`**
 
-Do not reuse human ChatRoom/Message. JSON validated final response baseline; no unvalidated SSE.
+No Citation/Usage models, no reuse of ChatRoom/Message.
 
-- [ ] **Step 4: Add minimal panel with citations/caveats/delete**
-
-- [ ] **Step 5: Run unit/integration/build and commit**
+- [ ] **Step 4: Add minimal panel and validate M3 count 29**
 
 ```bash
-git add prisma src/server/modules/assistant src/app/api/assistant src/client/components/assistant tests/assistant-service.test.ts tests/integration/assistant-conversations.test.ts
-git commit -m "feat: add grounded assistant conversations"
+npm run schema:budget -- --expected=29
+```
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add prisma src/server/modules/assistant src/app/api/assistant src/client/components/assistant tests docs/architecture/prisma-model-registry.md
+git commit -m "feat: add compact grounded assistant conversations"
 ```
 
 ---
 
-### Task 9: Build offline assistant eval; keep remote transport blocked
+### Task 8: Build offline 100-case eval
 
 **Files:**
 - Create: `tests/fixtures/assistant-eval.json`
@@ -354,116 +318,115 @@ git commit -m "feat: add grounded assistant conversations"
 - Create: `docs/verification/assistant-eval.md`
 
 **Interfaces:**
-- At least 100 cases with train/dev/held-out labels; default command uses fake provider only; online command needs explicit flag and budget.
+- Produces `npm run eval:assistant`, a network-free fake-provider evaluation report with immutable train/dev/held-out labels and versioned metrics.
 
-- [ ] **Step 1: Create versioned eval cases**
+- [ ] **Step 1: Create train/dev/held-out cases**
 
-Cover compare, variants, budget/use case, missing/conflicting/revoked evidence, injection, changing price/stock, citations, timeout/quota, out-of-scope, synthetic disclosure.
+Cover variants, budgets, conflicting/revoked evidence, injection, live price/stock, citations, timeout/quota/out-of-scope/synthetic.
 
-- [ ] **Step 2: Write evaluator and failing quality thresholds**
+- [ ] **Step 2: Implement offline evaluator and thresholds**
 
-Metrics: retrieval accuracy, numeric exactness, citation precision, grounded-claim rate, correct abstention, follow-up relevance, latency/mock cost. Held-out test requires zero unsupported numeric claims.
+Metrics include retrieval/numeric/citation/grounded claim/abstention/follow-up/latency/mock cost. Held-out requires zero unsupported numeric claims.
 
-- [ ] **Step 3: Run offline eval and record results**
-
-No real API spend. Tune only train/dev; do not inspect labels to hand-code held-out answers.
-
-- [ ] **Step 4: Commit**
+- [ ] **Step 3: Run offline eval, record actual result and commit**
 
 ```bash
 git add tests/fixtures/assistant-eval.json tests/assistant-eval.test.ts scripts/eval-assistant.ts package.json docs/verification/assistant-eval.md
-git commit -m "test: add offline assistant grounding evaluation"
+git commit -m "test: evaluate compact assistant grounding"
 ```
 
-- [ ] **BLOCKED Step: Implement real provider transport**
+- [ ] **BLOCKED: Real provider transport**
 
-Blocked until user supplies actual provider endpoint docs or redacted request/response sample, auth/error/streaming/structured-output/usage semantics, and approves any live-eval budget. Then add focused adapter tests; do not infer protocol from model name.
+Wait for actual endpoint/auth/error/structured-output/usage docs and explicit live budget approval; do not infer from model name.
 
 ---
 
-### Task 10: Implement deterministic compatibility rules
+## M4 — Compatibility (29 → 30 models)
+
+### Task 9: Add deterministic CompatibilityRule engine
 
 **Files:**
-- Modify: `prisma/schema.prisma` + migration
-- Create: `src/shared/types/compatibility.ts`
-- Create: `src/server/modules/compatibility/compatibility.engine.ts`
-- Create: `src/server/modules/compatibility/compatibility.service.ts`
+- Modify: `prisma/schema.prisma`
+- Create: migration
+- Create: compatibility shared validation/types/engine/service
 - Test: `tests/compatibility-engine.test.ts`
 - Test: `tests/integration/compatibility-rules.test.ts`
+- Modify: model registry
 
 **Interfaces:**
 
 ```ts
-evaluateCompatibility({accessory,device,rules}): CompatibilityCheckDto;
-checkCompatibility({accessoryVariantId,deviceVariantId}): Promise<CompatibilityCheckDto>;
-listCompatibleAccessories(deviceVariantId): Promise<CompatibilityCheckDto[]>;
+export function evaluateCompatibility(input: CompatibilityEngineInput): CompatibilityCheckDto;
+export async function checkCompatibility(input: CompatibilityQuery): Promise<CompatibilityCheckDto>;
+export async function listCompatibleAccessories(deviceVariantId: string): Promise<CompatibilityCheckDto[]>;
 ```
 
-- [ ] **Step 1: Write failing engine tests**
+- [ ] **Step 1: Write rule JSON/engine tests**
 
-USB-C only unknown; PD65 vs required100 incompatible; connector+protocol+power all sufficient compatible; missing OS/protocol unknown; wrong direction ignored; revoked/wrong-market rule ignored; UNKNOWN != UNSUPPORTED.
+USB-C only unknown; PD65 vs required100 incompatible; all required connector/protocol/power compatible; missing OS/protocol unknown; wrong direction/market/revoked ignored; malformed rule rejected.
 
-- [ ] **Step 2: Write failing approval/revocation integration tests**
+- [ ] **Step 2: Write approval/revocation/cache tests**
 
-STAFF knowledge drafts/reviews; ADMIN activates; actor/reason/version recorded; replay idempotent; revoke removes positive assertion immediately.
+Knowledge STAFF drafts, ADMIN activates; version/actor/reason stored; revoke invalidates positive cache immediately.
 
-- [ ] **Step 3: Implement schema/engine/service and run tests**
+- [ ] **Step 3: Add only `CompatibilityRule` and engine**
 
-Every mandatory predicate needed for COMPATIBLE; warnings cannot imply compatibility; contradictions route UNKNOWN/review unless proven mismatch.
+No materialized assertion model. Cache key includes rule/spec/source revisions.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 4: Validate M4 count 30 and commit**
 
 ```bash
-git add prisma src/shared/types/compatibility.ts src/server/modules/compatibility tests/compatibility-engine.test.ts tests/integration/compatibility-rules.test.ts
-git commit -m "feat: evaluate evidence-backed device compatibility"
+npm run schema:budget -- --expected=30
+```
+
+```bash
+git add prisma src/shared src/server/modules/compatibility tests docs/architecture/prisma-model-registry.md
+git commit -m "feat: evaluate compact compatibility rules"
 ```
 
 ---
 
-### Task 11: Expose compatibility, add assistant evidence and revalidate cart
+### Task 10: Expose compatibility, assistant evidence and cart revalidation
 
 **Files:**
-- Create: compatibility public/admin controllers and route facades
-- Modify: `src/server/modules/assistant/evidence.service.ts`
-- Modify: minimal product detail/add-on component
-- Modify: `src/client/stores/cart-store.ts`
-- Modify: `src/server/modules/orders/orders.controller.ts`
-- Modify: `src/server/modules/shipping/shipping-quote.service.ts`
+- Create: public/admin controllers/routes
+- Modify: assistant evidence service, product detail add-on UI, cart store, order/shipping quote services
 - Test: `tests/compatibility-api.test.ts`
 - Test: `tests/checkout.test.ts`
 - Test: integration checkout test
 
 **Interfaces:**
-- Assistant explains engine status/citations only; cart stores independent item IDs; server re-fetches active variant/effective price/revision/availability.
+- Consumes `checkCompatibility` from Task 9; assistant exposes its status/evidence only, while checkout re-fetches exact variants, price revision, stock and active state.
 
-- [ ] **Step 1: Write failing API/cart tests**
+- [ ] **Step 1: Write API/cart tests**
 
-Exact variant/source result; forged status ignored; stale price/inactive accessory returns 409; UNKNOWN accessory selectable with caveat; removing accessory preserves main device.
+Exact variant/source result; forged status ignored; stale price/inactive accessory 409; UNKNOWN selectable only with caveat; removing add-on preserves main device.
 
-- [ ] **Step 2: Verify fail, implement controllers/routes/evidence integration**
+- [ ] **Step 2: Implement thin routes and server revalidation**
 
 No model call decides compatibility.
 
-- [ ] **Step 3: Add minimal UI and run architecture/build tests**
-
-- [ ] **Step 4: Run full M2–M4 gate and commit**
+- [ ] **Step 3: Run full M2–M4 gate**
 
 ```bash
 npm run verify
+npx prisma validate
+npm run schema:budget -- --expected=30
 ```
 
+- [ ] **Step 4: Commit**
+
 ```bash
-git add src/app src/client src/server tests/compatibility-api.test.ts tests/checkout.test.ts tests/integration
-git commit -m "feat: expose compatibility and validate add-ons"
+git add src/app src/client src/server tests docs/architecture/prisma-model-registry.md
+git commit -m "feat: expose grounded compatibility checks"
 ```
 
 ## M2–M4 Exit Criteria
 
+- [ ] M2 count 27, M3 count 29, M4 count 30.
+- [ ] No forbidden review/rubric/citation/usage/assertion/quota models.
 - [ ] Score deterministic/versioned and abstains under coverage threshold.
-- [ ] Comparison service is single source for API/UI/assistant.
-- [ ] External/internal/synthetic evidence remains distinct.
-- [ ] Fake-provider assistant passes offline eval with zero unsupported numeric claims.
-- [ ] Conversation ownership/quota/retention tests pass.
-- [ ] Real provider transport remains explicitly blocked unless docs are supplied.
-- [ ] Compatibility returns COMPATIBLE only with complete approved evidence.
-- [ ] `npm run verify` and migration rehearsal pass.
+- [ ] Comparison is single source for API/UI/assistant.
+- [ ] Conversation ownership/quota/retention and offline eval pass.
+- [ ] Compatibility only COMPATIBLE with complete active evidence.
+- [ ] Full quality, migration and schema-budget gates pass.
