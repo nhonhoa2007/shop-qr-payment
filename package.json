@@ -16,6 +16,7 @@
     "db:backup": "node scripts/db-backup.js",
     "db:restore": "node scripts/db-restore.js",
     "ghn:import": "node scripts/fetch-ghn-locations.js",
+    "schema:budget": "node scripts/check-prisma-model-budget.mjs",
     "seed:demo": "node --experimental-strip-types --env-file=.env prisma/seed-demo-data.ts"
   },
   "prisma": {
