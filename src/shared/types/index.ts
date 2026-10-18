@@ -34,6 +34,8 @@ export interface Product {
   widthCm?: number | null;
   heightCm?: number | null;
   catalogVersion?: number;
+  effectivePrice?: MoneyVnd | number | bigint;
+  priceRange?: { min: MoneyVnd; max: MoneyVnd };
 }
 
 export interface CartItem {
@@ -563,3 +565,4 @@ export interface WalletTopupSession {
 
 export * from './money';
 export * from './catalog';
+export * from './catalog-query';

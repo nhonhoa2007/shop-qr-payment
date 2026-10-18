@@ -3,8 +3,15 @@ import { prisma } from '@server/database/prisma';
 import { redis } from '@server/infrastructure/redis';
 import { serializeMoneyVnd } from '@shared/utils/money';
 import type { Product } from '@/types';
+import {
+  queryCatalog,
+  resolveProductPricing,
+  normalizeCatalogQuery,
+} from './catalog-query.service.ts';
 
 export type CatalogSort = 'newest' | 'price-asc' | 'price-desc';
+
+export { queryCatalog, resolveProductPricing, normalizeCatalogQuery };
 
 export class CatalogService {
   /**
@@ -87,21 +94,30 @@ export class CatalogService {
         db.product.count({ where }),
       ]);
 
-      const products: Product[] = rawProducts.map((p) => {
+      let products: Product[] = rawProducts.map((p) => {
         const ratingCount = p.reviews.length;
         const avgRating =
           ratingCount > 0
             ? Number((p.reviews.reduce((acc, r) => acc + r.rating, 0) / ratingCount).toFixed(1))
             : undefined;
 
+        const pricing = resolveProductPricing({
+          price: p.price,
+          stock: p.stock,
+          inventoryMode: p.inventoryMode,
+          variants: p.variants,
+        });
+
         return {
           id: p.id,
           name: p.name,
           description: p.description,
-          price: serializeMoneyVnd(BigInt(p.price)),
+          price: pricing.price,
+          effectivePrice: pricing.effectivePrice,
+          priceRange: pricing.priceRange,
           image: p.image,
           category: p.category,
-          stock: p.stock,
+          stock: pricing.totalStock,
           isActive: p.isActive,
           createdAt: p.createdAt.toISOString(),
           updatedAt: p.updatedAt.toISOString(),
@@ -123,6 +139,20 @@ export class CatalogService {
           })),
         };
       });
+
+      if (sort === 'price-asc') {
+        products = products.sort((a, b) => {
+          const pa = BigInt(a.effectivePrice || a.price);
+          const pb = BigInt(b.effectivePrice || b.price);
+          return pa < pb ? -1 : pa > pb ? 1 : 0;
+        });
+      } else if (sort === 'price-desc') {
+        products = products.sort((a, b) => {
+          const pa = BigInt(a.effectivePrice || a.price);
+          const pb = BigInt(b.effectivePrice || b.price);
+          return pa > pb ? -1 : pa < pb ? 1 : 0;
+        });
+      }
 
       return { products, allCategories, total, page, limit };
     } catch (error) {

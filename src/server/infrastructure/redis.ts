@@ -274,7 +274,8 @@ export async function invalidateProductCache(productId?: string): Promise<number
   } else {
     count3 = await redis.delPattern('cache:product:*');
   }
-  return count1 + count2 + count3;
+  const count4 = await redis.delPattern('cache:catalog-query:*');
+  return count1 + count2 + count3 + count4;
 }
 
 // ============================================
