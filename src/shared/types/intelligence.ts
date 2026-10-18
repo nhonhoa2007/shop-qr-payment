@@ -244,3 +244,60 @@ export interface RecomputeReport {
   errors: string[];
 }
 
+// ==========================================
+// NET SALES & REVIEW ASPECTS AGGREGATE TYPES
+// ==========================================
+
+export interface SalesWindowInput {
+  productIds: string[];
+  from: Date | string;
+  to: Date | string;
+  variantId?: string | null;
+}
+
+export interface NetSalesDto {
+  productId: string;
+  variantId?: string | null;
+  grossUnits: number;
+  returnedUnits: number;
+  netUnits: number;
+  grossRevenueVnd: string;
+  netRevenueVnd: string;
+  status: 'AVAILABLE' | 'UNAVAILABLE';
+  hasUncertainReturns: boolean;
+  window: {
+    from: string;
+    to: string;
+  };
+}
+
+export interface AspectSentimentSummary {
+  aspect: string;
+  positiveScore: number; // 0 - 100
+  confidence: number; // 0.0 - 1.0
+  sampleCount: number;
+  summary?: string;
+}
+
+export interface ReviewSourceGroup {
+  provenance: EvidenceProvenance; // 'SHOP' | 'EXTERNAL' | 'SYNTHETIC'
+  averageRating: number;
+  totalReviews: number;
+  aspects: AspectSentimentSummary[];
+  analyzerVersion?: string;
+  sourceAttribution?: {
+    publisher: string;
+    license?: string;
+    url?: string;
+  };
+}
+
+export interface ReviewSummaryDto {
+  productId: string;
+  shop: ReviewSourceGroup;
+  external: ReviewSourceGroup[];
+  synthetic: ReviewSourceGroup[];
+  overallRating?: number;
+  totalReviewCount?: number;
+}
+

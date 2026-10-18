@@ -87,7 +87,10 @@ export async function POST(req: Request) {
       });
       if (updated.count !== 1) return false;
       if (mapping.shipmentStatus === 'DELIVERED') {
-        await tx.order.updateMany({ where: { id: fresh.orderId, status: { notIn: ['CANCELLED', 'COMPLETED'] } }, data: { status: 'COMPLETED' } });
+        await tx.order.updateMany({
+          where: { id: fresh.orderId, status: { notIn: ['CANCELLED', 'COMPLETED'] } },
+          data: { status: 'COMPLETED', completedAt: new Date() },
+        });
       } else if (mapping.shipmentStatus === 'CANCELLED' || mapping.shipmentStatus === 'RETURNED') {
         if (fresh.order.paymentStatus === 'PAID') {
           const refund = await refundOrderToWallet(tx, fresh.orderId, `GHN báo ${mapping.shipmentStatus}`);
@@ -104,7 +107,13 @@ export async function POST(req: Request) {
           }
         }
       } else if (mapping.orderStatus) {
-        await tx.order.updateMany({ where: { id: fresh.orderId, status: { notIn: ['CANCELLED', 'COMPLETED'] } }, data: { status: mapping.orderStatus } });
+        await tx.order.updateMany({
+          where: { id: fresh.orderId, status: { notIn: ['CANCELLED', 'COMPLETED'] } },
+          data: {
+            status: mapping.orderStatus,
+            ...(mapping.orderStatus === 'COMPLETED' ? { completedAt: new Date() } : {}),
+          },
+        });
       }
       return true;
     });

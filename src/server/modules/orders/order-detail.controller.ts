@@ -173,9 +173,13 @@ export async function PATCH(
 
     const updatedOrder = await prisma.$transaction(async (tx) => {
       if (!shouldRefundPaidOrder && nextStatus) {
+        const updateData: { status: OrderStatus; completedAt?: Date } = { status: nextStatus };
+        if (nextStatus === 'COMPLETED') {
+          updateData.completedAt = new Date();
+        }
         const claimed = await tx.order.updateMany({
           where: { id, status: currentOrder.status, paymentStatus: currentOrder.paymentStatus },
-          data: { status: nextStatus },
+          data: updateData,
         });
         if (claimed.count !== 1) throw new Error('Trạng thái đơn đã thay đổi; vui lòng tải lại');
       }

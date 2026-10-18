@@ -104,8 +104,7 @@ export async function recomputeScores(
     try {
       config = await getCategoryScoringConfig(
         categoryId,
-        client,
-        product.categoryRef?.kind
+        client as unknown as { category: { findUnique: (args: unknown) => Promise<{ id: string; kind: string; slug: string; scoringConfig?: unknown } | null>; update: (args: unknown) => Promise<unknown> } }
       );
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
@@ -344,7 +343,7 @@ export async function getProductScores(
     let currentStatus = s.status;
     let isGoodValue = s.isGoodValue;
 
-    const sourceRefs: string[] = Array.isArray(s.sourceRefs) ? s.sourceRefs : [];
+    const sourceRefs: string[] = Array.isArray(s.sourceRefs) ? (s.sourceRefs as unknown as string[]) : [];
     const hasRevokedSource = sourceRefs.some((refId) =>
       revokedSourceIds.includes(refId)
     );
@@ -373,7 +372,7 @@ export async function getProductScores(
       status: currentStatus,
       isGoodValue,
       rubricVersion: s.rubricVersion,
-      rubricSnapshot: s.rubricSnapshot as UseCaseScoringConfig,
+      rubricSnapshot: s.rubricSnapshot as unknown as UseCaseScoringConfig,
       breakdown: s.breakdown as Record<string, unknown>,
       sourceRefs,
       missingEvidence: s.missingEvidence as string[] | undefined,
@@ -398,7 +397,7 @@ export async function revokeSourceSnapshots(
 
   let revokedCount = 0;
   for (const snap of activeSnapshots) {
-    const refs: string[] = Array.isArray(snap.sourceRefs) ? snap.sourceRefs : [];
+    const refs: string[] = Array.isArray(snap.sourceRefs) ? (snap.sourceRefs as unknown as string[]) : [];
     if (refs.includes(sourceId)) {
       await client.productScoreSnapshot.update({
         where: { id: snap.id },

@@ -350,11 +350,13 @@ model Order {
   qrContent                String?
   note            String?
   expiresAt       DateTime
+  completedAt     DateTime?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
   @@index([userId, createdAt])
   @@index([status, paymentStatus, expiresAt])
+  @@index([status, completedAt])
   @@index([createdAt])
 }
 
