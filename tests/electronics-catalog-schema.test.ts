@@ -18,15 +18,15 @@ describe('M1 Electronics Catalog Prisma Schema Contracts', () => {
   const schemaContent = fs.readFileSync(SCHEMA_PATH, 'utf8');
   const models = parsePrismaModels(schemaContent);
 
-  it('contains exactly 35 models for M5 SerializedUnit milestone', () => {
+  it('contains exactly 36 models for M5 peak expand milestone', () => {
     assert.equal(
       models.length,
-      35,
-      `Expected exactly 35 models in schema, found ${models.length}: ${models.join(', ')}`
+      36,
+      `Expected exactly 36 models in schema, found ${models.length}: ${models.join(', ')}`
     );
   });
 
-  it('contains Brand, Category, DataSource, BenchmarkMeasurement, ProductScoreSnapshot, AssistantConversation, AssistantMessage, CompatibilityRule, InventoryMovement, Supplier, PurchaseOrder, PurchaseOrderItem, and SerializedUnit models', () => {
+  it('contains Brand, Category, DataSource, BenchmarkMeasurement, ProductScoreSnapshot, AssistantConversation, AssistantMessage, CompatibilityRule, InventoryMovement, Supplier, PurchaseOrder, PurchaseOrderItem, SerializedUnit, and AdminAuditLog models', () => {
     assert.ok(models.includes('Brand'), 'Schema must include model Brand');
     assert.ok(models.includes('Category'), 'Schema must include model Category');
     assert.ok(models.includes('DataSource'), 'Schema must include model DataSource');
@@ -40,13 +40,14 @@ describe('M1 Electronics Catalog Prisma Schema Contracts', () => {
     assert.ok(models.includes('PurchaseOrder'), 'Schema must include model PurchaseOrder');
     assert.ok(models.includes('PurchaseOrderItem'), 'Schema must include model PurchaseOrderItem');
     assert.ok(models.includes('SerializedUnit'), 'Schema must include model SerializedUnit');
+    assert.ok(models.includes('AdminAuditLog'), 'Schema must include model AdminAuditLog');
   });
 
   it('strictly rejects any forbidden compact-schema models', () => {
     const budget = checkModelBudget({
       schemaContent,
       registryPath: REGISTRY_PATH,
-      expected: 35,
+      expected: 36,
       lockRegistry: true,
     });
     assert.equal(budget.forbiddenModels.length, 0, `Forbidden models found: ${budget.forbiddenModels.join(', ')}`);

@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@server/modules/auth/auth-options';
 import { prisma } from '@server/database/prisma';
 import { reserveOrderStock } from '@server/modules/inventory/inventory.service';
+import { appendAdminAudit } from '@server/modules/admin/audit-log.service';
 
 async function adminId() {
   const session = await getServerSession(authOptions);
@@ -69,6 +70,19 @@ export async function POST(req: Request) {
       if (changed.count !== 1) throw new Error('Trạng thái đơn đã thay đổi');
       await tx.transaction.create({ data: { orderId: order.id, bankTransId: `REVIEW-${order.id}`, amount: order.totalAmount, description: `Đối soát ${ids.join(', ')}`, verified: true, receivedAt: new Date(), rawWebhookData: { bankTransferIds: ids, reviewedById: reviewerId, note } } });
       if (total > order.totalAmount) await tx.refundCase.create({ data: { sourceKey: `excess:${order.id}:${ids.sort().join(':')}`, orderId: order.id, amount: total - order.totalAmount, reason: 'Tiền chuyển dư; cần hoàn phần chênh lệch' } });
+
+      if ('adminAuditLog' in tx && typeof (tx as any).adminAuditLog?.create === 'function') {
+        await appendAdminAudit(tx, {
+          operationKey: `audit:bank_review:${order.id}:${ids.sort().join(':')}`,
+          actorId: reviewerId,
+          actorRole: 'ADMIN',
+          action: 'RECONCILE_BANK_REVIEW',
+          entityType: 'Order',
+          entityId: order.id,
+          reason: note,
+          afterState: { totalTransferred: total.toString(), orderAmount: order.totalAmount.toString() },
+        });
+      }
     });
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -949,5 +949,29 @@ model SerializedUnit {
   @@index([status])
 }
 
+model AdminAuditLog {
+  id           String   @id @default(cuid())
+  operationKey String   @unique
+  actorId      String
+  actorEmail   String?
+  actorRole    String
+  action       String
+  entityType   String
+  entityId     String
+  beforeState  Json?
+  afterState   Json?
+  reason       String?
+  metadata     Json?
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorId, createdAt])
+  @@index([action, createdAt])
+  @@index([createdAt])
+}
+
+
 
 
