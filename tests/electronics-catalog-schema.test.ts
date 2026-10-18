@@ -18,11 +18,11 @@ describe('M1 Electronics Catalog Prisma Schema Contracts', () => {
   const schemaContent = fs.readFileSync(SCHEMA_PATH, 'utf8');
   const models = parsePrismaModels(schemaContent);
 
-  it('contains exactly 25 models for M1 milestone', () => {
+  it('contains exactly 26 models for M2 Task 1 milestone', () => {
     assert.equal(
       models.length,
-      25,
-      `Expected exactly 25 models in M1 schema, found ${models.length}: ${models.join(', ')}`
+      26,
+      `Expected exactly 26 models in schema, found ${models.length}: ${models.join(', ')}`
     );
   });
 
@@ -30,13 +30,14 @@ describe('M1 Electronics Catalog Prisma Schema Contracts', () => {
     assert.ok(models.includes('Brand'), 'Schema must include model Brand');
     assert.ok(models.includes('Category'), 'Schema must include model Category');
     assert.ok(models.includes('DataSource'), 'Schema must include model DataSource');
+    assert.ok(models.includes('BenchmarkMeasurement'), 'Schema must include model BenchmarkMeasurement');
   });
 
   it('strictly rejects any forbidden compact-schema models', () => {
     const budget = checkModelBudget({
       schemaContent,
       registryPath: REGISTRY_PATH,
-      expected: 25,
+      expected: 26,
       lockRegistry: true,
     });
     assert.equal(budget.forbiddenModels.length, 0, `Forbidden models found: ${budget.forbiddenModels.join(', ')}`);
