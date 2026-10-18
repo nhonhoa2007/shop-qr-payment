@@ -36,6 +36,10 @@ export interface Product {
   catalogVersion?: number;
   effectivePrice?: MoneyVnd | number | bigint;
   priceRange?: { min: MoneyVnd; max: MoneyVnd };
+  brand?: { id: string; name: string; slug: string } | null;
+  categoryRef?: { id: string; name: string; slug: string; kind: string } | null;
+  sources?: import('./product-detail').EvidenceRef[];
+  detail?: import('./product-detail').ProductDetailDto | null;
 }
 
 export interface CartItem {
@@ -566,3 +570,4 @@ export interface WalletTopupSession {
 export * from './money';
 export * from './catalog';
 export * from './catalog-query';
+export * from './product-detail';

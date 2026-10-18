@@ -264,6 +264,20 @@ export function ProductDetailView({ product }: { product: Product }) {
         <div className="flex flex-col justify-between space-y-6">
           <div className="space-y-5">
             <div>
+              {(product.brand || product.segment) && (
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  {product.brand && (
+                    <span className="text-[11px] font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-canvas-mist text-ink-black border border-faint-border">
+                      {product.brand.name}
+                    </span>
+                  )}
+                  {product.segment && (
+                    <span className="text-[11px] font-medium tracking-wide px-2 py-0.5 rounded-full bg-violet-50 text-shop-violet border border-violet-100">
+                      {product.segment}
+                    </span>
+                  )}
+                </div>
+              )}
               <h1 className="text-2xl sm:text-3xl font-semibold text-ink-black tracking-[-0.05em] leading-snug">
                 {product.name}
               </h1>
@@ -550,6 +564,74 @@ export function ProductDetailView({ product }: { product: Product }) {
           </div>
         </div>
       </div>
+
+      {/* Technical Specifications */}
+      {product.detail?.specs && product.detail.specs.items.length > 0 && (
+        <div className="mt-12 bg-white rounded-[24px] border border-faint-border p-6 sm:p-8 space-y-4">
+          <h2 className="text-lg font-semibold text-ink-black tracking-[-0.03em]">
+            Thông số kỹ thuật
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+            {product.detail.specs.items.map((spec) => (
+              <div
+                key={spec.code}
+                className="flex items-center justify-between p-3 rounded-[16px] bg-canvas-mist border border-faint-border"
+              >
+                <span className="text-muted-gray text-xs">{spec.label}</span>
+                <span className="font-medium text-ink-black text-xs text-right">
+                  {spec.state === 'KNOWN' ? (
+                    spec.formatted || String(spec.value)
+                  ) : spec.state === 'UNSUPPORTED' ? (
+                    <span className="text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full text-[11px]">
+                      Không hỗ trợ
+                    </span>
+                  ) : (
+                    <span className="text-muted-gray italic text-[11px]">Chưa xác định</span>
+                  )}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Verified Data Sources / Provenance */}
+      {product.sources && product.sources.length > 0 && (
+        <div className="mt-6 bg-white rounded-[24px] border border-faint-border p-6 sm:p-8 space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-ink-black tracking-[-0.02em] flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              Nguồn dữ liệu kiểm chứng ({product.sources.length})
+            </h2>
+            <span className="text-[11px] text-muted-gray">Dữ liệu minh bạch</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+            {product.sources.map((src) => (
+              <div
+                key={src.id}
+                className="p-3 rounded-[16px] bg-canvas-mist border border-faint-border flex items-center justify-between"
+              >
+                <div>
+                  <p className="font-medium text-ink-black">{src.publisher}</p>
+                  <p className="text-[11px] text-muted-gray">
+                    {src.sourceType} {src.version ? `v${src.version}` : ''}
+                  </p>
+                </div>
+                {src.url && (
+                  <a
+                    href={src.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-shop-violet hover:underline text-[11px] font-medium"
+                  >
+                    Xem nguồn
+                  </a>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Product Reviews */}
       <ProductReviews productId={product.id} />

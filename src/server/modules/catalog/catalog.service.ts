@@ -8,10 +8,25 @@ import {
   resolveProductPricing,
   normalizeCatalogQuery,
 } from './catalog-query.service.ts';
+import {
+  getProductDetailDto,
+  mapToProductDetailDto,
+  buildProductComparisonMatrix,
+  buildProductDetailCacheKey,
+} from './product-detail-dto.service.ts';
+import type { CategorySpecSchema } from '@shared/types/catalog.ts';
 
 export type CatalogSort = 'newest' | 'price-asc' | 'price-desc';
 
-export { queryCatalog, resolveProductPricing, normalizeCatalogQuery };
+export {
+  queryCatalog,
+  resolveProductPricing,
+  normalizeCatalogQuery,
+  getProductDetailDto,
+  mapToProductDetailDto,
+  buildProductComparisonMatrix,
+  buildProductDetailCacheKey,
+};
 
 export class CatalogService {
   /**
@@ -168,18 +183,49 @@ export class CatalogService {
    */
   static getProductDetail = cache(async (id: string): Promise<Product | null> => {
     try {
-      const cacheKey = `cache:product:${id}`;
-      const cached = await redis.get<Product>(cacheKey);
-      if (cached) {
-        return cached;
+      const fallbackCacheKey = `cache:product:${id}`;
+      const cachedFallback = await redis.get<Product>(fallbackCacheKey);
+      if (cachedFallback) {
+        return cachedFallback;
       }
 
       const product = await prisma.product.findUnique({
         where: { id },
         include: {
+          brand: {
+            select: { id: true, name: true, slug: true },
+          },
+          categoryRef: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              kind: true,
+              specSchema: true,
+              specSchemaVersion: true,
+            },
+          },
           variants: {
             where: { isActive: true },
             orderBy: { createdAt: 'asc' },
+          },
+          dataSources: {
+            where: { status: 'ACTIVE' },
+            select: {
+              id: true,
+              sourceType: true,
+              status: true,
+              publisher: true,
+              url: true,
+              licenseDecision: true,
+              version: true,
+              isSynthetic: true,
+              checksum: true,
+            },
+          },
+          reviews: {
+            where: { isApproved: true },
+            select: { rating: true },
           },
         },
       });
@@ -188,34 +234,64 @@ export class CatalogService {
         return null;
       }
 
+      const cacheKey = buildProductDetailCacheKey(product.id, {
+        catalogVersion: product.catalogVersion,
+        categorySchemaVersion: product.categoryRef?.specSchemaVersion,
+        sourceRevision: product.dataSources?.[0]?.version || 'v1',
+      });
+
+      const cachedRevision = await redis.get<Product>(cacheKey);
+      if (cachedRevision) {
+        return cachedRevision;
+      }
+
+      const detailDto = mapToProductDetailDto(product as unknown as Record<string, unknown>, {
+        categorySchema: product.categoryRef?.specSchema as CategorySpecSchema | null,
+      });
+
       const result: Product = {
         id: product.id,
         name: product.name,
+        slug: product.slug,
         description: product.description,
-        price: serializeMoneyVnd(BigInt(product.price)),
+        price: detailDto.price.amount,
+        effectivePrice: detailDto.effectivePrice.amount,
+        priceRange: detailDto.priceRange,
         image: product.image,
         category: product.category,
-        stock: product.stock,
+        stock: detailDto.totalStock,
         isActive: product.isActive,
         createdAt: product.createdAt.toISOString(),
         updatedAt: product.updatedAt.toISOString(),
-        variants: product.variants.map((v) => ({
+        brand: detailDto.brand,
+        categoryRef: detailDto.category,
+        sources: detailDto.sources,
+        detail: detailDto,
+        specs: detailDto.specs,
+        variants: detailDto.variants.map((v) => ({
           id: v.id,
           productId: v.productId,
           sku: v.sku,
           title: v.title,
           color: v.color,
           size: v.size,
-          price: serializeMoneyVnd(BigInt(v.price)),
+          price: v.price.amount,
           stock: v.stock,
-          image: v.image,
+          image: v.images[0]?.url || product.image,
           isActive: v.isActive,
-          createdAt: v.createdAt.toISOString(),
-          updatedAt: v.updatedAt.toISOString(),
+          optionValues: v.optionValues,
+          optionHash: v.optionHash,
+          specOverrides: v.specOverrides,
+          images: v.images,
+          warrantyConfig: v.warrantyConfig,
+          serializationRequired: v.serializationRequired,
+          createdAt: product.createdAt.toISOString(),
+          updatedAt: product.updatedAt.toISOString(),
         })),
       };
 
       await redis.set(cacheKey, result, { ex: 120 });
+      await redis.set(fallbackCacheKey, result, { ex: 120 });
       return result;
     } catch (error) {
       console.error('CatalogService.getProductDetail error:', error);
