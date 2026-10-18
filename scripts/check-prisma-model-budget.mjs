@@ -13,6 +13,57 @@ export const HARD_CAP = 40;
 export const TARGET_CEILING = 37;
 export const DEFAULT_EXPECTED_M0 = 22;
 export const DEFAULT_EXPECTED_M1 = 25;
+export const DEFAULT_EXPECTED_M7 = 34;
+export const FINAL_EXPECTED_MODELS = 34;
+
+export const CORE_MODELS_18 = [
+  'User',
+  'StaffPermission',
+  'OtpCode',
+  'Product',
+  'ProductVariant',
+  'Order',
+  'BankTransfer',
+  'RefundCase',
+  'OrderItem',
+  'Coupon',
+  'Review',
+  'Wishlist',
+  'ChatRoom',
+  'Message',
+  'Notification',
+  'Shipment',
+  'UserWallet',
+  'WalletTransaction',
+];
+
+export const INTELLIGENCE_MODELS_8 = [
+  'Brand',
+  'Category',
+  'DataSource',
+  'BenchmarkMeasurement',
+  'ProductScoreSnapshot',
+  'AssistantConversation',
+  'AssistantMessage',
+  'CompatibilityRule',
+];
+
+export const OPERATIONS_MODELS_8 = [
+  'InventoryMovement',
+  'Supplier',
+  'PurchaseOrder',
+  'PurchaseOrderItem',
+  'SerializedUnit',
+  'AdminAuditLog',
+  'WarrantyClaim',
+  'ReturnRequest',
+];
+
+export const FINAL_34_MODELS = [
+  ...CORE_MODELS_18,
+  ...INTELLIGENCE_MODELS_8,
+  ...OPERATIONS_MODELS_8,
+];
 
 export const FORBIDDEN_MODELS = [
   // EAV child tables
