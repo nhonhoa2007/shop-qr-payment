@@ -56,6 +56,7 @@ This registry tracks all Prisma models across project milestones in accordance w
 | 30 | `PurchaseOrderItem` | ACTIVE | M5 | Purchase order line item with ordered/received quantities and BigInt unit cost |
 | 31 | `SerializedUnit` | ACTIVE | M5 | Serialized unit tracking with nullable unique serial/IMEI identifiers |
 | 32 | `AdminAuditLog` | ACTIVE | M5 | Immutable redacted administrative and sensitive operations audit log |
+| 33 | `WarrantyClaim` | ACTIVE | M6 | Warranty claim with validated timeline/evidence JSON, versioned FSM and replacement unit tracking |
 <!-- REGISTRY_MODELS_END -->
 
 ---

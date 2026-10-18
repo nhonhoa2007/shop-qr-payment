@@ -33,6 +33,7 @@ model User {
   createdRules CompatibilityRule[] @relation("CreatedCompatibilityRules")
   approvedRules CompatibilityRule[] @relation("ApprovedCompatibilityRules")
   createdPurchaseOrders PurchaseOrder[] @relation("PoCreatedBy")
+  warrantyClaims WarrantyClaim[]
   createdAt     DateTime              @default(now())
   updatedAt     DateTime              @updatedAt
 }
@@ -432,6 +433,7 @@ model Order {
   bankTransfers   BankTransfer[]
   refundCases     RefundCase[]
   serializedUnits SerializedUnit[]
+  warrantyClaims  WarrantyClaim[]
   fulfillmentState         FulfillmentState @default(NONE)
   manualFulfillmentOutcome String?
   customerConsentRef       String?
@@ -523,6 +525,7 @@ model RefundCase {
   resolvedById     String?
   resolutionNote   String?
   resolvedAt       DateTime?
+  warrantyClaim    WarrantyClaim?
   createdAt        DateTime         @default(now())
 
   @@index([status, createdAt])
@@ -549,6 +552,7 @@ model OrderItem {
   sourceRevision      String?
   returnedQuantity    Int             @default(0)
   serializedUnits     SerializedUnit[]
+  warrantyClaims      WarrantyClaim[]
 
   @@index([orderId])
   @@index([productId])
@@ -890,6 +894,8 @@ model SerializedUnit {
   soldAt              DateTime?
   quarantinedAt       DateTime?
   notes               String?
+  warrantyClaims      WarrantyClaim[]      @relation("ClaimedUnit")
+  replacementForClaims WarrantyClaim[]     @relation("ReplacementUnit")
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
 
@@ -921,6 +927,58 @@ model AdminAuditLog {
   @@index([actorId, createdAt])
   @@index([action, createdAt])
   @@index([createdAt])
+}
+
+enum WarrantyClaimStatus {
+  SUBMITTED
+  RECEIVED
+  INSPECTING
+  WAITING_PARTS
+  RESOLVED
+  REJECTED
+  CANCELLED
+}
+
+enum WarrantyResolutionOutcome {
+  REPAIRED
+  REPLACED
+  REFUND_RECOMMENDED
+  REJECTED
+}
+
+model WarrantyClaim {
+  id                    String                     @id @default(cuid())
+  claimNumber           String                     @unique
+  customerId            String
+  customer              User                       @relation(fields: [customerId], references: [id])
+  orderId               String
+  order                 Order                      @relation(fields: [orderId], references: [id])
+  orderItemId           String
+  orderItem             OrderItem                  @relation(fields: [orderItemId], references: [id])
+  serializedUnitId      String?
+  serializedUnit        SerializedUnit?            @relation("ClaimedUnit", fields: [serializedUnitId], references: [id])
+  status                WarrantyClaimStatus        @default(SUBMITTED)
+  issueDescription      String
+  timeline              Json
+  evidenceRefs          Json
+  resolution            Json?
+  resolutionOutcome     WarrantyResolutionOutcome?
+  replacementUnitId     String?
+  replacementUnit       SerializedUnit?            @relation("ReplacementUnit", fields: [replacementUnitId], references: [id])
+  refundCaseId          String?                    @unique
+  refundCase            RefundCase?                @relation(fields: [refundCaseId], references: [id])
+  version               Int                        @default(1)
+  lastOperationKey      String?
+  warrantyTermsSnapshot Json
+  resolvedAt            DateTime?
+  createdAt             DateTime                   @default(now())
+  updatedAt             DateTime                   @updatedAt
+
+  @@index([customerId, status])
+  @@index([orderId])
+  @@index([orderItemId, status])
+  @@index([serializedUnitId])
+  @@index([status, createdAt])
 }
 
 
