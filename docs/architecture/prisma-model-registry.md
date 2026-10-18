@@ -19,7 +19,7 @@ This registry tracks all Prisma models across project milestones in accordance w
 
 ---
 
-## 2. Active Registry (M4 Compatibility — 30 Models)
+## 2. Active Registry (M5 Expand — 31 Models)
 
 <!-- REGISTRY_MODELS_START -->
 | # | Model | Status | Milestone | Role / Description |
@@ -54,6 +54,7 @@ This registry tracks all Prisma models across project milestones in accordance w
 | 28 | `AssistantConversation` | ACTIVE | M3 | Isolated assistant conversation session with 30-day retention |
 | 29 | `AssistantMessage` | ACTIVE | M3 | Conversation message with embedded citations, usage, and claims JSON |
 | 30 | `CompatibilityRule` | ACTIVE | M4 | Deterministic compatibility rules with direction, category scope, conditions/warnings JSON, version, and governance lifecycle |
+| 31 | `InventoryMovement` | ACTIVE | M5 | Append-only inventory movement ledger with CAS projection updates |
 <!-- REGISTRY_MODELS_END -->
 
 ---

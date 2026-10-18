@@ -18,15 +18,15 @@ describe('M1 Electronics Catalog Prisma Schema Contracts', () => {
   const schemaContent = fs.readFileSync(SCHEMA_PATH, 'utf8');
   const models = parsePrismaModels(schemaContent);
 
-  it('contains exactly 30 models for M4 Compatibility Rule milestone', () => {
+  it('contains exactly 31 models for M5 Inventory Movement milestone', () => {
     assert.equal(
       models.length,
-      30,
-      `Expected exactly 30 models in schema, found ${models.length}: ${models.join(', ')}`
+      31,
+      `Expected exactly 31 models in schema, found ${models.length}: ${models.join(', ')}`
     );
   });
 
-  it('contains Brand, Category, DataSource, BenchmarkMeasurement, ProductScoreSnapshot, AssistantConversation, AssistantMessage, and CompatibilityRule models', () => {
+  it('contains Brand, Category, DataSource, BenchmarkMeasurement, ProductScoreSnapshot, AssistantConversation, AssistantMessage, CompatibilityRule, and InventoryMovement models', () => {
     assert.ok(models.includes('Brand'), 'Schema must include model Brand');
     assert.ok(models.includes('Category'), 'Schema must include model Category');
     assert.ok(models.includes('DataSource'), 'Schema must include model DataSource');
@@ -35,13 +35,14 @@ describe('M1 Electronics Catalog Prisma Schema Contracts', () => {
     assert.ok(models.includes('AssistantConversation'), 'Schema must include model AssistantConversation');
     assert.ok(models.includes('AssistantMessage'), 'Schema must include model AssistantMessage');
     assert.ok(models.includes('CompatibilityRule'), 'Schema must include model CompatibilityRule');
+    assert.ok(models.includes('InventoryMovement'), 'Schema must include model InventoryMovement');
   });
 
   it('strictly rejects any forbidden compact-schema models', () => {
     const budget = checkModelBudget({
       schemaContent,
       registryPath: REGISTRY_PATH,
-      expected: 30,
+      expected: 31,
       lockRegistry: true,
     });
     assert.equal(budget.forbiddenModels.length, 0, `Forbidden models found: ${budget.forbiddenModels.join(', ')}`);

@@ -94,6 +94,9 @@ model Product {
   warrantyConfig  Json?
   catalogVersion  Int              @default(1)
   stock           Int              @default(0)
+  onHandStock     Int              @default(0)
+  reservedStock   Int              @default(0)
+  quarantinedStock Int             @default(0)
   stockVersion    Int              @default(0)
   weightGrams     Int?
   lengthCm        Int?
@@ -103,6 +106,7 @@ model Product {
   inventoryMode   InventoryMode    @default(BASE)
   orderItems      OrderItem[]
   variants        ProductVariant[]
+  inventoryMovements InventoryMovement[]
   reviews         Review[]
   wishlists       Wishlist[]
   benchmarks      BenchmarkMeasurement[]
@@ -132,6 +136,9 @@ model ProductVariant {
   size                  String?
   price                 BigInt
   stock                 Int         @default(0)
+  onHandStock           Int         @default(0)
+  reservedStock         Int         @default(0)
+  quarantinedStock      Int         @default(0)
   stockVersion          Int         @default(0)
   weightGrams           Int?
   lengthCm              Int?
@@ -146,6 +153,7 @@ model ProductVariant {
   serializationRequired Boolean     @default(false)
   isActive              Boolean     @default(true)
   orderItems            OrderItem[]
+  inventoryMovements    InventoryMovement[]
   benchmarks            BenchmarkMeasurement[]
   scoreSnapshots        ProductScoreSnapshot[]
   createdAt             DateTime    @default(now())
@@ -775,5 +783,51 @@ enum WalletTxType {
   REFUND
   PURCHASE_PAYMENT
   TOPUP
+}
+
+enum MovementKind {
+  OPENING_LEGACY
+  RESERVE
+  RELEASE
+  SHIP
+  RECEIVE
+  QUARANTINE
+  RESTOCK
+  ADJUST
+}
+
+model InventoryMovement {
+  id                  String          @id @default(cuid())
+  operationKey        String          @unique
+  payloadFingerprint  String?
+  productId           String
+  product             Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId           String?
+  variant             ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  kind                MovementKind
+  deltaOnHand         Int
+  deltaReserved       Int
+  deltaQuarantined    Int
+  beforeOnHand        Int
+  afterOnHand         Int
+  beforeReserved      Int
+  afterReserved       Int
+  beforeQuarantined   Int
+  afterQuarantined    Int
+  beforeAvailable     Int
+  afterAvailable      Int
+  beforeVersion       Int
+  afterVersion        Int
+  reason              String
+  actorId             String?
+  referenceType       String
+  referenceId         String
+  purchaseOrderItemId String?
+  createdAt           DateTime        @default(now())
+
+  @@index([productId, variantId])
+  @@index([referenceType, referenceId])
+  @@index([kind, createdAt])
+  @@index([createdAt])
 }
 
