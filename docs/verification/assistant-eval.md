@@ -1,6 +1,6 @@
 # Assistant Grounding & Safety Offline Evaluation Report
 
-**Generated At:** 2026-10-18T15:41:11.394Z
+**Generated At:** 2026-10-18T15:41:43.001Z
 **Total Test Cases:** 100 (Train: 50, Dev: 25, Held-Out: 25)
 **Execution Environment:** Isolated, network-free fake-provider evaluation
 

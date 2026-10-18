@@ -22,6 +22,7 @@
     "eval:commerce": "node --experimental-strip-types --import ./tests/register-alias.mjs scripts/eval-commerce-intelligence.ts",
     "eval:commerce:online": "node --experimental-strip-types --import ./tests/register-alias.mjs scripts/eval-commerce-intelligence.ts --online",
     "seed:demo": "node --experimental-strip-types --env-file=.env prisma/seed-demo-data.ts",
+    "seed:demo:electronics": "node --experimental-strip-types --env-file=.env prisma/seed-electronics-demo.ts",
     "seed:electronics": "node --experimental-strip-types --env-file=.env prisma/seed-electronics-catalog.ts"
   },
   "prisma": {

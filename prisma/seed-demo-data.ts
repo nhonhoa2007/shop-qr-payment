@@ -14,7 +14,6 @@
 import { PrismaClient } from '@prisma/client';
 import { hashPassword } from '../src/server/modules/auth/password-hash.service.ts';
 import { redis, invalidateAnalyticsCache } from '../src/server/infrastructure/redis.ts';
-import { seedElectronicsCatalog } from './seed-electronics-catalog.ts';
 
 const prisma = new PrismaClient();
 
