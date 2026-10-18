@@ -216,6 +216,7 @@ export interface ScoreSnapshotDto {
   support: number;
   coverage: number;
   status: string;
+  isGoodValue: boolean;
   rubricVersion: number;
   rubricSnapshot: UseCaseScoringConfig;
   breakdown: Record<string, unknown>;
@@ -225,3 +226,21 @@ export interface ScoreSnapshotDto {
   priceSnapshot: string; // MoneyVnd string
   publishedAt: string;
 }
+
+export interface RecomputeInput {
+  categoryId?: string;
+  productId?: string;
+  variantId?: string;
+  useCase?: string;
+  forceAll?: boolean;
+}
+
+export interface RecomputeReport {
+  totalProcessed: number;
+  publishedCount: number;
+  abstainedCount: number;
+  supersededCount: number;
+  goodValueCount: number;
+  errors: string[];
+}
+

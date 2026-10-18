@@ -19,7 +19,7 @@ This registry tracks all Prisma models across project milestones in accordance w
 
 ---
 
-## 2. Active Registry (M2 Intelligence — 26 Models)
+## 2. Active Registry (M2 Intelligence — 27 Models)
 
 <!-- REGISTRY_MODELS_START -->
 | # | Model | Status | Milestone | Role / Description |
@@ -50,6 +50,7 @@ This registry tracks all Prisma models across project milestones in accordance w
 | 24 | `Category` | ACTIVE | M1 | Category hierarchy with versioned spec/scoring/warranty schemas |
 | 25 | `DataSource` | ACTIVE | M1 | Unified provenance, licensing, and approved evidence payload |
 | 26 | `BenchmarkMeasurement` | ACTIVE | M2 | High-cardinality benchmark measurement with source/product/variant/metric |
+| 27 | `ProductScoreSnapshot` | ACTIVE | M2 | Immutable value-for-money score snapshot, rubric/evidence/breakdown JSON |
 <!-- REGISTRY_MODELS_END -->
 
 ---

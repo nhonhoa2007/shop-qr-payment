@@ -103,6 +103,7 @@ model Product {
   reviews         Review[]
   wishlists       Wishlist[]
   benchmarks      BenchmarkMeasurement[]
+  scoreSnapshots  ProductScoreSnapshot[]
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
@@ -143,6 +144,7 @@ model ProductVariant {
   isActive              Boolean     @default(true)
   orderItems            OrderItem[]
   benchmarks            BenchmarkMeasurement[]
+  scoreSnapshots        ProductScoreSnapshot[]
   createdAt             DateTime    @default(now())
   updatedAt             DateTime    @updatedAt
 
@@ -233,6 +235,36 @@ model BenchmarkMeasurement {
   @@unique([sourceId, productId, variantId, metric, version])
   @@index([productId, metric])
   @@index([sourceId])
+}
+
+model ProductScoreSnapshot {
+  id              String          @id @default(cuid())
+  productId       String
+  product         Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId       String?
+  variant         ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  useCase         String
+  finalScore      Float
+  priceEfficiency Float
+  experience      Float
+  support         Float
+  coverage        Float
+  status          String          @default("ACTIVE")
+  isGoodValue     Boolean         @default(false)
+  rubricVersion   Int             @default(1)
+  rubricSnapshot  Json
+  breakdown       Json
+  sourceRefs      Json
+  missingEvidence Json?
+  sourceSetHash   String
+  priceSnapshot   String
+  revisionKey     String          @unique
+  publishedAt     DateTime        @default(now())
+  createdAt       DateTime        @default(now())
+
+  @@index([productId, useCase, status])
+  @@index([isGoodValue, status])
+  @@index([publishedAt])
 }
 
 enum ProductKind {
