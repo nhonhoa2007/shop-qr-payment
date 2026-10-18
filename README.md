@@ -16,7 +16,9 @@ Dự án được xây dựng bằng **Next.js 16 (App Router)**, **React 19**, 
 5. [Tài khoản thử nghiệm (Seed data)](#5-tài-khoản-thử-nghiệm-seed-data)
 6. [Chạy kiểm thử (Unit Tests)](#6-chạy-kiểm-thử-unit-tests)
 7. [Cấu hình Webhook & Cron Job](#7-cấu-hình-webhook--cron-job)
-8. [Tài liệu Phân tích & Thiết kế Hệ thống](#8-tài-liệu-phân-tích--thiết-kế-hệ-thống)
+8. [Kiến trúc Compact Schema & Ngân sách Model Database](#8-kiến-trúc-compact-schema--ngân-sách-model-database)
+9. [Kịch bản Demo Báo cáo / Bảo vệ Đồ án Toàn diện](#9-kịch-bản-demo-báo-cáo--bảo-vệ-đồ-án-toàn-diện)
+10. [Tài liệu Phân tích & Thiết kế Hệ thống](#10-tài-liệu-phân-tích--thiết-kế-hệ-thống)
 
 ---
 
@@ -352,7 +354,72 @@ Các nhóm nội dung được kiểm thử:
 
 ---
 
-## 8. Tài liệu Phân tích & Thiết kế Hệ thống
+## 8. Kiến trúc Compact Schema & Ngân sách Model Database
+
+Hệ thống áp dụng triết lý thiết kế **Compact-Schema JSONB** với giới hạn bất biến **đúng 34 Prisma models** (Hard Cap 40 models, Target Ceiling 37 models) trong [prisma/schema.prisma](prisma/schema.prisma) nhằm tối ưu hiệu năng truy vấn, ngăn chặn sự bùng nổ quan hệ (EAV tables) và duy trì tính toàn vẹn tài chính.
+
+Chi tiết quản lý ngân sách và quyết định kiến trúc:
+- Danh bạ Model: [docs/architecture/prisma-model-registry.md](docs/architecture/prisma-model-registry.md)
+- Quyết định kiến trúc ADR: [docs/adr/2026-10-17-compact-prisma-model-budget.md](docs/adr/2026-10-17-compact-prisma-model-budget.md)
+- Kiểm tra tự động bằng lệnh:
+  ```bash
+  npm run schema:budget -- --expected=34 --lock-registry
+  ```
+
+### Mở rộng Danh mục Thiết bị Điện tử (40–60 Product Models)
+Hệ thống quản lý **40–60 product models** thiết bị điện tử (gồm 12 laptops, 12 smartphones, 26 phụ kiện & thiết bị ngoại vi) được phiên bản hóa và kiểm soát bản quyền qua file manifest [prisma/data/electronics-catalog.json](prisma/data/electronics-catalog.json) và schema [prisma/data/electronics-catalog.schema.json](prisma/data/electronics-catalog.schema.json).
+*Lưu ý cốt lõi:* 40–60 là số thực thể sản phẩm (Product records trong cơ sở dữ liệu), **không phải** là số bảng database hay models Prisma.
+
+Công cụ nạp dữ liệu manifest:
+```bash
+# Kiểm tra dry-run trước khi nạp:
+node --experimental-strip-types scripts/import-electronics-catalog.ts --dry-run
+
+# Nạp dữ liệu thật vào cơ sở dữ liệu:
+node --experimental-strip-types scripts/import-electronics-catalog.ts
+```
+
+### Công cụ Đối soát Độc lập (Reconciliation Tools)
+Các công cụ đối soát vận hành ở chế độ **read-only**, chỉ phát hiện sai lệch và xuất báo cáo, tuyệt đối không tự ý âm thầm sửa dữ liệu trong cơ sở dữ liệu:
+- **Đối soát kho & số Serial/IMEI**: `scripts/reconcile-inventory.ts`
+  ```bash
+  node --experimental-strip-types --import ./tests/register-alias.mjs scripts/reconcile-inventory.ts
+  ```
+- **Đối soát tiền, ví nội bộ & đơn hàng**: `scripts/reconcile-money.ts`
+  ```bash
+  node --experimental-strip-types --import ./tests/register-alias.mjs scripts/reconcile-money.ts
+  ```
+
+### Đánh giá Trợ lý AI An toàn (AI Grounding Evaluation)
+- Chạy đánh giá **Offline** mặc định (100 test cases, 0 chi phí, không gọi mạng ngoài):
+  - `npm run eval:assistant` (thực thi qua `scripts/eval-assistant.ts`)
+  - `npm run eval:commerce` (thực thi qua `scripts/eval-commerce-intelligence.ts`)
+- Chạy đánh giá **Online** (bắt buộc cờ explicit và ngân sách USD):
+  - `npm run eval:assistant:online -- --budget-usd=1.0`
+
+---
+
+## 9. Kịch bản Demo Báo cáo / Bảo vệ Đồ án Toàn diện
+
+Kịch bản 11 bước xuyên suốt từ trải nghiệm khách hàng đến vận hành quản trị và hậu mãi:
+1. **Lọc sản phẩm chuyên sâu:** Khách hàng lọc danh mục theo thương hiệu, ngân sách, dung lượng RAM/SSD và thông số kỹ thuật.
+2. **So sánh đối đầu:** Chọn 2 sản phẩm điện tử xem bảng so sánh thông số kỹ thuật trực quan.
+3. **Điểm Value-for-Money (P/P):** Đánh giá điểm hiệu năng trên giá thành kèm mức độ tin cậy và nguồn dữ liệu kiểm chứng.
+4. **Trợ lý Mua sắm AI có cơ sở (Grounded Assistant):** Hỏi tư vấn sản phẩm, trích dẫn chính xác nguồn dữ liệu và kiểm chứng phản hồi an toàn (Fallback) khi thiếu dữ kiện.
+5. **Động cơ kiểm tra tương thích (Compatibility Engine):** Kiểm tra khả năng kết nối và công suất sạc giữa điện thoại/laptop và phụ kiện sạc.
+6. **Đặt hàng & Thanh toán VietQR:** Khách hàng đặt hàng, quét mã VietQR tự động khớp tiền và cập nhật trạng thái đơn ngay lập tức qua WebSocket Pusher.
+7. **Quản trị Nhập hàng & Định danh Serial/IMEI:** Nhân viên quản trị tạo đơn mua hàng (PO), nhập kho qua sổ cái `InventoryMovement` và gán mã Serial/IMEI vật lý.
+8. **Quy trình Bảo hành (Warranty Lifecycle):** Khách hàng mở yêu cầu bảo hành từ đơn hàng đã hoàn tất; nhân viên tiếp nhận, kiểm tra và cập nhật timeline trạng thái.
+9. **Trả hàng một phần & Hoàn tiền (Partial Return & Refund):** Mở yêu cầu trả hàng, đưa sản phẩm vào kho cách ly (quarantine), kiểm tra và hoàn tiền tự động vào ví nội bộ qua `RefundCase`.
+10. **Nhật ký Kiểm toán Bất biến (`AdminAuditLog`):** Quản trị viên xem lịch sử các thao tác nhạy cảm với dữ liệu nhạy cảm được che giấu (redacted).
+11. **Kiểm tra Ngân sách Schema:** Chứng minh tính tinh gọn và kỷ luật kiến trúc bằng lệnh:
+    ```bash
+    npm run schema:budget -- --expected=34 --lock-registry
+    ```
+
+---
+
+## 10. Tài liệu Phân tích & Thiết kế Hệ thống
 
 Bộ tài liệu đầy đủ được đánh chỉ mục tại 👉 **[docs/README.md](./docs/README.md)**, gồm:
 
@@ -362,3 +429,7 @@ Bộ tài liệu đầy đủ được đánh chỉ mục tại 👉 **[docs/REA
 | **[docs/HE-THONG-CHUC-NANG.md](./docs/HE-THONG-CHUC-NANG.md)** | Cách hoạt động của 14+ luồng chức năng, đối chiếu trực tiếp với mã nguồn |
 | **[docs/uml/README.md](./docs/uml/README.md)** | Bộ 21 sơ đồ UML kiến trúc (use case, class, sequence, activity, state machine, deployment…) + [bảng xem trực tuyến](./docs/uml/index.html) |
 | **[docs/architecture/](./docs/architecture/)** | Bản thiết kế chi tiết từng đợt refactor/redesign + hướng dẫn cấu hình Cron |
+| **[docs/architecture/prisma-model-registry.md](./docs/architecture/prisma-model-registry.md)** | Danh bạ quản lý ngân sách 34 Prisma models |
+| **[docs/adr/2026-10-17-compact-prisma-model-budget.md](./docs/adr/2026-10-17-compact-prisma-model-budget.md)** | Quyết định kiến trúc ADR về Compact Schema |
+| **[docs/data/electronics-catalog-sources.md](./docs/data/electronics-catalog-sources.md)** | Nguồn gốc và bản quyền dữ liệu danh mục điện tử |
+| **[docs/verification/2026-10-17-release-candidate.md](./docs/verification/2026-10-17-release-candidate.md)** | Biên bản nghiệm thu Release Candidate |

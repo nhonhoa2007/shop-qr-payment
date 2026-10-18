@@ -13,13 +13,13 @@ sequenceDiagram
     API->>DB: BEGIN TRANSACTION
     API->>DB: reserveOrderStock (CAS stock >= qty, trừ variant + đồng bộ gốc)
     API->>DB: Tạo Order (DHyyMMddxxx, expiresAt +15 phút, qrContent)
-    API->>DB: coupon.usedCount++ + couponUsage (nếu đăng nhập)
+    API->>DB: coupon.usedCount++ (nếu đăng nhập)
     API->>DB: COMMIT — lỗi 1 bước là ROLLBACK toàn bộ
     API-->>KH: QR VietQR + mã đơn + hạn 15 phút
     KH->>BANK: Quét QR chuyển khoản đúng số tiền
     BANK->>API: POST /api/webhooks/payment (secure-token)
     API->>API: 8 cổng chặn parser (dup/sai tiền/trả thiếu/hết hạn...)
-    API->>DB: PAID + CONFIRMED + Transaction(verified) — idempotent
+    API->>DB: PAID + CONFIRMED + BankTransfer(APPLIED_ORDER) — idempotent
     API-->>KH: Pusher payment-success → màn hình Đã thanh toán ngay
     API-->>AD: Thông báo + analytics-updated
     AD->>API: PATCH → PROCESSING

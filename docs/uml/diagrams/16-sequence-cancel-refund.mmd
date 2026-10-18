@@ -18,6 +18,6 @@ sequenceDiagram
         Note over DB: Guest chưa đăng nhập → isGuest true,<br/>xử lý hoàn ngoài hệ thống
     else Chưa PAID
         API->>DB: releaseOrderStock (hoàn variant + gốc)
-        API->>DB: coupon.usedCount giảm + xóa couponUsage của đơn
+        API->>DB: coupon.usedCount giảm
     end
     API-->>U: Thông báo hủy + hoàn tiền · Pusher order-status-changed / wallet-updated

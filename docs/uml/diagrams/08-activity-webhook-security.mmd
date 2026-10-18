@@ -17,7 +17,7 @@ flowchart TD
     %% Nhánh 1: Nạp tiền Ví
     CheckType -- Khớp NAPxxxxx --> QueryTopup[Truy vấn Phiên Nạp tiền Ví]
     QueryTopup --> CheckTopupExists{Tìm thấy phiên nạp ví?}
-    CheckTopupExists -- Không --> LogUnmatched[Lưu Transaction: verified=false, UNMATCHED] --> Resp200[Trả về 200 OK để Ngân hàng không retry]
+    CheckTopupExists -- Không --> LogUnmatched[Lưu BankTransfer: status=PENDING, UNMATCHED] --> Resp200[Trả về 200 OK để Ngân hàng không retry]
 
     CheckTopupExists -- Có --> CheckTopupIdempotency{bankTransId đã xử lý trước đó?}
     CheckTopupIdempotency -- Đã xử lý (Replay) --> SkipDupTopup[Bỏ qua nạp trùng: Trả về thành công Idempotent] --> Resp200
@@ -36,7 +36,7 @@ flowchart TD
     CheckOrderStatus -- Đã PAID / CANCELLED / EXPIRED --> LogLateTx[Ghi nhận giao dịch kèm cảnh báo Admin xử lý thủ công] --> Resp200
 
     CheckOrderStatus -- PENDING (Chờ tiền) --> CompareAmount{Số tiền nhận >= Tổng tiền đơn?}
-    CompareAmount -- Thiếu tiền --> UnderpaidAlert[Lưu Transaction: Cảnh báo Khách chuyển thiếu tiền] --> Resp200
+    CompareAmount -- Thiếu tiền --> UnderpaidAlert[Lưu BankTransfer: Cảnh báo Khách chuyển thiếu tiền] --> Resp200
 
     CompareAmount -- Đủ hoặc Thừa tiền --> AtomicUpdateOrder[Cập nhật Order: status=CONFIRMED, paymentStatus=PAID]
     AtomicUpdateOrder --> PushGHN[Tự động gọi GHN OpenAPI sinh Vận đơn Giao hàng]
