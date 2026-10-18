@@ -19,7 +19,7 @@ This registry tracks all Prisma models across project milestones in accordance w
 
 ---
 
-## 2. Active Registry (M0 Baseline — 22 Models)
+## 2. Active Registry (M1 Catalog — 25 Models)
 
 <!-- REGISTRY_MODELS_START -->
 | # | Model | Status | Milestone | Role / Description |
@@ -46,6 +46,9 @@ This registry tracks all Prisma models across project milestones in accordance w
 | 20 | `Shipment` | ACTIVE | M0 | GHN shipping waybills and delivery lifecycle |
 | 21 | `UserWallet` | ACTIVE | M0 | Internal customer wallet balance projection |
 | 22 | `WalletTransaction` | ACTIVE | M0 | Internal customer wallet double-entry ledger |
+| 23 | `Brand` | ACTIVE | M1 | Electronics brand / manufacturer |
+| 24 | `Category` | ACTIVE | M1 | Category hierarchy with versioned spec/scoring/warranty schemas |
+| 25 | `DataSource` | ACTIVE | M1 | Unified provenance, licensing, and approved evidence payload |
 <!-- REGISTRY_MODELS_END -->
 
 ---

@@ -28,6 +28,7 @@ model User {
   wallet        UserWallet?
   staffPermissions   StaffPermission[]     @relation("UserPermissions")
   grantedPermissions StaffPermission[]     @relation("GrantedPermissions")
+  reviewedDataSources DataSource[]
   createdAt     DateTime              @default(now())
   updatedAt     DateTime              @updatedAt
 }
@@ -71,28 +72,43 @@ enum OtpType {
 }
 
 model Product {
-  id          String           @id @default(cuid())
-  name        String
-  description String?
-  price       BigInt
-  image       String?
-  category    String?
-  stock         Int              @default(0)
-  stockVersion  Int              @default(0)
-  weightGrams   Int?
-  lengthCm      Int?
-  widthCm       Int?
-  heightCm      Int?
-  isActive      Boolean          @default(true)
-  inventoryMode InventoryMode    @default(BASE)
-  orderItems    OrderItem[]
-  variants      ProductVariant[]
-  reviews       Review[]
-  wishlists     Wishlist[]
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  id              String           @id @default(cuid())
+  name            String
+  description     String?
+  price           BigInt
+  image           String?
+  category        String?
+  brandId         String?
+  brand           Brand?           @relation(fields: [brandId], references: [id])
+  categoryId      String?
+  categoryRef     Category?        @relation(fields: [categoryId], references: [id])
+  kind            ProductKind      @default(LEGACY)
+  segment         ProductSegment?
+  isLegacy        Boolean          @default(false)
+  specs           Json?
+  images          Json?
+  editorialTags   Json?
+  warrantyConfig  Json?
+  catalogVersion  Int              @default(1)
+  stock           Int              @default(0)
+  stockVersion    Int              @default(0)
+  weightGrams     Int?
+  lengthCm        Int?
+  widthCm         Int?
+  heightCm        Int?
+  isActive        Boolean          @default(true)
+  inventoryMode   InventoryMode    @default(BASE)
+  orderItems      OrderItem[]
+  variants        ProductVariant[]
+  reviews         Review[]
+  wishlists       Wishlist[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   @@index([isActive, category])
+  @@index([categoryId, isActive])
+  @@index([brandId, isActive])
+  @@index([kind, segment, isActive])
   @@index([createdAt])
 }
 
@@ -102,27 +118,127 @@ enum InventoryMode {
 }
 
 model ProductVariant {
-  id           String      @id @default(cuid())
-  productId    String
-  product      Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
-  sku          String      @unique
-  title        String
-  color        String?
-  size         String?
-  price        BigInt
-  stock        Int         @default(0)
-  stockVersion Int         @default(0)
-  weightGrams  Int?
-  lengthCm     Int?
-  widthCm      Int?
-  heightCm     Int?
-  image        String?
-  isActive     Boolean     @default(true)
-  orderItems   OrderItem[]
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  id                    String      @id @default(cuid())
+  productId             String
+  product               Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sku                   String      @unique
+  title                 String
+  color                 String?
+  size                  String?
+  price                 BigInt
+  stock                 Int         @default(0)
+  stockVersion          Int         @default(0)
+  weightGrams           Int?
+  lengthCm              Int?
+  widthCm               Int?
+  heightCm              Int?
+  image                 String?
+  optionValues          Json?
+  optionHash            String?
+  specOverrides         Json?
+  images                Json?
+  warrantyConfig        Json?
+  serializationRequired Boolean     @default(false)
+  isActive              Boolean     @default(true)
+  orderItems            OrderItem[]
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
 
+  @@unique([productId, optionHash])
   @@index([productId])
+  @@index([productId, isActive])
+}
+
+model Brand {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  logoUrl     String?
+  country     String?
+  websiteUrl  String?
+  isActive    Boolean   @default(true)
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([isActive])
+}
+
+model Category {
+  id                String      @id @default(cuid())
+  name              String
+  slug              String      @unique
+  kind              ProductKind @default(LEGACY)
+  parentId          String?
+  parent            Category?   @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children          Category[]  @relation("CategoryHierarchy")
+  specSchema        Json
+  specSchemaVersion Int         @default(1)
+  scoringConfig     Json?
+  warrantyConfig    Json?
+  isActive          Boolean     @default(true)
+  products          Product[]
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@index([parentId])
+  @@index([kind, isActive])
+}
+
+model DataSource {
+  id              String         @id @default(cuid())
+  name            String
+  sourceType      DataSourceType
+  status          SourceStatus   @default(DISCOVERED)
+  publisher       String
+  url             String?
+  license         String?
+  market          String?
+  version         String?
+  checksum        String?
+  isSynthetic     Boolean        @default(false)
+  reviewerId      String?
+  reviewer        User?          @relation(fields: [reviewerId], references: [id])
+  reviewedAt      DateTime?
+  rejectionReason String?
+  payload         Json?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([sourceType, status])
+  @@index([status])
+}
+
+enum ProductKind {
+  LAPTOP
+  PHONE
+  ACCESSORY
+  LEGACY
+}
+
+enum ProductSegment {
+  BUDGET
+  MID_RANGE
+  PREMIUM
+  FLAGSHIP
+}
+
+enum SourceStatus {
+  DISCOVERED
+  LICENSE_REVIEW
+  MAPPING_REVIEW
+  APPROVED
+  ACTIVE
+  REJECTED
+  REVOKED
+}
+
+enum DataSourceType {
+  CATALOG
+  REVIEW_AGGREGATE
+  BENCHMARK
+  COMPATIBILITY
+  MANUFACTURER
 }
 
 model StockAdjustment {
