@@ -867,3 +867,29 @@ export function canonicalJsonHash(input: unknown): string {
   const canonicalString = canonicalJsonStringify(input);
   return sha256Pure(canonicalString);
 }
+
+/**
+ * Computes deterministic SHA-256 hash for variant option items.
+ */
+export function computeVariantOptionHash(
+  options: Array<{ code: string; value: unknown; unit?: string | null }> | Record<string, unknown>
+): string {
+  const items: Array<{ code: string; value: unknown; unit?: string | null }> = [];
+  if (Array.isArray(options)) {
+    for (const opt of options) {
+      if (opt && typeof opt === 'object' && opt.code) {
+        items.push({
+          code: opt.code,
+          value: opt.value,
+          ...(opt.unit ? { unit: opt.unit } : {}),
+        });
+      }
+    }
+  } else if (options && typeof options === 'object') {
+    for (const [code, val] of Object.entries(options)) {
+      items.push({ code, value: val });
+    }
+  }
+  items.sort((a, b) => a.code.localeCompare(b.code));
+  return canonicalJsonHash(items);
+}

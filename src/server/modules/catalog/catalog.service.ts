@@ -189,55 +189,77 @@ export class CatalogService {
         return cachedFallback;
       }
 
-      const product = await prisma.product.findUnique({
-        where: { id },
-        include: {
-          brand: {
-            select: { id: true, name: true, slug: true },
-          },
-          categoryRef: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-              kind: true,
-              specSchema: true,
-              specSchemaVersion: true,
+      const [product, activeSources] = await Promise.all([
+        prisma.product.findUnique({
+          where: { id },
+          include: {
+            brand: {
+              select: { id: true, name: true, slug: true },
+            },
+            categoryRef: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                kind: true,
+                specSchema: true,
+                specSchemaVersion: true,
+              },
+            },
+            variants: {
+              where: { isActive: true },
+              orderBy: { createdAt: 'asc' },
+            },
+            reviews: {
+              where: { isApproved: true },
+              select: { rating: true },
             },
           },
-          variants: {
-            where: { isActive: true },
-            orderBy: { createdAt: 'asc' },
+        }),
+        prisma.dataSource.findMany({
+          where: { status: 'ACTIVE' },
+          select: {
+            id: true,
+            sourceType: true,
+            status: true,
+            publisher: true,
+            url: true,
+            license: true,
+            version: true,
+            isSynthetic: true,
+            checksum: true,
+            payload: true,
           },
-          dataSources: {
-            where: { status: 'ACTIVE' },
-            select: {
-              id: true,
-              sourceType: true,
-              status: true,
-              publisher: true,
-              url: true,
-              licenseDecision: true,
-              version: true,
-              isSynthetic: true,
-              checksum: true,
-            },
-          },
-          reviews: {
-            where: { isApproved: true },
-            select: { rating: true },
-          },
-        },
-      });
+        }),
+      ]);
 
       if (!product || !product.isActive) {
         return null;
       }
 
+      const productSources = activeSources
+        .filter((s) => {
+          if (!s.payload || typeof s.payload !== 'object') return false;
+          const mapping = (s.payload as Record<string, unknown>).mapping;
+          if (!mapping || typeof mapping !== 'object') return false;
+          return (mapping as Record<string, unknown>).productId === product.id;
+        })
+        .map((s) => ({
+          id: s.id,
+          sourceType: s.sourceType,
+          status: s.status,
+          publisher: s.publisher,
+          url: s.url || '',
+          licenseDecision: s.license || undefined,
+          version: s.version || undefined,
+          isSynthetic: s.isSynthetic,
+          checksum: s.checksum || undefined,
+        }));
+
       const cacheKey = buildProductDetailCacheKey(product.id, {
         catalogVersion: product.catalogVersion,
         categorySchemaVersion: product.categoryRef?.specSchemaVersion,
-        sourceRevision: product.dataSources?.[0]?.version || 'v1',
+        sourceRevision: productSources[0]?.version || 'v1',
       });
 
       const cachedRevision = await redis.get<Product>(cacheKey);
@@ -245,9 +267,12 @@ export class CatalogService {
         return cachedRevision;
       }
 
-      const detailDto = mapToProductDetailDto(product as unknown as Record<string, unknown>, {
-        categorySchema: product.categoryRef?.specSchema as CategorySpecSchema | null,
-      });
+      const detailDto = mapToProductDetailDto(
+        { ...product, dataSources: productSources } as unknown as Record<string, unknown>,
+        {
+          categorySchema: product.categoryRef?.specSchema as CategorySpecSchema | null,
+        }
+      );
 
       const result: Product = {
         id: product.id,

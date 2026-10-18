@@ -400,20 +400,6 @@ export async function getProductDetailDto(
           where: { isActive: true },
           orderBy: { createdAt: 'asc' },
         },
-        dataSources: {
-          where: { status: 'ACTIVE' },
-          select: {
-            id: true,
-            sourceType: true,
-            status: true,
-            publisher: true,
-            url: true,
-            licenseDecision: true,
-            version: true,
-            isSynthetic: true,
-            checksum: true,
-          },
-        },
         reviews: {
           where: { isApproved: true },
           select: { rating: true },
@@ -425,10 +411,45 @@ export async function getProductDetailDto(
       return null;
     }
 
+    const activeSources = await db.dataSource.findMany({
+      where: { status: 'ACTIVE' },
+      select: {
+        id: true,
+        sourceType: true,
+        status: true,
+        publisher: true,
+        url: true,
+        license: true,
+        version: true,
+        isSynthetic: true,
+        checksum: true,
+        payload: true,
+      },
+    });
+
+    const productSources = activeSources
+      .filter((s) => {
+        if (!s.payload || typeof s.payload !== 'object') return false;
+        const mapping = (s.payload as Record<string, unknown>).mapping;
+        if (!mapping || typeof mapping !== 'object') return false;
+        return (mapping as Record<string, unknown>).productId === raw.id;
+      })
+      .map((s) => ({
+        id: s.id,
+        sourceType: s.sourceType,
+        status: s.status,
+        publisher: s.publisher,
+        url: s.url || '',
+        licenseDecision: s.license || undefined,
+        version: s.version || undefined,
+        isSynthetic: s.isSynthetic,
+        checksum: s.checksum || undefined,
+      }));
+
     const cacheKey = buildProductDetailCacheKey(raw.id, {
       catalogVersion: raw.catalogVersion,
       categorySchemaVersion: raw.categoryRef?.specSchemaVersion,
-      sourceRevision: raw.dataSources?.[0]?.version || 'v1',
+      sourceRevision: productSources[0]?.version || 'v1',
     });
 
     const cached = await redis.get<ProductDetailDto>(cacheKey);
@@ -436,9 +457,12 @@ export async function getProductDetailDto(
       return cached;
     }
 
-    const dto = mapToProductDetailDto(raw as unknown as Record<string, unknown>, {
-      categorySchema: raw.categoryRef?.specSchema as CategorySpecSchema | null,
-    });
+    const dto = mapToProductDetailDto(
+      { ...raw, dataSources: productSources } as unknown as Record<string, unknown>,
+      {
+        categorySchema: raw.categoryRef?.specSchema as CategorySpecSchema | null,
+      }
+    );
 
     await redis.set(cacheKey, dto, { ex: 120 });
     return dto;

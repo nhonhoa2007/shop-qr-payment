@@ -39,6 +39,15 @@ const UNIT_FAMILIES: Record<string, Record<string, number>> = {
     MHz: 1_000_000,
     GHz: 1_000_000_000,
   },
+  electric_charge: {
+    mah: 1,
+    ah: 1000,
+  },
+  energy: {
+    mwh: 1,
+    wh: 1000,
+    kwh: 1_000_000,
+  },
 };
 
 const CANONICAL_UNITS: Record<string, string> = {
@@ -47,6 +56,8 @@ const CANONICAL_UNITS: Record<string, string> = {
   mass: 'g',
   power: 'W',
   frequency: 'Hz',
+  electric_charge: 'mAh',
+  energy: 'Wh',
 };
 
 // Map each normalized unit string to its family and canonical info
@@ -87,6 +98,9 @@ export function getCanonicalUnit(unit: string): string {
  * Checks whether two units are compatible for conversion.
  */
 export function areUnitsCompatible(unitA: string, unitB: string): boolean {
+  if (typeof unitA === 'string' && typeof unitB === 'string') {
+    if (unitA.trim().toLowerCase() === unitB.trim().toLowerCase()) return true;
+  }
   const resA = resolveUnit(unitA);
   const resB = resolveUnit(unitB);
   if (!resA || !resB) return false;
@@ -100,6 +114,12 @@ export function areUnitsCompatible(unitA: string, unitB: string): boolean {
 export function convertMeasurement(value: number, fromUnit: string, toUnit: string): number {
   if (!isFiniteNumber(value)) {
     throw new Error(`Measurement value must be a finite number: received ${value}`);
+  }
+
+  if (typeof fromUnit === 'string' && typeof toUnit === 'string') {
+    if (fromUnit.trim().toLowerCase() === toUnit.trim().toLowerCase()) {
+      return value;
+    }
   }
 
   const resFrom = resolveUnit(fromUnit);

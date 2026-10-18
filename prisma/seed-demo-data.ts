@@ -14,6 +14,7 @@
 import { PrismaClient } from '@prisma/client';
 import { hashPassword } from '../src/server/modules/auth/password-hash.service.ts';
 import { redis, invalidateAnalyticsCache } from '../src/server/infrastructure/redis.ts';
+import { seedElectronicsCatalog } from './seed-electronics-catalog.ts';
 
 const prisma = new PrismaClient();
 
@@ -144,6 +145,10 @@ async function main() {
     });
     createdProducts++;
   }
+
+  // ═══ 2b. SEED COMPACT ELECTRONICS CATALOG (10 sản phẩm chuẩn spec DACS2) ═══
+  await seedElectronicsCatalog(prisma);
+
   const allProducts = await prisma.product.findMany({
     where: { isActive: true },
     include: { variants: { where: { isActive: true } } },
