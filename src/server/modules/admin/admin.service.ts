@@ -461,10 +461,10 @@ export class AdminService {
 
     const periodRevenue = recentPaidOrdersMapped.reduce((sum, o) => sum + o.totalAmount, 0);
     const paidOrdersForDistributionMapped = paidOrdersForDistribution.map((o) => ({
-      ...o,
-      shipment: o.shipment ? { ...o.shipment, codAmount: Number(o.shipment.codAmount) } : null,
+      transaction: o.transaction,
+      shipment: o.shipment ? { codAmount: Number(o.shipment.codAmount) } : null,
     }));
-    const paymentMethodDistribution = calculatePaymentMethodDistribution(paidOrdersForDistributionMapped as any);
+    const paymentMethodDistribution = calculatePaymentMethodDistribution(paidOrdersForDistributionMapped);
     const urgentActions = buildUrgentActions({
       unmatchedTransactionsCount,
       criticalStockCount,

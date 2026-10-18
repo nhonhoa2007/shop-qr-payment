@@ -53,7 +53,11 @@ export function bigIntJsonReplacer(_key: string, value: unknown): unknown {
   return value;
 }
 
-export function serializeProductDto<T extends { price: any; variants?: any[] }>(
+export type MoneyValue = bigint | number | string;
+
+export function serializeProductDto<
+  T extends { price: MoneyValue; variants?: Array<{ price: MoneyValue }> }
+>(
   product: T
 ): T & { price: MoneyVnd } {
   return {
@@ -72,13 +76,16 @@ export function serializeProductDto<T extends { price: any; variants?: any[] }>(
 
 export function serializeOrderDto<
   T extends {
-    subtotal?: any;
-    shippingFee?: any;
-    discountAmount?: any;
-    totalAmount: any;
-    items?: any[];
+    subtotal?: MoneyValue | null;
+    shippingFee?: MoneyValue | null;
+    discountAmount?: MoneyValue | null;
+    totalAmount: MoneyValue;
+    items?: Array<{
+      price: MoneyValue;
+      product?: { price: MoneyValue; variants?: Array<{ price: MoneyValue }> };
+    }>;
   }
->(order: T): any {
+>(order: T) {
   return {
     ...order,
     subtotal:
@@ -120,9 +127,9 @@ export function serializeOrderDto<
   };
 }
 
-export function serializeWalletDto<T extends { balance: any; transactions?: any[] }>(
-  wallet: T
-): any {
+export function serializeWalletDto<
+  T extends { balance: MoneyValue; transactions?: Array<{ amount: MoneyValue }> }
+>(wallet: T) {
   return {
     ...wallet,
     balance: serializeMoneyVnd(
@@ -140,7 +147,7 @@ export function serializeWalletDto<T extends { balance: any; transactions?: any[
   };
 }
 
-export function serializeBankTransferDto<T extends { amount: any }>(transfer: T): any {
+export function serializeBankTransferDto<T extends { amount: MoneyValue }>(transfer: T) {
   return {
     ...transfer,
     amount: serializeMoneyVnd(

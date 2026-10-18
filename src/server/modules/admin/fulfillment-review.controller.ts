@@ -87,20 +87,32 @@ export function validateManualFulfillmentInput(raw: unknown): {
 
 export async function resolveManualFulfillment(
   input: ResolveFulfillmentReviewInput,
-  reviewerId: string
+  reviewerId: string,
+  db: typeof prisma = prisma
 ) {
-  return await prisma.$transaction(async (tx) => {
+  return await db.$transaction(async (tx) => {
+    // 1. Khóa trạng thái đơn hàng nguyên tử qua CAS claim
+    const claimed = await tx.order.updateMany({
+      where: {
+        id: input.orderId,
+        fulfillmentState: 'REVIEW',
+      },
+      data: {
+        fulfillmentState: 'REQUESTING',
+      },
+    });
+
+    if (claimed.count !== 1) {
+      return {
+        success: false,
+        error: 'Đơn hàng không ở trạng thái chờ kiểm tra fulfillment (REVIEW) hoặc đang được xử lý đồng thời',
+      };
+    }
+
     const order = await tx.order.findUniqueOrThrow({
       where: { id: input.orderId },
       include: { shipment: true, items: true },
     });
-
-    if (order.fulfillmentState !== 'REVIEW') {
-      return {
-        success: false,
-        error: 'Đơn hàng không ở trạng thái chờ kiểm tra fulfillment (REVIEW)',
-      };
-    }
 
     if (input.outcome === 'CANCEL_AND_REFUND') {
       const refundResult = await refundOrderToWallet(
@@ -135,6 +147,13 @@ export async function resolveManualFulfillment(
     }
 
     // EXTERNAL_SHIPMENT
+    if (order.shipment) {
+      return {
+        success: false,
+        error: 'Đơn hàng đã có thông tin vận đơn',
+      };
+    }
+
     const carrier = input.carrier || 'VIETTEL_POST';
     const trackingCode = input.trackingReference!;
 

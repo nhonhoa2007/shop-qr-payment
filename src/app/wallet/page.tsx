@@ -27,7 +27,7 @@ export default async function WalletPage() {
     balance: wallet.balance,
     createdAt: new Date().toISOString(),
     updatedAt: typeof wallet.updatedAt === 'string' ? wallet.updatedAt : wallet.updatedAt.toISOString(),
-    transactions: (wallet.transactions || []).map((t: any) => ({
+    transactions: (wallet.transactions || []).map((t) => ({
       id: t.id,
       walletId: t.walletId,
       amount: t.amount,

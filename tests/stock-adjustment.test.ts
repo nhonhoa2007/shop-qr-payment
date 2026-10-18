@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import {
   adjustStock,
   validateAdjustmentInput,
-  type AdjustStockInput,
 } from '@server/modules/inventory/stock-adjustment.service';
 import type { PrismaClient } from '@prisma/client';
 

@@ -4,9 +4,8 @@ import {
   serializeProductDto,
   serializeOrderDto,
   serializeWalletDto,
-  serializeBankTransferDto,
 } from '@server/modules/money/money-serialization';
-import { parseMoneyVnd, serializeMoneyVnd } from '@shared/utils/money';
+import { parseMoneyVnd } from '@shared/utils/money';
 
 test('serializeProductDto converts BigInt prices to MoneyVnd decimal strings', () => {
   const rawProduct = {
@@ -38,7 +37,7 @@ test('serializeProductDto converts BigInt prices to MoneyVnd decimal strings', (
     ],
   };
 
-  const dto = serializeProductDto(rawProduct as any);
+  const dto = serializeProductDto(rawProduct);
   assert.equal(typeof dto.price, 'string');
   assert.equal(dto.price, '35000000');
   assert.equal(typeof dto.variants?.[0].price, 'string');
@@ -83,7 +82,7 @@ test('serializeOrderDto converts monetary fields to MoneyVnd decimal strings', (
     ],
   };
 
-  const dto = serializeOrderDto(rawOrder as any);
+  const dto = serializeOrderDto(rawOrder);
   assert.equal(typeof dto.subtotal, 'string');
   assert.equal(dto.subtotal, '50000000');
   assert.equal(typeof dto.shippingFee, 'string');
@@ -116,7 +115,7 @@ test('serializeWalletDto converts balance and transactions to MoneyVnd decimal s
     ],
   };
 
-  const dto = serializeWalletDto(rawWallet as any);
+  const dto = serializeWalletDto(rawWallet);
   assert.equal(typeof dto.balance, 'string');
   assert.equal(dto.balance, '100000000');
   assert.equal(typeof dto.transactions?.[0].amount, 'string');

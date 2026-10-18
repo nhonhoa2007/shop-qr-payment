@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { prisma } from '@server/database/prisma';
@@ -7,8 +8,8 @@ import { createNotification } from '@server/modules/notifications/notifications.
 import { authOptions } from '@server/modules/auth/auth-options';
 import { expireUnpaidOrders, reserveOrderStock } from '@server/modules/inventory/inventory.service';
 import { normalizeEmail } from '@server/modules/auth/otp.service';
-import { validateCoupon } from '@server/modules/admin/coupon.service';
-import { calculateDiscount, calculateDiscountBigInt } from '@shared/utils/checkout';
+import { validateCoupon, type CouponValidationResult } from '@server/modules/admin/coupon.service';
+import { calculateDiscountBigInt } from '@shared/utils/checkout';
 import { checkDistributedRateLimit, getClientIp } from '@server/infrastructure/rate-limit';
 import { pusherServer } from '@server/infrastructure/pusher';
 import { resolveOperatorAccess } from '@server/modules/admin/guards';
@@ -97,23 +98,23 @@ export async function POST(req: Request) {
     }
 
     // Handle Coupon discount
-    let couponRecord: { id: string; code: string; discountType: string; discountValue: number; fixedDiscountAmount?: bigint | null; percentageRate?: number | null; maxDiscount: bigint | number | null; minOrderAmount: bigint | number; perUserLimit: number } | null = null;
+    let couponRecord: NonNullable<CouponValidationResult['coupon']> | null = null;
     let discountAmountBigInt = 0n;
 
     if (couponCodeInput) {
       const couponValidation = await validateCoupon(
         couponCodeInput,
         session?.user?.id || null,
-        Number(validatedSubtotalBigInt)
+        validatedSubtotalBigInt
       );
 
       if (!couponValidation.valid || !couponValidation.coupon) {
         return NextResponse.json({ error: couponValidation.error || 'Mã giảm giá không hợp lệ' }, { status: 400 });
       }
 
-      couponRecord = couponValidation.coupon as any;
+      couponRecord = couponValidation.coupon;
       discountAmountBigInt = calculateDiscountBigInt(
-        couponRecord!,
+        couponRecord,
         validatedSubtotalBigInt,
         validatedShippingFeeBigInt
       );
@@ -153,7 +154,7 @@ export async function POST(req: Request) {
           couponId: couponRecord?.id || null,
           couponCode: couponRecord?.code || null,
           totalAmount: finalTotalAmount,
-          packingSnapshot: (validated.packingSnapshot as any) || null,
+          packingSnapshot: (validated.packingSnapshot as unknown as Prisma.InputJsonValue) ?? undefined,
           packingRevision: validated.packingRevision || null,
           qrContent: qrUrl,
           note: note || null,

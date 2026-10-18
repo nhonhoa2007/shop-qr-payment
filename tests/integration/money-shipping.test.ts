@@ -33,7 +33,11 @@ test('GHN quote uses the validated cart and destination, not a client subtotal',
 test('GHN timeout in production returns an uncertain error without a mock tracking code', async () => {
   const priorEnv = process.env.NODE_ENV;
   const priorFetch = globalThis.fetch;
+  const priorToken = process.env.GHN_TOKEN;
+  const priorShopId = process.env.GHN_SHOP_ID;
   process.env.NODE_ENV = 'production';
+  process.env.GHN_TOKEN = 'mock-ghn-token';
+  process.env.GHN_SHOP_ID = 'mock-shop-id';
   globalThis.fetch = async () => { throw new Error('timeout'); };
   try {
     const { createGHNShipment, GHNShipmentError } = await import('@server/modules/shipping/ghn.service');
@@ -42,6 +46,10 @@ test('GHN timeout in production returns an uncertain error without a mock tracki
     globalThis.fetch = priorFetch;
     if (priorEnv === undefined) delete process.env.NODE_ENV;
     else process.env.NODE_ENV = priorEnv;
+    if (priorToken === undefined) delete process.env.GHN_TOKEN;
+    else process.env.GHN_TOKEN = priorToken;
+    if (priorShopId === undefined) delete process.env.GHN_SHOP_ID;
+    else process.env.GHN_SHOP_ID = priorShopId;
   }
 });
 
@@ -145,7 +153,7 @@ test('BigInt monetary columns support values above Int32 with exact serializatio
 
   try {
     const product = await db.product.create({
-      data: { name: `high-value-${tag}`, price: highValue as any, stock: 1 },
+      data: { name: `high-value-${tag}`, price: highValue, stock: 1 },
     });
     created.productId = product.id;
 
@@ -155,8 +163,8 @@ test('BigInt monetary columns support values above Int32 with exact serializatio
         customerName: 'High Value Buyer',
         customerPhone: '0900000000',
         customerAddress: 'Test Address',
-        subtotal: highValue as any,
-        totalAmount: highValue as any,
+        subtotal: highValue,
+        totalAmount: highValue,
         expiresAt: new Date(Date.now() + 86_400_000),
       },
     });
@@ -173,7 +181,7 @@ test('BigInt monetary columns support values above Int32 with exact serializatio
     const wallet = await db.userWallet.create({
       data: {
         userId: user.id,
-        balance: highValue as any,
+        balance: highValue,
       },
     });
     created.walletId = wallet.id;
@@ -205,7 +213,7 @@ test('concurrent wallet payments on same order debit once and result in exactly 
     data: { email: `wallet-concurrent-${tag}@example.com`, passwordHash: 'dummy' },
   });
   const wallet = await db.userWallet.create({
-    data: { userId: user.id, balance: 300_000n as any },
+    data: { userId: user.id, balance: 300_000n },
   });
   const order = await db.order.create({
     data: {
@@ -214,8 +222,8 @@ test('concurrent wallet payments on same order debit once and result in exactly 
       customerName: 'Concurrent Buyer',
       customerPhone: '0900000000',
       customerAddress: 'Test Address',
-      subtotal: payAmount as any,
-      totalAmount: payAmount as any,
+      subtotal: payAmount,
+      totalAmount: payAmount,
       status: 'PENDING',
       paymentStatus: 'UNPAID',
       expiresAt: new Date(Date.now() + 60_000),
@@ -233,7 +241,8 @@ test('concurrent wallet payments on same order debit once and result in exactly 
     const [res1, res2] = await Promise.allSettled([runPayment(), runPayment()]);
 
     const successes = [res1, res2].filter(
-      (r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled' && r.value.success === true
+      (r): r is PromiseFulfilledResult<{ success: boolean }> =>
+        r.status === 'fulfilled' && (r.value as { success?: boolean }).success === true
     );
     assert.equal(successes.length, 1);
 
@@ -260,10 +269,10 @@ test('reservation and versioned stock adjustment preserve exact balance without 
   const product = await db.product.create({
     data: {
       name: `stock-adjust-${tag}`,
-      price: 100_000n as any,
+      price: 100_000n,
       stock: initialStock,
       stockVersion: 0,
-      inventoryMode: 'BASE' as any,
+      inventoryMode: 'BASE',
       isActive: true,
     },
   });

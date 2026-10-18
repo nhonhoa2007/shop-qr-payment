@@ -12,6 +12,7 @@ export interface CouponValidationResult {
     percentageRate?: number | null;
     maxDiscount: number | bigint | null;
     minOrderAmount: number | bigint;
+    perUserLimit: number;
   };
 }
 
@@ -21,7 +22,7 @@ export interface CouponValidationResult {
 export async function validateCoupon(
   code: string,
   userId: string | null,
-  subtotal: number
+  subtotal: number | bigint
 ): Promise<CouponValidationResult> {
   const coupon = await prisma.coupon.findUnique({
     where: { code: code.trim().toUpperCase() },
@@ -65,6 +66,7 @@ export async function validateCoupon(
       percentageRate: coupon.percentageRate,
       maxDiscount: coupon.maxDiscount,
       minOrderAmount: coupon.minOrderAmount,
+      perUserLimit: coupon.perUserLimit,
     },
   };
 }

@@ -5,15 +5,18 @@ import { POST } from '@server/modules/telegram/telegram-webhook.controller';
 describe('Telegram Webhook Controller - Security & Routing', () => {
   const originalSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
   const originalChatId = process.env.TELEGRAM_CHAT_ID;
+  const originalBotToken = process.env.TELEGRAM_BOT_TOKEN;
 
   beforeEach(() => {
     process.env.TELEGRAM_WEBHOOK_SECRET = 'secret_token_abc_123';
     process.env.TELEGRAM_CHAT_ID = '123456789';
+    process.env.TELEGRAM_BOT_TOKEN = 'mock_bot_token_123';
   });
 
   afterEach(() => {
     process.env.TELEGRAM_WEBHOOK_SECRET = originalSecret;
     process.env.TELEGRAM_CHAT_ID = originalChatId;
+    process.env.TELEGRAM_BOT_TOKEN = originalBotToken;
   });
 
   it('should reject requests with 401 when secret token header is missing', async () => {
