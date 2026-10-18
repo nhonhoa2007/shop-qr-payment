@@ -529,6 +529,8 @@ model RefundCase {
   resolvedAt       DateTime?
   warrantyClaim    WarrantyClaim?
   returnRequest    ReturnRequest?
+  entitlementSnapshot Json?
+  allocationSnapshot  Json?
   createdAt        DateTime         @default(now())
 
   @@index([status, createdAt])

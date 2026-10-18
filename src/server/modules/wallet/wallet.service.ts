@@ -121,30 +121,58 @@ export async function refundOrderToWallet(
     }
   }
 
-  // Nếu là tài khoản thành viên có userId -> Hoàn vào ví
+  // Nếu là tài khoản thành viên có userId -> Hoàn vào ví (chỉ hoàn phần còn lại nếu đã có partial refund trước đó)
   if (order.userId) {
+    let alreadyRefunded = BigInt(0);
+    if ('refundCase' in tx && typeof (tx as any).refundCase?.findMany === 'function') {
+      const existingRefunds = await (tx as any).refundCase.findMany({
+        where: { orderId: order.id, status: 'COMPLETED' },
+      });
+      alreadyRefunded = existingRefunds.reduce(
+        (sum: bigint, r: any) => sum + BigInt(r.amount),
+        BigInt(0)
+      );
+    }
+
+    let remainderToRefund: any = order.totalAmount;
+    if (alreadyRefunded > BigInt(0)) {
+      const remainingBigInt =
+        BigInt(order.totalAmount) > alreadyRefunded
+          ? BigInt(order.totalAmount) - alreadyRefunded
+          : BigInt(0);
+      remainderToRefund =
+        typeof order.totalAmount === 'number'
+          ? Number(remainingBigInt)
+          : remainingBigInt;
+    }
+
     const wallet = await getOrCreateWallet(tx, order.userId);
 
-    const updatedWallet = await tx.userWallet.update({
-      where: { id: wallet.id },
-      data: { balance: { increment: order.totalAmount } },
-    });
+    let updatedWallet = wallet;
+    let txRecord: any = null;
 
-    const txRecord = await tx.walletTransaction.create({
-      data: {
-        walletId: wallet.id,
-        amount: order.totalAmount,
-        type: 'REFUND',
-        orderId: order.id,
-        description: reason || `Hoàn tiền 100% cho đơn hàng ${order.orderCode}`,
-      },
-    });
+    if (BigInt(remainderToRefund) > BigInt(0)) {
+      updatedWallet = await tx.userWallet.update({
+        where: { id: wallet.id },
+        data: { balance: { increment: remainderToRefund } },
+      });
+
+      txRecord = await tx.walletTransaction.create({
+        data: {
+          walletId: wallet.id,
+          amount: remainderToRefund,
+          type: 'REFUND',
+          orderId: order.id,
+          description: reason || `Hoàn tiền số dư đơn hàng ${order.orderCode}`,
+        },
+      });
+    }
 
     return {
       success: true,
-      refundedAmount: serializeMoneyVnd(BigInt(order.totalAmount)),
+      refundedAmount: serializeMoneyVnd(BigInt(remainderToRefund)),
       newBalance: serializeMoneyVnd(BigInt(updatedWallet.balance)),
-      transactionId: txRecord.id,
+      transactionId: txRecord?.id ?? null,
     };
   }
 
