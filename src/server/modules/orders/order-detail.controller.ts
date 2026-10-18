@@ -7,6 +7,7 @@ import { createNotification } from '@server/modules/notifications/notifications.
 import { pusherServer } from '@server/infrastructure/pusher';
 import { formatVND } from '@shared/utils';
 import { releaseOrderStock, consumeShippedStock } from '@server/modules/inventory/inventory.service';
+import { markOrderUnitsSold } from '@server/modules/inventory/serialized-unit.service';
 import { approveAndFulfillOrder } from '@server/modules/orders/order-fulfillment.service';
 import { refundOrderToWallet } from '@server/modules/wallet/wallet.service';
 import {
@@ -185,6 +186,9 @@ export async function PATCH(
 
         if (nextStatus === 'SHIPPING' && currentOrder.status !== 'SHIPPING') {
           await consumeShippedStock(tx, currentOrder.items, `order:${currentOrder.id}:ship`);
+          if ('serializedUnit' in tx && typeof (tx as any).serializedUnit?.updateMany === 'function') {
+            await markOrderUnitsSold(tx, currentOrder.id);
+          }
         }
       }
 

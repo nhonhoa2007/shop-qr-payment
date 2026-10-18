@@ -2,6 +2,7 @@ import { prisma } from '@server/database/prisma';
 import { createGHNShipment, GHNShipmentError } from '@server/modules/shipping/ghn.service';
 import { pusherServer } from '@server/infrastructure/pusher';
 import { createNotification } from '@server/modules/notifications/notifications.service';
+import { assertOrderSerializationReady } from '@server/modules/inventory/serialized-unit.service';
 
 export interface ApproveAndFulfillResult {
   success: boolean;
@@ -72,6 +73,19 @@ export async function approveAndFulfillOrder(orderId: string, db: typeof prisma 
 
   if (!order.toDistrictId || !order.toWardCode) {
     return { success: false, orderId, orderCode: order.orderCode, error: 'Đơn hàng thiếu địa bàn nhận hàng GHN' };
+  }
+
+  // 3. Serialization check: thiết bị chính phải gán đủ Serial/IMEI trước khi giao
+  if ('serializedUnit' in db && typeof (db as any).serializedUnit?.findMany === 'function') {
+    const serializationCheck = await assertOrderSerializationReady(db, order.id);
+    if (!serializationCheck.ready) {
+      return {
+        success: false,
+        orderId: order.id,
+        orderCode: order.orderCode,
+        error: `Đơn hàng chưa gán đủ số Serial/IMEI trước khi giao (thiếu ${serializationCheck.missingCount} unit)`,
+      };
+    }
   }
 
   // Đơn hàng giá trị cao (> 5.000.000đ) vượt hạn mức bảo hiểm mặc định GHN -> Chuyển sang REVIEW trực tiếp

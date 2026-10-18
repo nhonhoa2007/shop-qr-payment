@@ -19,7 +19,7 @@ This registry tracks all Prisma models across project milestones in accordance w
 
 ---
 
-## 2. Active Registry (M5 Expand — 34 Models)
+## 2. Active Registry (M5 Expand — 35 Models)
 
 <!-- REGISTRY_MODELS_START -->
 | # | Model | Status | Milestone | Role / Description |
@@ -58,6 +58,7 @@ This registry tracks all Prisma models across project milestones in accordance w
 | 32 | `Supplier` | ACTIVE | M5 | Electronics equipment, parts, and accessory supplier master record |
 | 33 | `PurchaseOrder` | ACTIVE | M5 | Procurement purchase order aggregate, lifecycle FSM, and totals |
 | 34 | `PurchaseOrderItem` | ACTIVE | M5 | Purchase order line item with ordered/received quantities and BigInt unit cost |
+| 35 | `SerializedUnit` | ACTIVE | M5 | Serialized unit tracking with nullable unique serial/IMEI identifiers |
 <!-- REGISTRY_MODELS_END -->
 
 ---

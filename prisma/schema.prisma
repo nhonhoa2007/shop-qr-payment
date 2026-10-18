@@ -109,6 +109,7 @@ model Product {
   variants        ProductVariant[]
   inventoryMovements InventoryMovement[]
   purchaseOrderItems PurchaseOrderItem[]
+  serializedUnits SerializedUnit[]
   reviews         Review[]
   wishlists       Wishlist[]
   benchmarks      BenchmarkMeasurement[]
@@ -157,6 +158,7 @@ model ProductVariant {
   orderItems            OrderItem[]
   inventoryMovements    InventoryMovement[]
   purchaseOrderItems    PurchaseOrderItem[]
+  serializedUnits       SerializedUnit[]
   benchmarks            BenchmarkMeasurement[]
   scoreSnapshots        ProductScoreSnapshot[]
   createdAt             DateTime    @default(now())
@@ -446,6 +448,7 @@ model Order {
   shipment        Shipment?
   bankTransfers   BankTransfer[]
   refundCases     RefundCase[]
+  serializedUnits SerializedUnit[]
   fulfillmentState         FulfillmentState @default(NONE)
   manualFulfillmentOutcome String?
   customerConsentRef       String?
@@ -561,6 +564,7 @@ model OrderItem {
   schemaRevision      Int?
   sourceRevision      String?
   returnedQuantity    Int             @default(0)
+  serializedUnits     SerializedUnit[]
 
   @@index([orderId])
   @@index([productId])
@@ -897,6 +901,7 @@ model PurchaseOrderItem {
   receivedQuantity   Int                 @default(0)
   unitCost           BigInt
   inventoryMovements InventoryMovement[]
+  serializedUnits    SerializedUnit[]
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
 
@@ -904,5 +909,45 @@ model PurchaseOrderItem {
   @@index([purchaseOrderId])
   @@index([productId, variantId])
 }
+
+enum SerializedUnitStatus {
+  AVAILABLE
+  ASSIGNED
+  SOLD
+  QUARANTINED
+  DEFECTIVE
+}
+
+model SerializedUnit {
+  id                  String               @id @default(cuid())
+  productId           String
+  product             Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId           String?
+  variant             ProductVariant?      @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  serialNumber        String?              @unique
+  imei1               String?              @unique
+  imei2               String?              @unique
+  status              SerializedUnitStatus @default(AVAILABLE)
+  orderId             String?
+  order               Order?               @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  orderItemId         String?
+  orderItem           OrderItem?           @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
+  purchaseOrderItemId String?
+  purchaseOrderItem   PurchaseOrderItem?   @relation(fields: [purchaseOrderItemId], references: [id], onDelete: SetNull)
+  supplierId          String?
+  assignedAt          DateTime?
+  soldAt              DateTime?
+  quarantinedAt       DateTime?
+  notes               String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  @@index([productId, variantId, status])
+  @@index([orderId, status])
+  @@index([orderItemId])
+  @@index([purchaseOrderItemId])
+  @@index([status])
+}
+
 
 
