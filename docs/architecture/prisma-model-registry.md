@@ -19,7 +19,7 @@ This registry tracks all Prisma models across project milestones in accordance w
 
 ---
 
-## 2. Active Registry (M5 Expand — 31 Models)
+## 2. Active Registry (M5 Expand — 34 Models)
 
 <!-- REGISTRY_MODELS_START -->
 | # | Model | Status | Milestone | Role / Description |
@@ -55,6 +55,9 @@ This registry tracks all Prisma models across project milestones in accordance w
 | 29 | `AssistantMessage` | ACTIVE | M3 | Conversation message with embedded citations, usage, and claims JSON |
 | 30 | `CompatibilityRule` | ACTIVE | M4 | Deterministic compatibility rules with direction, category scope, conditions/warnings JSON, version, and governance lifecycle |
 | 31 | `InventoryMovement` | ACTIVE | M5 | Append-only inventory movement ledger with CAS projection updates |
+| 32 | `Supplier` | ACTIVE | M5 | Electronics equipment, parts, and accessory supplier master record |
+| 33 | `PurchaseOrder` | ACTIVE | M5 | Procurement purchase order aggregate, lifecycle FSM, and totals |
+| 34 | `PurchaseOrderItem` | ACTIVE | M5 | Purchase order line item with ordered/received quantities and BigInt unit cost |
 <!-- REGISTRY_MODELS_END -->
 
 ---

@@ -32,6 +32,7 @@ model User {
   assistantConversations AssistantConversation[]
   createdRules CompatibilityRule[] @relation("CreatedCompatibilityRules")
   approvedRules CompatibilityRule[] @relation("ApprovedCompatibilityRules")
+  createdPurchaseOrders PurchaseOrder[] @relation("PoCreatedBy")
   createdAt     DateTime              @default(now())
   updatedAt     DateTime              @updatedAt
 }
@@ -107,6 +108,7 @@ model Product {
   orderItems      OrderItem[]
   variants        ProductVariant[]
   inventoryMovements InventoryMovement[]
+  purchaseOrderItems PurchaseOrderItem[]
   reviews         Review[]
   wishlists       Wishlist[]
   benchmarks      BenchmarkMeasurement[]
@@ -154,6 +156,7 @@ model ProductVariant {
   isActive              Boolean     @default(true)
   orderItems            OrderItem[]
   inventoryMovements    InventoryMovement[]
+  purchaseOrderItems    PurchaseOrderItem[]
   benchmarks            BenchmarkMeasurement[]
   scoreSnapshots        ProductScoreSnapshot[]
   createdAt             DateTime    @default(now())
@@ -823,11 +826,83 @@ model InventoryMovement {
   referenceType       String
   referenceId         String
   purchaseOrderItemId String?
+  purchaseOrderItem   PurchaseOrderItem? @relation(fields: [purchaseOrderItemId], references: [id], onDelete: SetNull)
   createdAt           DateTime        @default(now())
 
   @@index([productId, variantId])
   @@index([referenceType, referenceId])
   @@index([kind, createdAt])
+  @@index([purchaseOrderItemId])
   @@index([createdAt])
 }
+
+enum PurchaseOrderStatus {
+  DRAFT
+  ORDERED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+model Supplier {
+  id             String          @id @default(cuid())
+  code           String          @unique
+  name           String
+  contactName    String?
+  email          String?
+  phone          String?
+  address        String?
+  taxId          String?
+  isActive       Boolean         @default(true)
+  notes          String?
+  purchaseOrders PurchaseOrder[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([isActive])
+  @@index([code])
+}
+
+model PurchaseOrder {
+  id                 String              @id @default(cuid())
+  poNumber           String              @unique
+  supplierId         String
+  supplier           Supplier            @relation(fields: [supplierId], references: [id])
+  status             PurchaseOrderStatus @default(DRAFT)
+  totalAmount        BigInt              @default(0)
+  currency           String              @default("VND")
+  orderedAt          DateTime?
+  expectedDeliveryAt DateTime?
+  notes              String?
+  createdById        String?
+  createdBy          User?               @relation("PoCreatedBy", fields: [createdById], references: [id])
+  items              PurchaseOrderItem[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@index([supplierId, status])
+  @@index([status, createdAt])
+  @@index([poNumber])
+}
+
+model PurchaseOrderItem {
+  id                 String              @id @default(cuid())
+  purchaseOrderId    String
+  purchaseOrder      PurchaseOrder       @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  productId          String
+  product            Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId          String?
+  variant            ProductVariant?     @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  orderedQuantity    Int
+  receivedQuantity   Int                 @default(0)
+  unitCost           BigInt
+  inventoryMovements InventoryMovement[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@unique([purchaseOrderId, productId, variantId])
+  @@index([purchaseOrderId])
+  @@index([productId, variantId])
+}
+
 
