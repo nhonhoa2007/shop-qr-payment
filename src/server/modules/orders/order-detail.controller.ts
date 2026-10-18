@@ -6,7 +6,8 @@ import { authOptions } from '@server/modules/auth/auth-options';
 import { createNotification } from '@server/modules/notifications/notifications.service';
 import { pusherServer } from '@server/infrastructure/pusher';
 import { formatVND } from '@shared/utils';
-import { releaseOrderStock } from '@server/modules/inventory/inventory.service';
+import { releaseOrderStock, consumeShippedStock } from '@server/modules/inventory/inventory.service';
+import { markOrderUnitsSold } from '@server/modules/inventory/serialized-unit.service';
 import { approveAndFulfillOrder } from '@server/modules/orders/order-fulfillment.service';
 import { refundOrderToWallet } from '@server/modules/wallet/wallet.service';
 import {
@@ -40,7 +41,7 @@ export async function GET(
       where: { id },
       include: {
         items: { include: { product: true, variant: true } },
-        transaction: true,
+        bankTransfers: true,
         shipment: true,
         user: { select: { id: true, name: true, email: true, phone: true } },
       },
@@ -182,6 +183,13 @@ export async function PATCH(
           data: updateData,
         });
         if (claimed.count !== 1) throw new Error('Trạng thái đơn đã thay đổi; vui lòng tải lại');
+
+        if (nextStatus === 'SHIPPING' && currentOrder.status !== 'SHIPPING') {
+          await consumeShippedStock(tx, currentOrder.items, `order:${currentOrder.id}:ship`);
+          if ('serializedUnit' in tx && typeof (tx as any).serializedUnit?.updateMany === 'function') {
+            await markOrderUnitsSold(tx, currentOrder.id);
+          }
+        }
       }
 
       if (shouldRefundPaidOrder) {
@@ -196,7 +204,7 @@ export async function PATCH(
         );
         if (!refund.success) throw new Error(refund.error || 'Không thể xử lý hoàn tiền');
       } else if (shouldReleaseStock) {
-        await releaseOrderStock(tx, currentOrder.items);
+        await releaseOrderStock(tx, currentOrder.items, `order:${currentOrder.id}:release`);
 
         // Revert coupon usage if cancelled unpaid
         if (currentOrder.couponId) {
@@ -205,8 +213,13 @@ export async function PATCH(
             data: { usedCount: { decrement: 1 } },
           });
 
-          if (currentOrder.userId) {
-            await tx.couponUsage.deleteMany({
+          await tx.order.update({
+            where: { id: currentOrder.id },
+            data: { couponUsageClaimedAt: null },
+          });
+
+          if (currentOrder.userId && 'couponUsage' in tx && typeof (tx as any).couponUsage?.deleteMany === 'function') {
+            await (tx as any).couponUsage.deleteMany({
               where: {
                 couponId: currentOrder.couponId,
                 userId: currentOrder.userId,

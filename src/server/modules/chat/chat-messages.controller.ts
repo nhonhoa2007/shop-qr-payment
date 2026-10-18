@@ -14,23 +14,21 @@ export async function POST(req: Request) {
     const { roomId, content, type = 'TEXT' } = await req.json();
     if (!roomId || !content) return NextResponse.json({ error: 'Missing data' }, { status: 400 });
 
-    let participant = await prisma.chatRoomParticipant.findUnique({
-      where: { roomId_userId: { roomId, userId: session.user.id } },
+    const room = await (prisma as any).chatRoom.findUnique({
+      where: { id: roomId },
     });
-    if (!participant) {
-      if (resolveOperatorAccess(session.user, 'chat')) {
-        try {
-          participant = await prisma.chatRoomParticipant.create({
-            data: { roomId, userId: session.user.id },
-          });
-        } catch {
-          participant = await prisma.chatRoomParticipant.findUnique({
-            where: { roomId_userId: { roomId, userId: session.user.id } },
-          });
-        }
-      } else {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-      }
+    if (!room) return NextResponse.json({ error: 'Room not found' }, { status: 404 });
+
+    const isMember = room.customerId === session.user.id || room.assignedStaffId === session.user.id;
+    const canAccessChat = resolveOperatorAccess(session.user, 'chat');
+    if (!isMember && !canAccessChat) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+    if (!isMember && canAccessChat && !room.assignedStaffId) {
+      await (prisma as any).chatRoom.update({
+        where: { id: roomId },
+        data: { assignedStaffId: session.user.id },
+      });
     }
 
     const message = await prisma.message.create({
@@ -54,12 +52,10 @@ export async function POST(req: Request) {
       isRead: false,
     });
 
-    const otherParticipants = await prisma.chatRoomParticipant.findMany({
-      where: { roomId, userId: { not: session.user.id } },
-    });
-    for (const p of otherParticipants) {
+    const otherUserId = room.customerId === session.user.id ? room.assignedStaffId : room.customerId;
+    if (otherUserId) {
       await createNotification({
-        userId: p.userId,
+        userId: otherUserId,
         type: 'NEW_MESSAGE',
         title: `Tin nhắn mới từ ${session.user.name || 'User'}`,
         message: content.slice(0, 100),
@@ -83,23 +79,21 @@ export async function GET(req: Request) {
     const roomId = searchParams.get('roomId');
     if (!roomId) return NextResponse.json({ error: 'Missing roomId' }, { status: 400 });
 
-    let participant = await prisma.chatRoomParticipant.findUnique({
-      where: { roomId_userId: { roomId, userId: session.user.id } },
+    const room = await (prisma as any).chatRoom.findUnique({
+      where: { id: roomId },
     });
-    if (!participant) {
-      if (resolveOperatorAccess(session.user, 'chat')) {
-        try {
-          participant = await prisma.chatRoomParticipant.create({
-            data: { roomId, userId: session.user.id },
-          });
-        } catch {
-          participant = await prisma.chatRoomParticipant.findUnique({
-            where: { roomId_userId: { roomId, userId: session.user.id } },
-          });
-        }
-      } else {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-      }
+    if (!room) return NextResponse.json({ error: 'Room not found' }, { status: 404 });
+
+    const isMember = room.customerId === session.user.id || room.assignedStaffId === session.user.id;
+    const canAccessChat = resolveOperatorAccess(session.user, 'chat');
+    if (!isMember && !canAccessChat) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+    if (!isMember && canAccessChat && !room.assignedStaffId) {
+      await (prisma as any).chatRoom.update({
+        where: { id: roomId },
+        data: { assignedStaffId: session.user.id },
+      });
     }
 
     const messages = await prisma.message.findMany({
@@ -112,6 +106,6 @@ export async function GET(req: Request) {
     return NextResponse.json({ messages });
   } catch (error) {
     console.error('Get messages error:', error);
-    return NextResponse.json({ error: 'Lỗi hệ thống' }, { status: 500 });
+    return NextResponse.json({ error: 'Lỗi lấy tin nhắn' }, { status: 500 });
   }
 }

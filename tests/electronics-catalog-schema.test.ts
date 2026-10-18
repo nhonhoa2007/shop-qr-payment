@@ -18,15 +18,15 @@ describe('M1 Electronics Catalog Prisma Schema Contracts', () => {
   const schemaContent = fs.readFileSync(SCHEMA_PATH, 'utf8');
   const models = parsePrismaModels(schemaContent);
 
-  it('contains exactly 30 models for M4 Compatibility Rule milestone', () => {
+  it('contains exactly 32 models for M5 exit milestone (all 4 legacy models retired)', () => {
     assert.equal(
       models.length,
-      30,
-      `Expected exactly 30 models in schema, found ${models.length}: ${models.join(', ')}`
+      32,
+      `Expected exactly 32 models in schema, found ${models.length}: ${models.join(', ')}`
     );
   });
 
-  it('contains Brand, Category, DataSource, BenchmarkMeasurement, ProductScoreSnapshot, AssistantConversation, AssistantMessage, and CompatibilityRule models', () => {
+  it('contains Brand, Category, DataSource, BenchmarkMeasurement, ProductScoreSnapshot, AssistantConversation, AssistantMessage, CompatibilityRule, InventoryMovement, Supplier, PurchaseOrder, PurchaseOrderItem, SerializedUnit, and AdminAuditLog models', () => {
     assert.ok(models.includes('Brand'), 'Schema must include model Brand');
     assert.ok(models.includes('Category'), 'Schema must include model Category');
     assert.ok(models.includes('DataSource'), 'Schema must include model DataSource');
@@ -35,13 +35,23 @@ describe('M1 Electronics Catalog Prisma Schema Contracts', () => {
     assert.ok(models.includes('AssistantConversation'), 'Schema must include model AssistantConversation');
     assert.ok(models.includes('AssistantMessage'), 'Schema must include model AssistantMessage');
     assert.ok(models.includes('CompatibilityRule'), 'Schema must include model CompatibilityRule');
+    assert.ok(models.includes('InventoryMovement'), 'Schema must include model InventoryMovement');
+    assert.ok(models.includes('Supplier'), 'Schema must include model Supplier');
+    assert.ok(models.includes('PurchaseOrder'), 'Schema must include model PurchaseOrder');
+    assert.ok(models.includes('PurchaseOrderItem'), 'Schema must include model PurchaseOrderItem');
+    assert.ok(models.includes('SerializedUnit'), 'Schema must include model SerializedUnit');
+    assert.ok(models.includes('AdminAuditLog'), 'Schema must include model AdminAuditLog');
+    assert.equal(models.includes('StockAdjustment'), false);
+    assert.equal(models.includes('Transaction'), false);
+    assert.equal(models.includes('CouponUsage'), false);
+    assert.equal(models.includes('ChatRoomParticipant'), false);
   });
 
   it('strictly rejects any forbidden compact-schema models', () => {
     const budget = checkModelBudget({
       schemaContent,
       registryPath: REGISTRY_PATH,
-      expected: 30,
+      expected: 32,
       lockRegistry: true,
     });
     assert.equal(budget.forbiddenModels.length, 0, `Forbidden models found: ${budget.forbiddenModels.join(', ')}`);

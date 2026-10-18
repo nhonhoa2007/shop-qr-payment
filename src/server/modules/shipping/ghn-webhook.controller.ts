@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@server/database/prisma';
 import { mapGHNStatusToShipmentStatus, verifyGHNWebhookAuth } from '@server/modules/shipping/ghn.service';
-import { releaseOrderStock } from '@server/modules/inventory/inventory.service';
+import { releaseOrderStock, consumeShippedStock } from '@server/modules/inventory/inventory.service';
 import { refundOrderToWallet } from '@server/modules/wallet/wallet.service';
 import { createNotification } from '@server/modules/notifications/notifications.service';
 import { pusherServer } from '@server/infrastructure/pusher';
@@ -99,14 +99,20 @@ export async function POST(req: Request) {
           const cancelled = await tx.order.updateMany({ where: { id: fresh.orderId, status: { not: 'CANCELLED' }, paymentStatus: fresh.order.paymentStatus }, data: { status: 'CANCELLED' } });
           if (cancelled.count !== 1) throw new Error('Trạng thái thanh toán đã đổi; cần xử lý lại webhook');
           if (cancelled.count === 1) {
-            await releaseOrderStock(tx, fresh.order.items);
+            await releaseOrderStock(tx, fresh.order.items, `ghn:${fresh.orderId}:release`);
             if (fresh.order.couponId) {
               await tx.coupon.update({ where: { id: fresh.order.couponId }, data: { usedCount: { decrement: 1 } } });
-              if (fresh.order.userId) await tx.couponUsage.deleteMany({ where: { couponId: fresh.order.couponId, orderId: fresh.orderId, userId: fresh.order.userId } });
+              await tx.order.update({ where: { id: fresh.orderId }, data: { couponUsageClaimedAt: null } });
+              if (fresh.order.userId && 'couponUsage' in tx && typeof (tx as any).couponUsage?.deleteMany === 'function') {
+                await (tx as any).couponUsage.deleteMany({ where: { couponId: fresh.order.couponId, orderId: fresh.orderId, userId: fresh.order.userId } });
+              }
             }
           }
         }
       } else if (mapping.orderStatus) {
+        if (mapping.orderStatus === 'SHIPPING' && fresh.order.status !== 'SHIPPING') {
+          await consumeShippedStock(tx, fresh.order.items, `ghn:${fresh.orderId}:ship`);
+        }
         await tx.order.updateMany({
           where: { id: fresh.orderId, status: { notIn: ['CANCELLED', 'COMPLETED'] } },
           data: {

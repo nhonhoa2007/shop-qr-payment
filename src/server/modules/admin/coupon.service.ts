@@ -26,7 +26,6 @@ export async function validateCoupon(
 ): Promise<CouponValidationResult> {
   const coupon = await prisma.coupon.findUnique({
     where: { code: code.trim().toUpperCase() },
-    include: { _count: { select: { userUsages: true } } },
   });
 
   if (!coupon || !coupon.isActive) {
@@ -38,7 +37,7 @@ export async function validateCoupon(
     return { valid: false, error: 'Mã giảm giá chưa hoặc đã hết hạn sử dụng' };
   }
 
-  if (coupon._count.userUsages >= coupon.usageLimit) {
+  if (coupon.usedCount >= coupon.usageLimit) {
     return { valid: false, error: 'Mã giảm giá đã hết lượt sử dụng' };
   }
 
@@ -47,8 +46,8 @@ export async function validateCoupon(
   }
 
   if (userId) {
-    const usageCount = await prisma.couponUsage.count({
-      where: { couponId: coupon.id, userId },
+    const usageCount = await prisma.order.count({
+      where: { couponId: coupon.id, userId, couponUsageClaimedAt: { not: null } },
     });
     if (usageCount >= coupon.perUserLimit) {
       return { valid: false, error: 'Bạn đã sử dụng hết lượt mã giảm giá này' };

@@ -346,14 +346,15 @@ async function main() {
       },
     });
 
-    await prisma.transaction.create({
+    await prisma.bankTransfer.create({
       data: {
+        fingerprint: 'seed_bt:MBB_20260905_100001',
         bankTransId: 'MBB_20260905_100001',
         orderId: order1.id,
-        amount: 790000,
+        amount: 790000n,
         description: 'MBVCB.987654321.DH100001.TRAN THI MAI CHUYEN TIEN',
         bankName: 'MBBANK',
-        verified: true,
+        status: 'APPLIED_ORDER',
         createdAt: day6Ago,
       },
     });
@@ -399,14 +400,15 @@ async function main() {
       },
     });
 
-    await prisma.transaction.create({
+    await prisma.bankTransfer.create({
       data: {
+        fingerprint: 'seed_bt:VCB_20260907_100002',
         bankTransId: 'VCB_20260907_100002',
         orderId: order2.id,
-        amount: 1200000,
+        amount: 1200000n,
         description: 'DH100002 HOANG NAM THANH TOAN TAI NGHE',
         bankName: 'VIETCOMBANK',
-        verified: true,
+        status: 'APPLIED_ORDER',
         createdAt: day5Ago,
       },
     });
@@ -469,14 +471,15 @@ async function main() {
       },
     });
 
-    await prisma.transaction.create({
+    await prisma.bankTransfer.create({
       data: {
+        fingerprint: 'seed_bt:VCB_YESTERDAY_04',
         bankTransId: 'VCB_YESTERDAY_04',
         orderId: o4.id,
-        amount: 890000,
+        amount: 890000n,
         description: 'ShopQR DH100004',
         bankName: 'VIETCOMBANK',
-        verified: true,
+        status: 'APPLIED_ORDER',
         createdAt: yesterdayMorning,
       },
     });
@@ -519,14 +522,15 @@ async function main() {
       },
     });
 
-    await prisma.transaction.create({
+    await prisma.bankTransfer.create({
       data: {
+        fingerprint: 'seed_bt:MBB_YESTERDAY_05',
         bankTransId: 'MBB_YESTERDAY_05',
         orderId: o5.id,
-        amount: 529000,
+        amount: 529000n,
         description: 'ShopQR DH100005',
         bankName: 'MBBANK',
-        verified: true,
+        status: 'APPLIED_ORDER',
         createdAt: yesterdayEvening,
       },
     });
@@ -558,14 +562,15 @@ async function main() {
       },
     });
 
-    await prisma.transaction.create({
+    await prisma.bankTransfer.create({
       data: {
+        fingerprint: 'seed_bt:PAYOS_TODAY_06',
         bankTransId: 'PAYOS_TODAY_06',
         orderId: o6.id,
-        amount: 578000,
+        amount: 578000n,
         description: 'ShopQR DH100006',
         bankName: 'VIETQR_PAYOS',
-        verified: true,
+        status: 'APPLIED_ORDER',
         createdAt: todayMorning,
       },
     });
@@ -596,14 +601,15 @@ async function main() {
       },
     });
 
-    await prisma.transaction.create({
+    await prisma.bankTransfer.create({
       data: {
+        fingerprint: 'seed_bt:WALLET_TODAY_07',
         bankTransId: 'WALLET_TODAY_07',
         orderId: o7.id,
-        amount: 275000,
+        amount: 275000n,
         description: 'Thanh toán qua ví nội bộ ShopQR',
         bankName: 'SHOP_WALLET',
-        verified: true,
+        status: 'APPLIED_ORDER',
         createdAt: todayAfternoon,
       },
     });
@@ -638,16 +644,17 @@ async function main() {
   }
 
   // Tạo 1 giao dịch chuyển khoản chưa khớp (khách chuyển sai cú pháp) liên kết với đơn DH100008
-  const existingUnmatched = await prisma.transaction.findFirst({ where: { bankTransId: 'VCB_UNMATCHED_01' } });
+  const existingUnmatched = await prisma.bankTransfer.findFirst({ where: { bankTransId: 'VCB_UNMATCHED_01' } });
   if (!existingUnmatched && o8) {
-    await prisma.transaction.create({
+    await prisma.bankTransfer.create({
       data: {
+        fingerprint: 'seed_bt:VCB_UNMATCHED_01',
         bankTransId: 'VCB_UNMATCHED_01',
         orderId: o8.id,
-        amount: 420000,
+        amount: 420000n,
         description: 'CK TIEN MUA BALO LE DUAN',
         bankName: 'VIETCOMBANK',
-        verified: false,
+        status: 'PENDING_REVIEW',
         createdAt: new Date(),
       },
     });
@@ -742,9 +749,8 @@ async function main() {
       const room = await prisma.chatRoom.create({
         data: {
           orderId: order1.id,
-          participants: {
-            create: [{ userId: customer1.id }, { userId: admin.id }],
-          },
+          customerId: customer1.id,
+          assignedStaffId: admin.id,
         },
       });
       roomId = room.id;

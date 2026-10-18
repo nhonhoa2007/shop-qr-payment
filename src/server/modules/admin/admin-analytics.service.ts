@@ -119,6 +119,7 @@ export function calculateQrMatchRate(matchedCount: number, totalCount: number): 
 export function calculatePaymentMethodDistribution(
   orders: Array<{
     transaction?: { bankName: string | null } | null;
+    bankTransfers?: Array<{ bankName: string | null }> | null;
     shipment?: { codAmount: number } | null;
   }>
 ): PaymentMethodDistribution {
@@ -136,11 +137,14 @@ export function calculatePaymentMethodDistribution(
   let codCount = 0;
 
   for (const order of orders) {
-    if (order.transaction?.bankName === 'SHOP_WALLET') {
+    const bankName = order.bankTransfers?.[0]?.bankName ?? order.transaction?.bankName;
+    const hasBankPayment = (order.bankTransfers && order.bankTransfers.length > 0) || Boolean(order.transaction);
+
+    if (bankName === 'SHOP_WALLET') {
       walletCount++;
-    } else if (order.shipment && order.shipment.codAmount > 0 && !order.transaction) {
+    } else if (order.shipment && order.shipment.codAmount > 0 && !hasBankPayment) {
       codCount++;
-    } else if (order.transaction) {
+    } else if (hasBankPayment) {
       vietqrCount++;
     } else {
       codCount++;

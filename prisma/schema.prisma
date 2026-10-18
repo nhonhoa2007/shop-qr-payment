@@ -20,11 +20,11 @@ model User {
   isBlocked     Boolean               @default(false)
   orders        Order[]
   sentMessages  Message[]             @relation("sender")
-  chatRooms     ChatRoomParticipant[]
+  customerChatRooms ChatRoom[]         @relation("CustomerChatRooms")
+  staffChatRooms    ChatRoom[]         @relation("StaffChatRooms")
   notifications Notification[]
   reviews       Review[]
   wishlists     Wishlist[]
-  couponUsages  CouponUsage[]
   wallet        UserWallet?
   staffPermissions   StaffPermission[]     @relation("UserPermissions")
   grantedPermissions StaffPermission[]     @relation("GrantedPermissions")
@@ -32,6 +32,7 @@ model User {
   assistantConversations AssistantConversation[]
   createdRules CompatibilityRule[] @relation("CreatedCompatibilityRules")
   approvedRules CompatibilityRule[] @relation("ApprovedCompatibilityRules")
+  createdPurchaseOrders PurchaseOrder[] @relation("PoCreatedBy")
   createdAt     DateTime              @default(now())
   updatedAt     DateTime              @updatedAt
 }
@@ -94,6 +95,9 @@ model Product {
   warrantyConfig  Json?
   catalogVersion  Int              @default(1)
   stock           Int              @default(0)
+  onHandStock     Int              @default(0)
+  reservedStock   Int              @default(0)
+  quarantinedStock Int             @default(0)
   stockVersion    Int              @default(0)
   weightGrams     Int?
   lengthCm        Int?
@@ -103,6 +107,9 @@ model Product {
   inventoryMode   InventoryMode    @default(BASE)
   orderItems      OrderItem[]
   variants        ProductVariant[]
+  inventoryMovements InventoryMovement[]
+  purchaseOrderItems PurchaseOrderItem[]
+  serializedUnits SerializedUnit[]
   reviews         Review[]
   wishlists       Wishlist[]
   benchmarks      BenchmarkMeasurement[]
@@ -132,6 +139,9 @@ model ProductVariant {
   size                  String?
   price                 BigInt
   stock                 Int         @default(0)
+  onHandStock           Int         @default(0)
+  reservedStock         Int         @default(0)
+  quarantinedStock      Int         @default(0)
   stockVersion          Int         @default(0)
   weightGrams           Int?
   lengthCm              Int?
@@ -146,6 +156,9 @@ model ProductVariant {
   serializationRequired Boolean     @default(false)
   isActive              Boolean     @default(true)
   orderItems            OrderItem[]
+  inventoryMovements    InventoryMovement[]
+  purchaseOrderItems    PurchaseOrderItem[]
+  serializedUnits       SerializedUnit[]
   benchmarks            BenchmarkMeasurement[]
   scoreSnapshots        ProductScoreSnapshot[]
   createdAt             DateTime    @default(now())
@@ -392,23 +405,6 @@ enum CompatibilityRuleStatus {
   ARCHIVED
 }
 
-model StockAdjustment {
-  id            String   @id @default(cuid())
-  operationKey  String   @unique
-  productId     String
-  variantId     String?
-  delta         Int
-  previousStock Int
-  newStock      Int
-  version       Int
-  reason        String
-  actorId       String
-  createdAt     DateTime @default(now())
-
-  @@index([productId, variantId])
-  @@index([createdAt])
-}
-
 model Order {
   id              String        @id @default(cuid())
   orderCode       String        @unique
@@ -428,13 +424,14 @@ model Order {
   couponId        String?
   couponCode      String?
   coupon          Coupon?       @relation(fields: [couponId], references: [id])
+  couponUsageClaimedAt DateTime?
   status          OrderStatus   @default(PENDING)
   paymentStatus   PaymentStatus @default(UNPAID)
-  transaction     Transaction?
   chatRoom        ChatRoom?
   shipment        Shipment?
   bankTransfers   BankTransfer[]
   refundCases     RefundCase[]
+  serializedUnits SerializedUnit[]
   fulfillmentState         FulfillmentState @default(NONE)
   manualFulfillmentOutcome String?
   customerConsentRef       String?
@@ -490,8 +487,9 @@ model BankTransfer {
   amount          BigInt
   description     String
   bankName        String?
+  senderAccount   String?
   receivedAt      DateTime?
-  rawWebhookData  Json
+  rawWebhookData  Json?
   orderId         String?
   order           Order?             @relation(fields: [orderId], references: [id])
   topupCode       String?
@@ -550,6 +548,7 @@ model OrderItem {
   schemaRevision      Int?
   sourceRevision      String?
   returnedQuantity    Int             @default(0)
+  serializedUnits     SerializedUnit[]
 
   @@index([orderId])
   @@index([productId])
@@ -572,7 +571,6 @@ model Coupon {
   endDate        DateTime
   isActive       Boolean       @default(true)
   orders         Order[]
-  userUsages     CouponUsage[]
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 }
@@ -581,18 +579,6 @@ enum DiscountType {
   FIXED
   PERCENTAGE
   FREE_SHIPPING
-}
-
-model CouponUsage {
-  id        String   @id @default(cuid())
-  couponId  String
-  coupon    Coupon   @relation(fields: [couponId], references: [id])
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  orderId   String
-  createdAt DateTime @default(now())
-
-  @@unique([couponId, userId, orderId])
 }
 
 model Review {
@@ -624,44 +610,24 @@ model Wishlist {
   @@unique([userId, productId])
 }
 
-model Transaction {
-  id             String    @id @default(cuid())
-  orderId        String    @unique
-  order          Order     @relation(fields: [orderId], references: [id])
-  bankTransId    String?   @unique
-  amount         BigInt
-  description    String
-  bankName       String?
-  senderAccount  String?
-  receivedAt     DateTime?
-  verified       Boolean   @default(false)
-  rawWebhookData Json?
-  createdAt      DateTime  @default(now())
-}
-
 model ChatRoom {
-  id           String                @id @default(cuid())
-  orderId      String?               @unique
-  order        Order?                @relation(fields: [orderId], references: [id])
-  participants ChatRoomParticipant[]
-  messages     Message[]
-  lastMessage  String?
-  lastActiveAt DateTime              @default(now())
-  createdAt    DateTime              @default(now())
+  id              String                @id @default(cuid())
+  orderId         String?               @unique
+  order           Order?                @relation(fields: [orderId], references: [id])
+  customerId      String?
+  customer        User?                 @relation("CustomerChatRooms", fields: [customerId], references: [id], onDelete: SetNull)
+  assignedStaffId String?
+  assignedStaff   User?                 @relation("StaffChatRooms", fields: [assignedStaffId], references: [id], onDelete: SetNull)
+  customerReadAt  DateTime?
+  staffReadAt     DateTime?
+  messages        Message[]
+  lastMessage     String?
+  lastActiveAt    DateTime              @default(now())
+  createdAt       DateTime              @default(now())
 
+  @@index([customerId])
+  @@index([assignedStaffId])
   @@index([lastActiveAt])
-}
-
-model ChatRoomParticipant {
-  id         String   @id @default(cuid())
-  roomId     String
-  room       ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  userId     String
-  user       User     @relation(fields: [userId], references: [id])
-  lastReadAt DateTime @default(now())
-  createdAt  DateTime @default(now())
-
-  @@unique([roomId, userId])
 }
 
 model Message {
@@ -776,4 +742,187 @@ enum WalletTxType {
   PURCHASE_PAYMENT
   TOPUP
 }
+
+enum MovementKind {
+  OPENING_LEGACY
+  RESERVE
+  RELEASE
+  SHIP
+  RECEIVE
+  QUARANTINE
+  RESTOCK
+  ADJUST
+}
+
+model InventoryMovement {
+  id                  String          @id @default(cuid())
+  operationKey        String          @unique
+  payloadFingerprint  String?
+  productId           String
+  product             Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId           String?
+  variant             ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  kind                MovementKind
+  deltaOnHand         Int
+  deltaReserved       Int
+  deltaQuarantined    Int
+  beforeOnHand        Int
+  afterOnHand         Int
+  beforeReserved      Int
+  afterReserved       Int
+  beforeQuarantined   Int
+  afterQuarantined    Int
+  beforeAvailable     Int
+  afterAvailable      Int
+  beforeVersion       Int
+  afterVersion        Int
+  reason              String
+  actorId             String?
+  referenceType       String
+  referenceId         String
+  purchaseOrderItemId String?
+  purchaseOrderItem   PurchaseOrderItem? @relation(fields: [purchaseOrderItemId], references: [id], onDelete: SetNull)
+  createdAt           DateTime        @default(now())
+
+  @@index([productId, variantId])
+  @@index([referenceType, referenceId])
+  @@index([kind, createdAt])
+  @@index([purchaseOrderItemId])
+  @@index([createdAt])
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  ORDERED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+model Supplier {
+  id             String          @id @default(cuid())
+  code           String          @unique
+  name           String
+  contactName    String?
+  email          String?
+  phone          String?
+  address        String?
+  taxId          String?
+  isActive       Boolean         @default(true)
+  notes          String?
+  purchaseOrders PurchaseOrder[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([isActive])
+  @@index([code])
+}
+
+model PurchaseOrder {
+  id                 String              @id @default(cuid())
+  poNumber           String              @unique
+  supplierId         String
+  supplier           Supplier            @relation(fields: [supplierId], references: [id])
+  status             PurchaseOrderStatus @default(DRAFT)
+  totalAmount        BigInt              @default(0)
+  currency           String              @default("VND")
+  orderedAt          DateTime?
+  expectedDeliveryAt DateTime?
+  notes              String?
+  createdById        String?
+  createdBy          User?               @relation("PoCreatedBy", fields: [createdById], references: [id])
+  items              PurchaseOrderItem[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@index([supplierId, status])
+  @@index([status, createdAt])
+  @@index([poNumber])
+}
+
+model PurchaseOrderItem {
+  id                 String              @id @default(cuid())
+  purchaseOrderId    String
+  purchaseOrder      PurchaseOrder       @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  productId          String
+  product            Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId          String?
+  variant            ProductVariant?     @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  orderedQuantity    Int
+  receivedQuantity   Int                 @default(0)
+  unitCost           BigInt
+  inventoryMovements InventoryMovement[]
+  serializedUnits    SerializedUnit[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@unique([purchaseOrderId, productId, variantId])
+  @@index([purchaseOrderId])
+  @@index([productId, variantId])
+}
+
+enum SerializedUnitStatus {
+  AVAILABLE
+  ASSIGNED
+  SOLD
+  QUARANTINED
+  DEFECTIVE
+}
+
+model SerializedUnit {
+  id                  String               @id @default(cuid())
+  productId           String
+  product             Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId           String?
+  variant             ProductVariant?      @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  serialNumber        String?              @unique
+  imei1               String?              @unique
+  imei2               String?              @unique
+  status              SerializedUnitStatus @default(AVAILABLE)
+  orderId             String?
+  order               Order?               @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  orderItemId         String?
+  orderItem           OrderItem?           @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
+  purchaseOrderItemId String?
+  purchaseOrderItem   PurchaseOrderItem?   @relation(fields: [purchaseOrderItemId], references: [id], onDelete: SetNull)
+  supplierId          String?
+  assignedAt          DateTime?
+  soldAt              DateTime?
+  quarantinedAt       DateTime?
+  notes               String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  @@index([productId, variantId, status])
+  @@index([orderId, status])
+  @@index([orderItemId])
+  @@index([purchaseOrderItemId])
+  @@index([status])
+}
+
+model AdminAuditLog {
+  id           String   @id @default(cuid())
+  operationKey String   @unique
+  actorId      String
+  actorEmail   String?
+  actorRole    String
+  action       String
+  entityType   String
+  entityId     String
+  beforeState  Json?
+  afterState   Json?
+  reason       String?
+  metadata     Json?
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorId, createdAt])
+  @@index([action, createdAt])
+  @@index([createdAt])
+}
+
+
+
 

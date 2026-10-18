@@ -16,28 +16,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing roomId' }, { status: 400 });
     }
 
-    let participant = await prisma.chatRoomParticipant.findUnique({
-      where: { roomId_userId: { roomId, userId: session.user.id } },
+    const room = await (prisma as any).chatRoom.findUnique({
+      where: { id: roomId },
     });
-
-    if (!participant) {
-      if (resolveOperatorAccess(session.user, 'chat')) {
-        try {
-          participant = await prisma.chatRoomParticipant.create({
-            data: { roomId, userId: session.user.id },
-          });
-        } catch {
-          participant = await prisma.chatRoomParticipant.findUnique({
-            where: { roomId_userId: { roomId, userId: session.user.id } },
-          });
-        }
-      } else {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-      }
+    if (!room) {
+      return NextResponse.json({ error: 'Room not found' }, { status: 404 });
     }
 
-    if (!participant) {
-      return NextResponse.json({ error: 'Participant not found' }, { status: 404 });
+    const isCustomer = room.customerId === session.user.id;
+    const isStaff = room.assignedStaffId === session.user.id;
+    const canAccessChat = resolveOperatorAccess(session.user, 'chat');
+
+    if (!isCustomer && !isStaff && !canAccessChat) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     // Mark messages sent by OTHERS in this room as read
@@ -50,15 +41,25 @@ export async function POST(req: Request) {
       data: { isRead: true },
     });
 
-    // Update lastReadAt for the current user
-    await prisma.chatRoomParticipant.update({
-      where: { id: participant.id },
-      data: { lastReadAt: new Date() },
+    // Update customerReadAt or staffReadAt directly on ChatRoom
+    const updateData: any = {};
+    if (isCustomer) {
+      updateData.customerReadAt = new Date();
+    } else {
+      updateData.staffReadAt = new Date();
+      if (!room.assignedStaffId) {
+        updateData.assignedStaffId = session.user.id;
+      }
+    }
+
+    await (prisma as any).chatRoom.update({
+      where: { id: roomId },
+      data: updateData,
     });
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Mark as read error:', error);
-    return NextResponse.json({ error: 'Lỗi hệ thống' }, { status: 500 });
+    console.error('Update read state error:', error);
+    return NextResponse.json({ error: 'Lỗi cập nhật trạng thái đọc' }, { status: 500 });
   }
 }

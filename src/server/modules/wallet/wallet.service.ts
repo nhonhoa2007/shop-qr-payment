@@ -111,11 +111,14 @@ export async function refundOrderToWallet(
 
   // Release order stock
   if (order.items && order.items.length > 0) {
-    await releaseOrderStock(tx, order.items);
+    await releaseOrderStock(tx, order.items, `order:${order.id}:refund:release`);
   }
   if (order.couponId) {
     await tx.coupon.update({ where: { id: order.couponId }, data: { usedCount: { decrement: 1 } } });
-    if (order.userId) await tx.couponUsage.deleteMany({ where: { couponId: order.couponId, orderId: order.id, userId: order.userId } });
+    await tx.order.update({ where: { id: order.id }, data: { couponUsageClaimedAt: null } });
+    if (order.userId && 'couponUsage' in tx && typeof (tx as any).couponUsage?.deleteMany === 'function') {
+      await (tx as any).couponUsage.deleteMany({ where: { couponId: order.couponId, orderId: order.id, userId: order.userId } });
+    }
   }
 
   // Nếu là tài khoản thành viên có userId -> Hoàn vào ví
@@ -268,18 +271,34 @@ export async function payOrderWithWallet(
     },
   });
 
-  // 4. Tạo bản ghi Transaction đối soát
-  await tx.transaction.create({
-    data: {
-      orderId: order.id,
-      amount: orderAmountBigInt,
-      bankName: 'SHOP_WALLET',
-      bankTransId: txRecord.id,
-      description: `Thanh toán qua Ví nội bộ: ${order.orderCode}`,
-      verified: true,
-      receivedAt: currentTime,
-    },
-  });
+  // 4. Tạo bản ghi BankTransfer / Transaction đối soát
+  if ('bankTransfer' in tx && typeof (tx as any).bankTransfer?.create === 'function') {
+    await tx.bankTransfer.create({
+      data: {
+        fingerprint: `wallet_pay:${order.id}:${txRecord.id}`,
+        orderId: order.id,
+        amount: orderAmountBigInt,
+        bankName: 'SHOP_WALLET',
+        bankTransId: txRecord.id,
+        description: `Thanh toán qua Ví nội bộ: ${order.orderCode}`,
+        status: 'APPLIED_ORDER',
+        receivedAt: currentTime,
+      },
+    });
+  }
+  if ('transaction' in tx && typeof (tx as any).transaction?.create === 'function') {
+    await (tx as any).transaction.create({
+      data: {
+        orderId: order.id,
+        amount: orderAmountBigInt,
+        bankName: 'SHOP_WALLET',
+        bankTransId: txRecord.id,
+        description: `Thanh toán qua Ví nội bộ: ${order.orderCode}`,
+        verified: true,
+        receivedAt: currentTime,
+      },
+    });
+  }
 
   const remainingBalance = BigInt(wallet.balance) - orderAmountBigInt;
   return {

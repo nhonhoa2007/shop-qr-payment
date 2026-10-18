@@ -160,7 +160,9 @@ async function main() {
     (await prisma.order.findMany({ select: { orderCode: true } })).map((o) => o.orderCode)
   );
   const usedTransIds = new Set(
-    (await prisma.transaction.findMany({ select: { bankTransId: true } })).map((t) => t.bankTransId)
+    (await prisma.bankTransfer.findMany({ select: { bankTransId: true } }))
+      .map((t) => t.bankTransId)
+      .filter((id): id is string => Boolean(id))
   );
 
   const ORDER_TARGET = 90;
@@ -279,16 +281,17 @@ async function main() {
       while (usedTransIds.has(bankTransId)) bankTransId = `TXN${Date.now()}${rand(1000, 9999)}`;
       usedTransIds.add(bankTransId);
       const receivedAt = new Date(Math.min(day.getTime() + rand(2, 30) * 60_000, now.getTime()));
-      await prisma.transaction.create({
+      await prisma.bankTransfer.create({
         data: {
+          fingerprint: `demo_tx:${bankTransId}`,
           orderId: order.id,
           bankTransId,
-          amount: totalAmount,
+          amount: BigInt(totalAmount),
           description: `Thanh toan don hang ${orderCode}`,
           bankName: method === 'WALLET' ? 'SHOP_WALLET' : pick(['VCB', 'MBBank', 'TCB', 'Vietcombank']),
           senderAccount: `****${rand(1000, 9999)}`,
+          status: 'APPLIED_ORDER',
           receivedAt,
-          verified: true,
           createdAt: receivedAt,
         },
       });
@@ -429,7 +432,7 @@ async function main() {
   const [orders, paidAgg, tx, reviews, wallets] = await Promise.all([
     prisma.order.count(),
     prisma.order.aggregate({ where: { paymentStatus: 'PAID' }, _sum: { totalAmount: true }, _count: { id: true } }),
-    prisma.transaction.count(),
+    prisma.bankTransfer.count({ where: { status: 'APPLIED_ORDER' } }),
     prisma.review.count(),
     prisma.userWallet.count(),
   ]);

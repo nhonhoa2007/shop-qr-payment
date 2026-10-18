@@ -16,16 +16,21 @@ export async function GET(req: Request) {
     const search = searchParams.get('search')?.trim();
     const verifiedParam = searchParams.get('verified');
 
-    const transactions = await prisma.transaction.findMany({
+    const statusFilter =
+      verifiedParam === 'true'
+        ? { status: 'APPLIED_ORDER' as const }
+        : verifiedParam === 'false'
+        ? { status: 'PENDING_REVIEW' as const }
+        : { status: { in: ['APPLIED_ORDER' as const, 'PENDING_REVIEW' as const] } };
+
+    const bankTransfers = await prisma.bankTransfer.findMany({
       where: {
-        ...(verifiedParam === 'true' ? { verified: true } : {}),
-        ...(verifiedParam === 'false' ? { verified: false } : {}),
+        ...statusFilter,
         ...(search
           ? {
               OR: [
                 { bankTransId: { contains: search, mode: 'insensitive' } },
                 { description: { contains: search, mode: 'insensitive' } },
-                { senderAccount: { contains: search, mode: 'insensitive' } },
                 {
                   order: {
                     OR: [
@@ -54,7 +59,22 @@ export async function GET(req: Request) {
         },
       },
       orderBy: { createdAt: 'desc' },
+      take: 100,
     });
+
+    const transactions = bankTransfers.map((b: any) => ({
+      id: b.id,
+      orderId: b.orderId,
+      bankTransId: b.bankTransId,
+      amount: b.amount,
+      description: b.description,
+      bankName: b.bankName,
+      senderAccount: b.senderAccount ?? null,
+      receivedAt: b.receivedAt,
+      verified: b.status === 'APPLIED_ORDER',
+      order: b.order,
+      createdAt: b.createdAt,
+    }));
 
     return NextResponse.json({ transactions });
   } catch (error: unknown) {
