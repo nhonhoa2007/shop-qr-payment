@@ -544,3 +544,4 @@ export interface WalletTopupSession {
 }
 
 export * from './money';
+export * from './catalog';
