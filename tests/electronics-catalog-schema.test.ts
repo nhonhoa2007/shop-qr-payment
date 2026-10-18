@@ -5,7 +5,6 @@ import path from 'node:path';
 import {
   parsePrismaModels,
   checkModelBudget,
-  FORBIDDEN_MODELS,
 } from '../scripts/check-prisma-model-budget.mjs';
 
 const SCHEMA_PATH = path.resolve(process.cwd(), 'prisma/schema.prisma');

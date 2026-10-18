@@ -17,6 +17,14 @@ export type SourceStatus =
   | 'REJECTED'
   | 'REVOKED';
 
+export type DataSourceType =
+  | 'CATALOG'
+  | 'REVIEW_AGGREGATE'
+  | 'BENCHMARK'
+  | 'COMPATIBILITY'
+  | 'MANUFACTURER';
+
+
 export type SpecValueType = 'TEXT' | 'INTEGER' | 'DECIMAL' | 'BOOLEAN' | 'ENUM';
 
 export interface VersionedJson<T> {

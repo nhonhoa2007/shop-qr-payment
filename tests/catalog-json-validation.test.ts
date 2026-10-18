@@ -16,7 +16,6 @@ import {
 } from '@shared/utils/measurements';
 import type {
   CategorySpecSchema,
-  ProductSpecs,
   CatalogImage,
   ProductKind,
   ProductSegment,

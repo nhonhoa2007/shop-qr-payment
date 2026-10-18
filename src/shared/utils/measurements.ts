@@ -3,7 +3,7 @@
  * Zero dependencies, safe for both Node.js and browser environments.
  */
 
-interface UnitSpec {
+export interface UnitSpec {
   canonical: string;
   factorToCanonical: number;
 }
