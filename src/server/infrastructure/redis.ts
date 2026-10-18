@@ -191,6 +191,26 @@ export class RedisClient {
   }
 
   /**
+   * DECR key (Giảm số đếm nguyên tử)
+   */
+  async decr(key: string): Promise<number> {
+    if (this.isRemoteConfigured()) {
+      const res = await this.executeCommand<number>(['DECR', key]);
+      return Number(res || 0);
+    }
+
+    // In-memory fallback
+    const entry = inMemoryCache.get(key);
+    let val = 0;
+    if (entry && (!entry.expiresAt || Date.now() <= entry.expiresAt)) {
+      val = Number(entry.value) || 0;
+    }
+    val = Math.max(0, val - 1);
+    inMemoryCache.set(key, { value: val, expiresAt: entry?.expiresAt || null });
+    return val;
+  }
+
+  /**
    * EXPIRE key seconds (Thiết lập thời gian sống)
    */
   async expire(key: string, seconds: number): Promise<boolean> {

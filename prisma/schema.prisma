@@ -29,6 +29,7 @@ model User {
   staffPermissions   StaffPermission[]     @relation("UserPermissions")
   grantedPermissions StaffPermission[]     @relation("GrantedPermissions")
   reviewedDataSources DataSource[]
+  assistantConversations AssistantConversation[]
   createdAt     DateTime              @default(now())
   updatedAt     DateTime              @updatedAt
 }
@@ -265,6 +266,41 @@ model ProductScoreSnapshot {
   @@index([productId, useCase, status])
   @@index([isGoodValue, status])
   @@index([publishedAt])
+}
+
+model AssistantConversation {
+  id                 String             @id @default(cuid())
+  userId             String?
+  user               User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anonymousTokenHash String?
+  title              String             @default("Tư vấn sản phẩm")
+  status             String             @default("ACTIVE")
+  metadata           Json?
+  expiresAt          DateTime
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  messages           AssistantMessage[]
+
+  @@index([userId, status])
+  @@index([anonymousTokenHash, status])
+  @@index([expiresAt])
+}
+
+model AssistantMessage {
+  id               String                @id @default(cuid())
+  conversationId   String
+  conversation     AssistantConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role             String
+  content          String
+  followUpQuestion String?
+  citations        Json?
+  claims           Json?
+  usage            Json?
+  isGrounded       Boolean               @default(true)
+  fallbackReason   String?
+  createdAt        DateTime              @default(now())
+
+  @@index([conversationId, createdAt])
 }
 
 enum ProductKind {

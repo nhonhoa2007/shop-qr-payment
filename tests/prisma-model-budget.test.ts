@@ -50,10 +50,10 @@ describe('Prisma Model Budget and Registry Gate', () => {
       assert.equal(models.length, 3);
     });
 
-    it('parses exactly 27 models from the active M2 Task 3 schema', () => {
+    it('parses exactly 29 models from the active M3 schema', () => {
       const schemaContent = fs.readFileSync(SCHEMA_PATH, 'utf8');
       const models = parsePrismaModels(schemaContent);
-      assert.equal(models.length, 27, `Expected active M2 schema to have 27 models, found ${models.length}`);
+      assert.equal(models.length, 29, `Expected active M3 schema to have 29 models, found ${models.length}`);
       assert.ok(models.includes('User'));
       assert.ok(models.includes('Order'));
       assert.ok(models.includes('ProductVariant'));
@@ -63,6 +63,8 @@ describe('Prisma Model Budget and Registry Gate', () => {
       assert.ok(models.includes('DataSource'));
       assert.ok(models.includes('BenchmarkMeasurement'));
       assert.ok(models.includes('ProductScoreSnapshot'));
+      assert.ok(models.includes('AssistantConversation'));
+      assert.ok(models.includes('AssistantMessage'));
     });
   });
 
@@ -81,13 +83,15 @@ describe('Prisma Model Budget and Registry Gate', () => {
       assert.deepEqual(registered, ['Alpha', 'Beta']);
     });
 
-    it('extracts exactly 27 registered models from docs/architecture/prisma-model-registry.md', () => {
+    it('extracts exactly 29 registered models from docs/architecture/prisma-model-registry.md', () => {
       assert.ok(fs.existsSync(REGISTRY_PATH), 'Registry file must exist');
       const registryContent = fs.readFileSync(REGISTRY_PATH, 'utf8');
       const registered = parseRegistryModels(registryContent);
-      assert.equal(registered.length, 27, `Expected registry to list 27 models, found ${registered.length}`);
+      assert.equal(registered.length, 29, `Expected registry to list 29 models, found ${registered.length}`);
       assert.ok(registered.includes('BenchmarkMeasurement'));
       assert.ok(registered.includes('ProductScoreSnapshot'));
+      assert.ok(registered.includes('AssistantConversation'));
+      assert.ok(registered.includes('AssistantMessage'));
     });
 
     it('parses only the designated Model column and ignores backtick tokens in other columns', () => {
@@ -240,12 +244,12 @@ describe('Prisma Model Budget and Registry Gate', () => {
       const result = checkModelBudget({
         schemaContent,
         registryContent,
-        expected: 27,
+        expected: 29,
         lockRegistry: true,
       });
 
       assert.equal(result.valid, true, `Check should be valid, errors: ${result.errors.join('; ')}`);
-      assert.equal(result.totalModels, 27);
+      assert.equal(result.totalModels, 29);
       assert.deepEqual(result.addedModels, []);
       assert.deepEqual(result.removedModels, []);
       assert.deepEqual(result.forbiddenModels, []);
@@ -253,35 +257,35 @@ describe('Prisma Model Budget and Registry Gate', () => {
   });
 
   describe('Configurable Expected Count and CLI execution', () => {
-    it('passes for current schema when expected count is 27', () => {
+    it('passes for current schema when expected count is 29', () => {
+      const schemaContent = fs.readFileSync(SCHEMA_PATH, 'utf8');
+      const result = checkModelBudget({
+        schemaContent,
+        expected: 29,
+      });
+      assert.equal(result.valid, true);
+      assert.equal(result.totalModels, 29);
+    });
+
+    it('fails for current schema when expected count is 27 (prior M2 milestone count)', () => {
       const schemaContent = fs.readFileSync(SCHEMA_PATH, 'utf8');
       const result = checkModelBudget({
         schemaContent,
         expected: 27,
       });
-      assert.equal(result.valid, true);
-      assert.equal(result.totalModels, 27);
-    });
-
-    it('fails for current schema when expected count is 26 (prior M2 Task 1 count)', () => {
-      const schemaContent = fs.readFileSync(SCHEMA_PATH, 'utf8');
-      const result = checkModelBudget({
-        schemaContent,
-        expected: 26,
-      });
       assert.equal(result.valid, false);
       assert.ok(
-        result.errors.some((err: string) => err.includes('26') && err.includes('27')),
-        `Expected error mentioning expected 26 and found 27, got: ${result.errors.join('; ')}`
+        result.errors.some((err: string) => err.includes('27') && err.includes('29')),
+        `Expected error mentioning expected 27 and found 29, got: ${result.errors.join('; ')}`
       );
     });
 
-    it('executes CLI with --expected=27 and exits cleanly (code 0)', () => {
-      const output = execFileSync(process.execPath, [SCRIPT_PATH, '--expected=27'], {
+    it('executes CLI with --expected=29 and exits cleanly (code 0)', () => {
+      const output = execFileSync(process.execPath, [SCRIPT_PATH, '--expected=29'], {
         encoding: 'utf8',
         cwd: PROJECT_ROOT,
       });
-      assert.ok(output.includes('27'));
+      assert.ok(output.includes('29'));
       assert.ok(output.toLowerCase().includes('pass'));
     });
 
@@ -291,7 +295,7 @@ describe('Prisma Model Budget and Registry Gate', () => {
         encoding: 'utf8',
         cwd: nonRootCwd,
       });
-      assert.ok(output.includes('27'));
+      assert.ok(output.includes('29'));
       assert.ok(output.toLowerCase().includes('pass'));
     });
 
