@@ -235,15 +235,23 @@ export async function POST(req: Request) {
         if (claimed.count !== 1) throw new Error('Mã giảm giá đã hết lượt sử dụng');
 
         if (session?.user?.id) {
-          const usageCount = await tx.couponUsage.count({ where: { couponId: couponRecord.id, userId: session.user.id } });
-          if (usageCount >= couponRecord.perUserLimit) throw new Error('Bạn đã sử dụng hết lượt mã giảm giá này');
-          await tx.couponUsage.create({
-            data: {
-              couponId: couponRecord.id,
-              userId: session.user.id,
-              orderId: createdOrder.id,
-            },
+          const usageCount = await tx.order.count({
+            where: { couponId: couponRecord.id, userId: session.user.id, couponUsageClaimedAt: { not: null } },
           });
+          if (usageCount >= couponRecord.perUserLimit) throw new Error('Bạn đã sử dụng hết lượt mã giảm giá này');
+          await tx.order.update({
+            where: { id: createdOrder.id },
+            data: { couponUsageClaimedAt: new Date() },
+          });
+          if ('couponUsage' in tx && typeof (tx as any).couponUsage?.create === 'function') {
+            await (tx as any).couponUsage.create({
+              data: {
+                couponId: couponRecord.id,
+                userId: session.user.id,
+                orderId: createdOrder.id,
+              },
+            });
+          }
         }
       }
 
@@ -254,12 +262,18 @@ export async function POST(req: Request) {
 
     if (session?.user?.id) {
       if (admins.length > 0) {
-        const chatRoom = await prisma.chatRoom.create({
+        const chatRoom = await (prisma as any).chatRoom.create({
           data: {
             orderId: order.id,
-            participants: {
-              create: [{ userId: session.user.id }, ...admins.map((admin) => ({ userId: admin.id }))],
-            },
+            customerId: session.user.id,
+            assignedStaffId: admins[0].id,
+            ...('chatRoomParticipant' in prisma && typeof (prisma as any).chatRoomParticipant?.create === 'function'
+              ? {
+                  participants: {
+                    create: [{ userId: session.user.id }, ...admins.map((admin) => ({ userId: admin.id }))],
+                  },
+                }
+              : {}),
           },
         });
 

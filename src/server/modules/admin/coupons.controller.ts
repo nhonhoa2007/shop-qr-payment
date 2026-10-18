@@ -125,11 +125,10 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: 'Missing coupon ID' }, { status: 400 });
     }
 
-    // Check if coupon has been used in orders or couponUsages
-    const usagesCount = await prisma.couponUsage.count({ where: { couponId: id } });
+    // Check if coupon has been used in orders
     const ordersCount = await prisma.order.count({ where: { couponId: id } });
 
-    if (usagesCount > 0 || ordersCount > 0) {
+    if (ordersCount > 0) {
       // Soft-deactivate to protect relational order history
       const updated = await prisma.coupon.update({
         where: { id },

@@ -19,7 +19,7 @@ This registry tracks all Prisma models across project milestones in accordance w
 
 ---
 
-## 2. Active Registry (M5 Contract — 34 Models)
+## 2. Active Registry (M5 Exit — 32 Models)
 
 <!-- REGISTRY_MODELS_START -->
 | # | Model | Status | Milestone | Role / Description |
@@ -34,30 +34,28 @@ This registry tracks all Prisma models across project milestones in accordance w
 | 8 | `RefundCase` | ACTIVE | M0 | Order refund operations with idempotent source keys |
 | 9 | `OrderItem` | ACTIVE | M0 (Updated M1) | Order line items with frozen commercial, warranty, and packing snapshots |
 | 10 | `Coupon` | ACTIVE | M0 | Discount voucher policies and usage constraints |
-| 11 | `CouponUsage` | TRANSITIONAL | M0 (Retire M5) | Coupon usage counter; to be absorbed into Order claim fields |
-| 12 | `Review` | ACTIVE | M0 | Verified purchaser product reviews and ratings |
-| 13 | `Wishlist` | ACTIVE | M0 | Customer bookmarked items |
-| 14 | `ChatRoom` | ACTIVE | M0 | Support chat sessions between buyer and assigned staff |
-| 15 | `ChatRoomParticipant` | TRANSITIONAL | M0 (Retire M5) | Chat participant join table; to be flattened into ChatRoom |
-| 16 | `Message` | ACTIVE | M0 | Realtime human-to-human support chat messages |
-| 17 | `Notification` | ACTIVE | M0 | In-app user notifications |
-| 18 | `Shipment` | ACTIVE | M0 | GHN shipping waybills and delivery lifecycle |
-| 19 | `UserWallet` | ACTIVE | M0 | Internal customer wallet balance projection |
-| 20 | `WalletTransaction` | ACTIVE | M0 | Internal customer wallet double-entry ledger |
-| 21 | `Brand` | ACTIVE | M1 | Electronics brand / manufacturer |
-| 22 | `Category` | ACTIVE | M1 | Category hierarchy with versioned spec/scoring/warranty schemas |
-| 23 | `DataSource` | ACTIVE | M1 | Unified provenance, licensing, and approved evidence payload |
-| 24 | `BenchmarkMeasurement` | ACTIVE | M2 | High-cardinality benchmark measurement with source/product/variant/metric |
-| 25 | `ProductScoreSnapshot` | ACTIVE | M2 | Immutable value-for-money score snapshot, rubric/evidence/breakdown JSON |
-| 26 | `AssistantConversation` | ACTIVE | M3 | Isolated assistant conversation session with 30-day retention |
-| 27 | `AssistantMessage` | ACTIVE | M3 | Conversation message with embedded citations, usage, and claims JSON |
-| 28 | `CompatibilityRule` | ACTIVE | M4 | Deterministic compatibility rules with direction, category scope, conditions/warnings JSON, version, and governance lifecycle |
-| 29 | `InventoryMovement` | ACTIVE | M5 | Append-only inventory movement ledger with CAS projection updates |
-| 30 | `Supplier` | ACTIVE | M5 | Electronics equipment, parts, and accessory supplier master record |
-| 31 | `PurchaseOrder` | ACTIVE | M5 | Procurement purchase order aggregate, lifecycle FSM, and totals |
-| 32 | `PurchaseOrderItem` | ACTIVE | M5 | Purchase order line item with ordered/received quantities and BigInt unit cost |
-| 33 | `SerializedUnit` | ACTIVE | M5 | Serialized unit tracking with nullable unique serial/IMEI identifiers |
-| 34 | `AdminAuditLog` | ACTIVE | M5 | Immutable redacted administrative and sensitive operations audit log |
+| 11 | `Review` | ACTIVE | M0 | Verified purchaser product reviews and ratings |
+| 12 | `Wishlist` | ACTIVE | M0 | Customer bookmarked items |
+| 13 | `ChatRoom` | ACTIVE | M0 | Support chat sessions between buyer and assigned staff |
+| 14 | `Message` | ACTIVE | M0 | Realtime human-to-human support chat messages |
+| 15 | `Notification` | ACTIVE | M0 | In-app user notifications |
+| 16 | `Shipment` | ACTIVE | M0 | GHN shipping waybills and delivery lifecycle |
+| 17 | `UserWallet` | ACTIVE | M0 | Internal customer wallet balance projection |
+| 18 | `WalletTransaction` | ACTIVE | M0 | Internal customer wallet double-entry ledger |
+| 19 | `Brand` | ACTIVE | M1 | Electronics brand / manufacturer |
+| 20 | `Category` | ACTIVE | M1 | Category hierarchy with versioned spec/scoring/warranty schemas |
+| 21 | `DataSource` | ACTIVE | M1 | Unified provenance, licensing, and approved evidence payload |
+| 22 | `BenchmarkMeasurement` | ACTIVE | M2 | High-cardinality benchmark measurement with source/product/variant/metric |
+| 23 | `ProductScoreSnapshot` | ACTIVE | M2 | Immutable value-for-money score snapshot, rubric/evidence/breakdown JSON |
+| 24 | `AssistantConversation` | ACTIVE | M3 | Isolated assistant conversation session with 30-day retention |
+| 25 | `AssistantMessage` | ACTIVE | M3 | Conversation message with embedded citations, usage, and claims JSON |
+| 26 | `CompatibilityRule` | ACTIVE | M4 | Deterministic compatibility rules with direction, category scope, conditions/warnings JSON, version, and governance lifecycle |
+| 27 | `InventoryMovement` | ACTIVE | M5 | Append-only inventory movement ledger with CAS projection updates |
+| 28 | `Supplier` | ACTIVE | M5 | Electronics equipment, parts, and accessory supplier master record |
+| 29 | `PurchaseOrder` | ACTIVE | M5 | Procurement purchase order aggregate, lifecycle FSM, and totals |
+| 30 | `PurchaseOrderItem` | ACTIVE | M5 | Purchase order line item with ordered/received quantities and BigInt unit cost |
+| 31 | `SerializedUnit` | ACTIVE | M5 | Serialized unit tracking with nullable unique serial/IMEI identifiers |
+| 32 | `AdminAuditLog` | ACTIVE | M5 | Immutable redacted administrative and sensitive operations audit log |
 <!-- REGISTRY_MODELS_END -->
 
 ---
@@ -68,8 +66,8 @@ This registry tracks all Prisma models across project milestones in accordance w
 |---|---|---|---|---|
 | `StockAdjustment` | `InventoryMovement(kind=ADJUST)` | M5 | Backfill via `operationKey`, reconcile inventory delta, redirect writers, drop table. | RETIRED |
 | `Transaction` | `BankTransfer(status=APPLIED_ORDER)` | M5 | Backfill bank transaction fingerprint, update all readers, drop table. | RETIRED |
-| `CouponUsage` | `Order.couponId` / `userId` / `usageClaimedAt` | M5 | Enforce unique order claim within transaction, reconcile counts, drop table. | TRANSITIONAL |
-| `ChatRoomParticipant` | `ChatRoom.customerId` / `assignedStaffId` | M5 | Constrain chat rooms to 1:1 buyer-staff model, backfill direct IDs, drop table. | TRANSITIONAL |
+| `CouponUsage` | `Order.couponId` / `userId` / `usageClaimedAt` | M5 | Enforce unique order claim within transaction, reconcile counts, drop table. | RETIRED |
+| `ChatRoomParticipant` | `ChatRoom.customerId` / `assignedStaffId` | M5 | Constrain chat rooms to 1:1 buyer-staff model, backfill direct IDs, drop table. | RETIRED |
 
 ---
 

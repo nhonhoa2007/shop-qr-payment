@@ -102,7 +102,10 @@ export async function POST(req: Request) {
             await releaseOrderStock(tx, fresh.order.items, `ghn:${fresh.orderId}:release`);
             if (fresh.order.couponId) {
               await tx.coupon.update({ where: { id: fresh.order.couponId }, data: { usedCount: { decrement: 1 } } });
-              if (fresh.order.userId) await tx.couponUsage.deleteMany({ where: { couponId: fresh.order.couponId, orderId: fresh.orderId, userId: fresh.order.userId } });
+              await tx.order.update({ where: { id: fresh.orderId }, data: { couponUsageClaimedAt: null } });
+              if (fresh.order.userId && 'couponUsage' in tx && typeof (tx as any).couponUsage?.deleteMany === 'function') {
+                await (tx as any).couponUsage.deleteMany({ where: { couponId: fresh.order.couponId, orderId: fresh.orderId, userId: fresh.order.userId } });
+              }
             }
           }
         }

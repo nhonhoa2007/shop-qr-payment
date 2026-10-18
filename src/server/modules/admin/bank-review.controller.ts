@@ -63,7 +63,10 @@ export async function POST(req: Request) {
           const coupon = await tx.coupon.findUniqueOrThrow({ where: { id: order.couponId } });
           const claimedCoupon = await tx.coupon.updateMany({ where: { id: coupon.id, ...(coupon.usageLimit === null ? {} : { usedCount: { lt: coupon.usageLimit } }) }, data: { usedCount: { increment: 1 } } });
           if (claimedCoupon.count !== 1) throw new Error('Coupon đã hết lượt dùng; không thể phục hồi đơn');
-          if (order.userId) await tx.couponUsage.create({ data: { couponId: order.couponId, userId: order.userId, orderId: order.id } });
+          await tx.order.update({ where: { id: order.id }, data: { couponUsageClaimedAt: new Date() } });
+          if (order.userId && 'couponUsage' in tx && typeof (tx as any).couponUsage?.create === 'function') {
+            await (tx as any).couponUsage.create({ data: { couponId: order.couponId, userId: order.userId, orderId: order.id } });
+          }
         }
       }
       const changed = await tx.order.updateMany({ where: { id: order.id, paymentStatus: { in: ['UNPAID', 'EXPIRED'] }, status: { in: ['PENDING', 'CANCELLED'] } }, data: { paymentStatus: 'PAID', status: 'CONFIRMED' } });

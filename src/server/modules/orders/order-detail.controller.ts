@@ -213,8 +213,13 @@ export async function PATCH(
             data: { usedCount: { decrement: 1 } },
           });
 
-          if (currentOrder.userId) {
-            await tx.couponUsage.deleteMany({
+          await tx.order.update({
+            where: { id: currentOrder.id },
+            data: { couponUsageClaimedAt: null },
+          });
+
+          if (currentOrder.userId && 'couponUsage' in tx && typeof (tx as any).couponUsage?.deleteMany === 'function') {
+            await (tx as any).couponUsage.deleteMany({
               where: {
                 couponId: currentOrder.couponId,
                 userId: currentOrder.userId,

@@ -9,43 +9,84 @@ export class ChatService {
    * Lấy danh sách các phòng chat đang hoạt động dành cho Quản trị viên
    */
   static async getAdminChatRooms(adminUserId: string): Promise<ChatRoom[]> {
-    const rooms = await prisma.chatRoom.findMany({
+    const hasParticipants = 'chatRoomParticipant' in prisma;
+    const rooms = await (prisma as any).chatRoom.findMany({
       include: {
         order: { select: { orderCode: true } },
-        participants: {
-          where: { userId: { not: adminUserId } },
-          include: { user: { select: { id: true, name: true, avatar: true } } },
-        },
+        customer: { select: { id: true, name: true, avatar: true } },
+        assignedStaff: { select: { id: true, name: true, avatar: true } },
+        ...(hasParticipants
+          ? {
+              participants: {
+                where: { userId: { not: adminUserId } },
+                include: { user: { select: { id: true, name: true, avatar: true } } },
+              },
+            }
+          : {}),
         _count: { select: { messages: true } },
       },
       orderBy: { lastActiveAt: 'desc' },
     });
 
-    return rooms as unknown as ChatRoom[];
+    const mapped = rooms.map((room: any) => {
+      const otherUser = room.customer || (room.assignedStaffId !== adminUserId ? room.assignedStaff : null);
+      const participants =
+        room.participants && room.participants.length > 0
+          ? room.participants
+          : [otherUser ? { user: otherUser } : null].filter(Boolean);
+
+      return {
+        ...room,
+        participants,
+      };
+    });
+
+    return mapped as unknown as ChatRoom[];
   }
 
   /**
    * Lấy danh sách phòng chat của một khách hàng
    */
   static async getCustomerChatRooms(customerId: string): Promise<ChatRoom[]> {
-    const rooms = await prisma.chatRoom.findMany({
+    const hasParticipants = 'chatRoomParticipant' in prisma;
+    const rooms = await (prisma as any).chatRoom.findMany({
       where: {
-        participants: {
-          some: { userId: customerId },
-        },
+        OR: [
+          { customerId },
+          ...(hasParticipants ? [{ participants: { some: { userId: customerId } } }] : []),
+        ],
       },
       include: {
         order: { select: { orderCode: true } },
-        participants: {
-          where: { userId: { not: customerId } },
-          include: { user: { select: { id: true, name: true, avatar: true } } },
-        },
+        customer: { select: { id: true, name: true, avatar: true } },
+        assignedStaff: { select: { id: true, name: true, avatar: true } },
+        ...(hasParticipants
+          ? {
+              participants: {
+                where: { userId: { not: customerId } },
+                include: { user: { select: { id: true, name: true, avatar: true } } },
+              },
+            }
+          : {}),
         _count: { select: { messages: true } },
       },
       orderBy: { lastActiveAt: 'desc' },
     });
 
-    return rooms as unknown as ChatRoom[];
+    const mapped = rooms.map((room: any) => {
+      const otherUser = room.assignedStaff;
+      const participants =
+        room.participants && room.participants.length > 0
+          ? room.participants
+          : [otherUser ? { user: otherUser } : null].filter(Boolean);
+
+      return {
+        ...room,
+        participants,
+      };
+    });
+
+    return mapped as unknown as ChatRoom[];
   }
 
   /**
@@ -60,14 +101,21 @@ export class ChatService {
     otherName: string;
     order?: { orderCode: string } | null;
   }> {
-    const room = await prisma.chatRoom.findUnique({
+    const hasParticipants = 'chatRoomParticipant' in prisma;
+    const room = await (prisma as any).chatRoom.findUnique({
       where: { id: roomId },
       include: {
         order: { select: { orderCode: true } },
-        participants: {
-          where: { userId: { not: userId } },
-          include: { user: { select: { id: true, name: true, avatar: true } } },
-        },
+        customer: { select: { id: true, name: true, avatar: true } },
+        assignedStaff: { select: { id: true, name: true, avatar: true } },
+        ...(hasParticipants
+          ? {
+              participants: {
+                where: { userId: { not: userId } },
+                include: { user: { select: { id: true, name: true, avatar: true } } },
+              },
+            }
+          : {}),
       },
     });
 
@@ -75,24 +123,41 @@ export class ChatService {
       return { allowed: false, messages: [], otherName: '', order: null };
     }
 
-    let participant = await prisma.chatRoomParticipant.findUnique({
-      where: { roomId_userId: { roomId, userId } },
-    });
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+    const isDirectMember = room.customerId === userId || room.assignedStaffId === userId;
 
-    if (!participant) {
-      const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
-      if (user?.role === 'ADMIN') {
-        try {
-          participant = await prisma.chatRoomParticipant.create({
-            data: { roomId, userId },
-          });
-        } catch {
-          participant = await prisma.chatRoomParticipant.findUnique({
-            where: { roomId_userId: { roomId, userId } },
-          });
+    if (!isDirectMember) {
+      if (hasParticipants) {
+        let participant = await (prisma as any).chatRoomParticipant.findUnique({
+          where: { roomId_userId: { roomId, userId } },
+        });
+
+        if (!participant) {
+          if (user?.role === 'ADMIN') {
+            try {
+              participant = await (prisma as any).chatRoomParticipant.create({
+                data: { roomId, userId },
+              });
+            } catch {
+              participant = await (prisma as any).chatRoomParticipant.findUnique({
+                where: { roomId_userId: { roomId, userId } },
+              });
+            }
+          } else {
+            return { allowed: false, messages: [], otherName: '', order: null };
+          }
         }
       } else {
-        return { allowed: false, messages: [], otherName: '', order: null };
+        if (user?.role === 'ADMIN') {
+          if (!room.assignedStaffId) {
+            await (prisma as any).chatRoom.update({
+              where: { id: roomId },
+              data: { assignedStaffId: userId },
+            });
+          }
+        } else {
+          return { allowed: false, messages: [], otherName: '', order: null };
+        }
       }
     }
 
@@ -103,8 +168,11 @@ export class ChatService {
       take: 100,
     });
 
+    const otherUser = room.customerId === userId ? room.assignedStaff : room.customer;
     const otherName =
-      room.participants[0]?.user?.name || (room.order ? `Đơn ${room.order.orderCode}` : 'Chat');
+      room.participants?.[0]?.user?.name ||
+      otherUser?.name ||
+      (room.order ? `Đơn ${room.order.orderCode}` : 'Chat');
 
     const messages: Message[] = rawMessages.map((message) => ({
       ...message,

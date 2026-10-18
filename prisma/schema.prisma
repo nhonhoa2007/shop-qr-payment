@@ -20,11 +20,11 @@ model User {
   isBlocked     Boolean               @default(false)
   orders        Order[]
   sentMessages  Message[]             @relation("sender")
-  chatRooms     ChatRoomParticipant[]
+  customerChatRooms ChatRoom[]         @relation("CustomerChatRooms")
+  staffChatRooms    ChatRoom[]         @relation("StaffChatRooms")
   notifications Notification[]
   reviews       Review[]
   wishlists     Wishlist[]
-  couponUsages  CouponUsage[]
   wallet        UserWallet?
   staffPermissions   StaffPermission[]     @relation("UserPermissions")
   grantedPermissions StaffPermission[]     @relation("GrantedPermissions")
@@ -424,6 +424,7 @@ model Order {
   couponId        String?
   couponCode      String?
   coupon          Coupon?       @relation(fields: [couponId], references: [id])
+  couponUsageClaimedAt DateTime?
   status          OrderStatus   @default(PENDING)
   paymentStatus   PaymentStatus @default(UNPAID)
   chatRoom        ChatRoom?
@@ -570,7 +571,6 @@ model Coupon {
   endDate        DateTime
   isActive       Boolean       @default(true)
   orders         Order[]
-  userUsages     CouponUsage[]
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 }
@@ -579,18 +579,6 @@ enum DiscountType {
   FIXED
   PERCENTAGE
   FREE_SHIPPING
-}
-
-model CouponUsage {
-  id        String   @id @default(cuid())
-  couponId  String
-  coupon    Coupon   @relation(fields: [couponId], references: [id])
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  orderId   String
-  createdAt DateTime @default(now())
-
-  @@unique([couponId, userId, orderId])
 }
 
 model Review {
@@ -623,28 +611,23 @@ model Wishlist {
 }
 
 model ChatRoom {
-  id           String                @id @default(cuid())
-  orderId      String?               @unique
-  order        Order?                @relation(fields: [orderId], references: [id])
-  participants ChatRoomParticipant[]
-  messages     Message[]
-  lastMessage  String?
-  lastActiveAt DateTime              @default(now())
-  createdAt    DateTime              @default(now())
+  id              String                @id @default(cuid())
+  orderId         String?               @unique
+  order           Order?                @relation(fields: [orderId], references: [id])
+  customerId      String?
+  customer        User?                 @relation("CustomerChatRooms", fields: [customerId], references: [id], onDelete: SetNull)
+  assignedStaffId String?
+  assignedStaff   User?                 @relation("StaffChatRooms", fields: [assignedStaffId], references: [id], onDelete: SetNull)
+  customerReadAt  DateTime?
+  staffReadAt     DateTime?
+  messages        Message[]
+  lastMessage     String?
+  lastActiveAt    DateTime              @default(now())
+  createdAt       DateTime              @default(now())
 
+  @@index([customerId])
+  @@index([assignedStaffId])
   @@index([lastActiveAt])
-}
-
-model ChatRoomParticipant {
-  id         String   @id @default(cuid())
-  roomId     String
-  room       ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  userId     String
-  user       User     @relation(fields: [userId], references: [id])
-  lastReadAt DateTime @default(now())
-  createdAt  DateTime @default(now())
-
-  @@unique([roomId, userId])
 }
 
 model Message {

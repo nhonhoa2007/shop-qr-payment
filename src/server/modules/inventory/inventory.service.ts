@@ -241,8 +241,13 @@ export async function expireUnpaidOrders(prisma: PrismaClient): Promise<number> 
             data: { usedCount: { decrement: 1 } },
           });
 
-          if (order.userId) {
-            await tx.couponUsage.deleteMany({
+          await tx.order.update({
+            where: { id: order.id },
+            data: { couponUsageClaimedAt: null },
+          });
+
+          if (order.userId && 'couponUsage' in tx && typeof (tx as any).couponUsage?.deleteMany === 'function') {
+            await (tx as any).couponUsage.deleteMany({
               where: {
                 couponId: order.couponId,
                 userId: order.userId,

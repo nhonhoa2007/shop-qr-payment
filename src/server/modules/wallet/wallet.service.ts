@@ -115,7 +115,10 @@ export async function refundOrderToWallet(
   }
   if (order.couponId) {
     await tx.coupon.update({ where: { id: order.couponId }, data: { usedCount: { decrement: 1 } } });
-    if (order.userId) await tx.couponUsage.deleteMany({ where: { couponId: order.couponId, orderId: order.id, userId: order.userId } });
+    await tx.order.update({ where: { id: order.id }, data: { couponUsageClaimedAt: null } });
+    if (order.userId && 'couponUsage' in tx && typeof (tx as any).couponUsage?.deleteMany === 'function') {
+      await (tx as any).couponUsage.deleteMany({ where: { couponId: order.couponId, orderId: order.id, userId: order.userId } });
+    }
   }
 
   // Nếu là tài khoản thành viên có userId -> Hoàn vào ví

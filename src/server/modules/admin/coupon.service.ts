@@ -47,8 +47,8 @@ export async function validateCoupon(
   }
 
   if (userId) {
-    const usageCount = await prisma.couponUsage.count({
-      where: { couponId: coupon.id, userId },
+    const usageCount = await prisma.order.count({
+      where: { couponId: coupon.id, userId, couponUsageClaimedAt: { not: null } },
     });
     if (usageCount >= coupon.perUserLimit) {
       return { valid: false, error: 'Bạn đã sử dụng hết lượt mã giảm giá này' };
