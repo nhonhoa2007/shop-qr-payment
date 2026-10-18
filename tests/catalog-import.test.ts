@@ -430,6 +430,8 @@ describe('Task 2: Electronics Catalog Manifest & Importer Contracts', () => {
       assert.equal(createdProducts.length, 1);
       assert.equal(createdVariants.length, 1);
       assert.equal(createdVariants[0].sku, 'SKU-MOCK-1');
+      assert.equal(createdVariants[0].onHandStock, 5, 'Must initialize onHandStock on variant');
+      assert.equal(createdProducts[0].onHandStock, 5, 'Must initialize onHandStock on product');
     });
   });
 });

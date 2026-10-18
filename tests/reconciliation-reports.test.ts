@@ -126,6 +126,39 @@ describe('Task 3: Reconciliation Reports (Inventory, Money, and Serials)', () =>
       assert.ok(report.discrepancies.some((d) => d.type === 'NEGATIVE_STOCK'));
     });
 
+    it('detects over-reserved stock when variant.reservedStock > variant.onHandStock', async () => {
+      const mockDb: any = {
+        product: {
+          findMany: async () => [
+            {
+              id: 'p1',
+              name: 'Mouse',
+              stock: 5,
+              variants: [
+                {
+                  id: 'v1',
+                  sku: 'SKU-MOUSE',
+                  stock: 5,
+                  onHandStock: 3,
+                  reservedStock: 5, // 5 > 3: over-reserved!
+                  serializationRequired: false,
+                },
+              ],
+            },
+          ],
+        },
+        inventoryMovement: { findMany: async () => [] },
+        serializedUnit: { findMany: async () => [] },
+      };
+
+      const report = await reconcileInventory(mockDb);
+      assert.equal(report.status, 'DISCREPANCIES_DETECTED');
+      assert.ok(
+        report.discrepancies.some((d) => d.type === 'OVER_RESERVED_STOCK' && d.variantId === 'v1'),
+        'Must detect OVER_RESERVED_STOCK'
+      );
+    });
+
     it('detects serial count mismatch and serial order mismatch', async () => {
       const mockDb: any = {
         product: {
@@ -304,6 +337,77 @@ describe('Task 3: Reconciliation Reports (Inventory, Money, and Serials)', () =>
       assert.ok(
         report.discrepancies.some((d) => d.type === 'PAID_ORDER_PAYMENT_MISSING'),
         'Must detect PAID_ORDER_PAYMENT_MISSING'
+      );
+    });
+
+    it('detects paid order having bank transfers but none with APPLIED_ORDER status', async () => {
+      const mockDb: any = {
+        userWallet: { findMany: async () => [] },
+        walletTransaction: { findMany: async () => [] },
+        order: {
+          findMany: async () => [
+            {
+              id: 'o_rejected_transfers',
+              orderCode: 'DH000002',
+              totalAmount: BigInt(500000),
+              paymentStatus: 'PAID',
+              bankTransfers: [
+                { bankTransId: 'BT_REJECTED', amount: BigInt(500000), status: 'FAILED' },
+              ],
+              refundCases: [],
+              orderItems: [],
+            },
+          ],
+        },
+        refundCase: { findMany: async () => [] },
+      };
+
+      const report = await reconcileMoney(mockDb);
+      assert.equal(report.status, 'DISCREPANCIES_DETECTED');
+      assert.ok(
+        report.discrepancies.some((d) => d.type === 'PAID_ORDER_PAYMENT_MISSING'),
+        'Must detect PAID_ORDER_PAYMENT_MISSING when transfers exist but none are APPLIED_ORDER'
+      );
+    });
+
+    it('detects duplicate bank transaction references across multiple orders', async () => {
+      const mockDb: any = {
+        userWallet: { findMany: async () => [] },
+        walletTransaction: { findMany: async () => [] },
+        order: {
+          findMany: async () => [
+            {
+              id: 'o1',
+              orderCode: 'DH1001',
+              totalAmount: BigInt(500000),
+              paymentStatus: 'PAID',
+              bankTransfers: [
+                { bankTransId: 'DUPLICATE_BT_123', amount: BigInt(500000), status: 'APPLIED_ORDER' },
+              ],
+              refundCases: [],
+              orderItems: [],
+            },
+            {
+              id: 'o2',
+              orderCode: 'DH1002',
+              totalAmount: BigInt(500000),
+              paymentStatus: 'PAID',
+              bankTransfers: [
+                { bankTransId: 'DUPLICATE_BT_123', amount: BigInt(500000), status: 'APPLIED_ORDER' },
+              ],
+              refundCases: [],
+              orderItems: [],
+            },
+          ],
+        },
+        refundCase: { findMany: async () => [] },
+      };
+
+      const report = await reconcileMoney(mockDb);
+      assert.equal(report.status, 'DISCREPANCIES_DETECTED');
+      assert.ok(
+        report.discrepancies.some((d) => d.type === 'DUPLICATE_PAYMENT_REFERENCE'),
+        'Must detect DUPLICATE_PAYMENT_REFERENCE'
       );
     });
 

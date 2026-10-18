@@ -144,6 +144,21 @@ export async function reconcileInventory(
         });
       }
 
+      // Over-reserved check (reservedStock > onHandStock)
+      const vReserved = (variant as any).reservedStock;
+      const vOnHand = (variant as any).onHandStock;
+      if (typeof vReserved === 'number' && typeof vOnHand === 'number' && vReserved > vOnHand) {
+        discrepancies.push({
+          type: 'OVER_RESERVED_STOCK' as any,
+          severity: 'CRITICAL',
+          message: `Variant ${variant.id} (${variant.sku}) has reserved stock (${vReserved}) exceeding on-hand stock (${vOnHand})`,
+          productId: product.id,
+          variantId: variant.id,
+          expected: vOnHand,
+          actual: vReserved,
+        });
+      }
+
       // Movement ledger check if movements exist
       if (movementsByVariant.has(variant.id)) {
         const movementSum = movementsByVariant.get(variant.id)!;
@@ -293,8 +308,8 @@ export async function reconcileMoney(
         0n
       );
 
-      // If order is PAID via bank transfer or QR, verify payment exists
-      if (transfers.length === 0 || (validTransfers.length > 0 && totalPaid < orderTotal)) {
+      // If order is PAID, verify valid payment of sufficient amount exists
+      if (validTransfers.length === 0 || totalPaid < orderTotal) {
         discrepancies.push({
           type: 'PAID_ORDER_PAYMENT_MISSING',
           severity: 'CRITICAL',
@@ -308,6 +323,31 @@ export async function reconcileMoney(
           },
         });
       }
+    }
+  }
+
+  // 3. Cross-order duplicate payment reference check
+  const bankTransOrders = new Map<string, string[]>();
+  for (const order of orders as any[]) {
+    for (const bt of ((order.bankTransfers ?? []) as any[])) {
+      if (bt.bankTransId) {
+        const list = bankTransOrders.get(bt.bankTransId) ?? [];
+        list.push(order.orderCode ?? order.id);
+        bankTransOrders.set(bt.bankTransId, list);
+      }
+    }
+  }
+  for (const [transId, orderCodes] of bankTransOrders.entries()) {
+    if (orderCodes.length > 1) {
+      discrepancies.push({
+        type: 'DUPLICATE_PAYMENT_REFERENCE',
+        severity: 'CRITICAL',
+        message: `Bank transaction ID ${transId} is duplicated across multiple orders: ${orderCodes.join(', ')}`,
+        details: {
+          bankTransId: transId,
+          orders: orderCodes,
+        },
+      });
     }
   }
 

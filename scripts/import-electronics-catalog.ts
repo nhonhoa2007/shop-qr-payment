@@ -416,6 +416,7 @@ export async function importElectronicsCatalog(
           images: (product.images as any) ?? [],
           price: basePrice,
           stock: product.variants.reduce((sum, v) => sum + v.stock, 0),
+          onHandStock: product.variants.reduce((sum, v) => sum + v.stock, 0),
           isActive: true,
         },
       });
@@ -438,6 +439,7 @@ export async function importElectronicsCatalog(
             title: v.title,
             price: BigInt(v.price),
             stock: v.stock,
+            onHandStock: v.stock,
             color: v.color ?? null,
             size: v.size ?? null,
             optionValues: (v.optionValues as any) ?? {},
