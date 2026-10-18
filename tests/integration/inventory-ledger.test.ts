@@ -5,6 +5,12 @@ import {
   reconcileInventoryLedger,
   backfillOpeningLegacyMovements,
 } from '@server/modules/inventory/inventory-ledger.service';
+import {
+  reserveOrderStock,
+  releaseOrderStock,
+  consumeShippedStock,
+  quarantineReturnedStock,
+} from '@server/modules/inventory/inventory.service';
 import type { ApplyMovementInput, StockTarget } from '@shared/types/inventory-ledger';
 
 describe('Inventory Movement Ledger - Integration & Lifecycle', () => {
@@ -247,5 +253,147 @@ describe('Inventory Movement Ledger - Integration & Lifecycle', () => {
     // Running a second time should be idempotent (0 created)
     const report2 = await backfillOpeningLegacyMovements(db);
     assert.equal(report2.createdCount, 0);
+  });
+
+  describe('Order Writers - Routing through Movement Ledger', () => {
+    it('reserveOrderStock routes through ledger with stable operationKey and is replay-safe', async () => {
+      const db = createInMemoryLedgerDb();
+      db._seedProduct({
+        id: 'phone_01',
+        onHandStock: 10,
+        reservedStock: 0,
+        quarantinedStock: 0,
+        stock: 10,
+        stockVersion: 0,
+        inventoryMode: 'BASE',
+        isActive: true,
+      });
+
+      const items = [{ productId: 'phone_01', quantity: 2 }];
+      const opKey = 'order:ord_abc123:reserve';
+
+      const fail1 = await reserveOrderStock(db, items, opKey);
+      assert.equal(fail1, null);
+
+      const prodAfter = await db.product.findUnique({ where: { id: 'phone_01' } });
+      assert.equal(prodAfter.reservedStock, 2);
+      assert.equal(prodAfter.stock, 8);
+
+      // Replay reserve with exact same operationKey: no-op idempotent
+      const failReplay = await reserveOrderStock(db, items, opKey);
+      assert.equal(failReplay, null);
+      assert.equal(prodAfter.reservedStock, 2);
+      assert.equal(prodAfter.stock, 8);
+      assert.equal(db._getMovements().length, 1);
+    });
+
+    it('consumeShippedStock routes through ledger to decrement onHand and reserved', async () => {
+      const db = createInMemoryLedgerDb();
+      db._seedProduct({
+        id: 'phone_01',
+        onHandStock: 10,
+        reservedStock: 2,
+        quarantinedStock: 0,
+        stock: 8,
+        stockVersion: 1,
+        inventoryMode: 'BASE',
+        isActive: true,
+      });
+
+      const items = [{ productId: 'phone_01', quantity: 2 }];
+      const shipKey = 'order:ord_abc123:ship';
+
+      await consumeShippedStock(db, items, shipKey);
+
+      const prodAfter = await db.product.findUnique({ where: { id: 'phone_01' } });
+      assert.equal(prodAfter.onHandStock, 8);
+      assert.equal(prodAfter.reservedStock, 0);
+      assert.equal(prodAfter.stock, 8);
+
+      const lastMov = db._getMovements().slice(-1)[0];
+      assert.equal(lastMov.kind, 'SHIP');
+      assert.equal(lastMov.deltaOnHand, -2);
+      assert.equal(lastMov.deltaReserved, -2);
+    });
+
+    it('shipped cancellation cannot release reserved stock (waits for physical return)', async () => {
+      const db = createInMemoryLedgerDb();
+      db._seedProduct({
+        id: 'phone_01',
+        onHandStock: 8,
+        reservedStock: 0, // already shipped!
+        quarantinedStock: 0,
+        stock: 8,
+        stockVersion: 2,
+        inventoryMode: 'BASE',
+        isActive: true,
+      });
+
+      const items = [{ productId: 'phone_01', quantity: 2 }];
+      const releaseKey = 'order:ord_abc123:release';
+
+      await assert.rejects(async () => {
+        await releaseOrderStock(db, items, releaseKey);
+      }, /Negative reserved stock/i);
+    });
+
+    it('quarantineReturnedStock accepts physical return into quarantine', async () => {
+      const db = createInMemoryLedgerDb();
+      db._seedProduct({
+        id: 'phone_01',
+        onHandStock: 8,
+        reservedStock: 0,
+        quarantinedStock: 0,
+        stock: 8,
+        stockVersion: 2,
+        inventoryMode: 'BASE',
+        isActive: true,
+      });
+
+      const items = [{ productId: 'phone_01', quantity: 1 }];
+      const returnKey = 'return:ret_001:quarantine';
+
+      await quarantineReturnedStock(db, items, returnKey);
+
+      const prodAfter = await db.product.findUnique({ where: { id: 'phone_01' } });
+      assert.equal(prodAfter.onHandStock, 9);
+      assert.equal(prodAfter.quarantinedStock, 1);
+      assert.equal(prodAfter.reservedStock, 0);
+      assert.equal(prodAfter.stock, 8); // Available stock does not increase when quarantined
+    });
+
+    it('VARIANT never falls back to BASE product stock when variantId is given', async () => {
+      const db = createInMemoryLedgerDb();
+      db._seedProduct({
+        id: 'laptop_parent',
+        onHandStock: 100,
+        reservedStock: 0,
+        quarantinedStock: 0,
+        stock: 100,
+        stockVersion: 0,
+        inventoryMode: 'VARIANT',
+        isActive: true,
+      });
+      // Do NOT seed the variant, or seed it as out of stock
+      db._seedVariant({
+        id: 'var_out_of_stock',
+        productId: 'laptop_parent',
+        onHandStock: 0,
+        reservedStock: 0,
+        quarantinedStock: 0,
+        stock: 0,
+        stockVersion: 0,
+        isActive: true,
+      });
+
+      const items = [{ productId: 'laptop_parent', variantId: 'var_out_of_stock', quantity: 1 }];
+      const fail = await reserveOrderStock(db, items, 'order:test:reserve_var');
+
+      // Must fail with variantId and NEVER touch or consume parent product base stock
+      assert.equal(fail, 'var_out_of_stock');
+      const parentAfter = await db.product.findUnique({ where: { id: 'laptop_parent' } });
+      assert.equal(parentAfter.stock, 100);
+      assert.equal(parentAfter.reservedStock, 0);
+    });
   });
 });

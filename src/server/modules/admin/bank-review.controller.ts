@@ -56,7 +56,7 @@ export async function POST(req: Request) {
       const claimed = await tx.bankTransfer.updateMany({ where: { id: { in: ids }, status: 'PENDING_REVIEW' }, data: { status: 'APPLIED_ORDER', orderId: order.id, reviewedById: reviewerId, reviewedAt: new Date(), resolutionNote: note, reviewReason: null } });
       if (claimed.count !== ids.length) throw new Error('Giao dịch đã được xử lý đồng thời');
       if (order.status === 'CANCELLED') {
-        const insufficient = await reserveOrderStock(tx, order.items);
+        const insufficient = await reserveOrderStock(tx, order.items, `order:${order.id}:reopen:reserve`);
         if (insufficient) throw new Error(`Không đủ tồn kho để phục hồi đơn (${insufficient})`);
         if (order.couponId) {
           const coupon = await tx.coupon.findUniqueOrThrow({ where: { id: order.couponId } });

@@ -111,7 +111,7 @@ export async function refundOrderToWallet(
 
   // Release order stock
   if (order.items && order.items.length > 0) {
-    await releaseOrderStock(tx, order.items);
+    await releaseOrderStock(tx, order.items, `order:${order.id}:refund:release`);
   }
   if (order.couponId) {
     await tx.coupon.update({ where: { id: order.couponId }, data: { usedCount: { decrement: 1 } } });

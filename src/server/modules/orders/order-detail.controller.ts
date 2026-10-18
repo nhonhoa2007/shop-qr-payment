@@ -6,7 +6,7 @@ import { authOptions } from '@server/modules/auth/auth-options';
 import { createNotification } from '@server/modules/notifications/notifications.service';
 import { pusherServer } from '@server/infrastructure/pusher';
 import { formatVND } from '@shared/utils';
-import { releaseOrderStock } from '@server/modules/inventory/inventory.service';
+import { releaseOrderStock, consumeShippedStock } from '@server/modules/inventory/inventory.service';
 import { approveAndFulfillOrder } from '@server/modules/orders/order-fulfillment.service';
 import { refundOrderToWallet } from '@server/modules/wallet/wallet.service';
 import {
@@ -182,6 +182,10 @@ export async function PATCH(
           data: updateData,
         });
         if (claimed.count !== 1) throw new Error('Trạng thái đơn đã thay đổi; vui lòng tải lại');
+
+        if (nextStatus === 'SHIPPING' && currentOrder.status !== 'SHIPPING') {
+          await consumeShippedStock(tx, currentOrder.items, `order:${currentOrder.id}:ship`);
+        }
       }
 
       if (shouldRefundPaidOrder) {
@@ -196,7 +200,7 @@ export async function PATCH(
         );
         if (!refund.success) throw new Error(refund.error || 'Không thể xử lý hoàn tiền');
       } else if (shouldReleaseStock) {
-        await releaseOrderStock(tx, currentOrder.items);
+        await releaseOrderStock(tx, currentOrder.items, `order:${currentOrder.id}:release`);
 
         // Revert coupon usage if cancelled unpaid
         if (currentOrder.couponId) {

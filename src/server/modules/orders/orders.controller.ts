@@ -134,7 +134,7 @@ export async function POST(req: Request) {
     });
 
     const order = await prisma.$transaction(async (tx) => {
-      const failedId = await reserveOrderStock(tx, validated.orderItems!);
+      const failedId = await reserveOrderStock(tx, validated.orderItems!, `order:${orderCode}:reserve`);
       if (failedId) {
         throw new Error(`Sản phẩm hoặc biến thể không đủ tồn kho: ${failedId}`);
       }
