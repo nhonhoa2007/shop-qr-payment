@@ -44,6 +44,14 @@ export async function revalidateCartCompatibility(
 
   // 1. Fetch live products and variants from database
   for (const item of items) {
+    if (!Number.isInteger(item.quantity) || item.quantity <= 0) {
+      return {
+        valid: false,
+        status: 400,
+        error: `Số lượng sản phẩm ${item.productId} không hợp lệ`,
+      };
+    }
+
     const product = await db.product.findUnique({
       where: { id: item.productId },
       include: { variants: true },
@@ -54,6 +62,19 @@ export async function revalidateCartCompatibility(
         valid: false,
         status: 409,
         error: `Sản phẩm ${item.productId} không tồn tại hoặc đã ngừng bán`,
+      };
+    }
+
+    let submittedPrice: bigint;
+    try {
+      const numPrice = Number(item.price);
+      if (!Number.isFinite(numPrice) || numPrice < 0) throw new Error('Invalid number');
+      submittedPrice = BigInt(Math.round(numPrice));
+    } catch {
+      return {
+        valid: false,
+        status: 400,
+        error: `Giá sản phẩm ${item.productId} không hợp lệ`,
       };
     }
 
@@ -70,10 +91,15 @@ export async function revalidateCartCompatibility(
         };
       }
 
-      // Check live price against submitted price
-      const livePrice = BigInt(variant.price);
-      const submittedPrice = BigInt(item.price);
+      if (variant.stock < item.quantity) {
+        return {
+          valid: false,
+          status: 409,
+          error: `Biến thể "${variant.title}" chỉ còn ${variant.stock} món trong kho`,
+        };
+      }
 
+      const livePrice = BigInt(variant.price);
       if (livePrice !== submittedPrice) {
         return {
           valid: false,
@@ -82,9 +108,15 @@ export async function revalidateCartCompatibility(
         };
       }
     } else {
-      const livePrice = BigInt(product.price);
-      const submittedPrice = BigInt(item.price);
+      if (product.stock < item.quantity) {
+        return {
+          valid: false,
+          status: 409,
+          error: `Sản phẩm "${product.name}" chỉ còn ${product.stock} món trong kho`,
+        };
+      }
 
+      const livePrice = BigInt(product.price);
       if (livePrice !== submittedPrice) {
         return {
           valid: false,

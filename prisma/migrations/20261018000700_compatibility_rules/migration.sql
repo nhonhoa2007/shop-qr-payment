@@ -33,7 +33,7 @@ CREATE TABLE "CompatibilityRule" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "CompatibilityRule_ruleCode_key" ON "CompatibilityRule"("ruleCode");
+CREATE UNIQUE INDEX "CompatibilityRule_ruleCode_version_key" ON "CompatibilityRule"("ruleCode", "version");
 
 -- CreateIndex
 CREATE INDEX "CompatibilityRule_status_sourceCategoryId_targetCategoryId_idx" ON "CompatibilityRule"("status", "sourceCategoryId", "targetCategoryId");

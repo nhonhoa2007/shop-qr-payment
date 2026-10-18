@@ -221,7 +221,16 @@ export function evaluateCompatibility(input: CompatibilityEngineInput): Compatib
   const devSpecs = extractDeviceSpecProfile(device.specs, device.specOverrides);
   const accSpecs = extractDeviceSpecProfile(accessory.specs, accessory.specOverrides);
 
-  // We evaluate against the most specific active rule (or iterate until a definitive match / mismatch)
+  interface RuleEvaluationResult {
+    rule: CompatibilityRuleDefinition;
+    status: CompatibilityStatus;
+    reasons: string[];
+    warnings: string[];
+  }
+
+  const evaluations: RuleEvaluationResult[] = [];
+
+  // Evaluate against all applicable active rules
   for (const rule of applicableRules) {
     const reasons: string[] = [];
     const warnings: string[] = [...(rule.warnings || [])];
@@ -248,7 +257,12 @@ export function evaluateCompatibility(input: CompatibilityEngineInput): Compatib
           'interface',
         ]);
 
-        if (devConnector.state !== 'KNOWN' || accConnector.state !== 'KNOWN') {
+        if (devConnector.state === 'UNSUPPORTED' || accConnector.state === 'UNSUPPORTED') {
+          isIncompatible = true;
+          reasons.push(
+            `Connector is explicitly unsupported (Device: ${devConnector.state}, Accessory: ${accConnector.state}).`
+          );
+        } else if (devConnector.state !== 'KNOWN' || accConnector.state !== 'KNOWN') {
           isUnknown = true;
           reasons.push(
             `Connector specification is missing or unverified (Device connector: ${devConnector.state}, Accessory connector: ${accConnector.state}).`
@@ -270,6 +284,60 @@ export function evaluateCompatibility(input: CompatibilityEngineInput): Compatib
             );
           }
         }
+      }
+    }
+
+    // Invariant: USB-C for laptops/phones/chargers requires verified protocol and power delivery evidence
+    const isUsbCInvolved =
+      (conditions.connectors && conditions.connectors.some((c) => c.requiredConnector.toUpperCase() === 'USB-C')) ||
+      (devSpecs['charging_port']?.value && String(devSpecs['charging_port'].value).toUpperCase().includes('USB-C')) ||
+      (accSpecs['connector_type']?.value && String(accSpecs['connector_type'].value).toUpperCase().includes('USB-C'));
+
+    const isPowerOrChargingCategory =
+      device.categorySlug?.toLowerCase() === 'laptop' ||
+      device.categorySlug?.toLowerCase() === 'phone' ||
+      accessory.categorySlug?.toLowerCase() === 'charger' ||
+      accessory.categorySlug?.toLowerCase() === 'power-bank';
+
+    if (isUsbCInvolved && isPowerOrChargingCategory) {
+      const devProto = resolveSpecValue(devSpecs, [
+        'fast_charging_protocols',
+        'protocols',
+        'charging_protocol',
+        'protocol',
+      ]);
+      const accProto = resolveSpecValue(accSpecs, [
+        'fast_charging_protocols',
+        'protocols',
+        'charging_protocol',
+        'protocol',
+      ]);
+      const devWatt = resolveSpecValue(devSpecs, [
+        'charging_power_watt',
+        'power_required_watt',
+        'required_power_watt',
+        'power_watt',
+        'wattage',
+      ]);
+      const accWatt = resolveSpecValue(accSpecs, [
+        'charging_power_watt',
+        'power_output_watt',
+        'output_power_watt',
+        'power_watt',
+        'max_power_watt',
+        'wattage',
+      ]);
+
+      if (
+        devProto.state !== 'KNOWN' ||
+        accProto.state !== 'KNOWN' ||
+        devWatt.state !== 'KNOWN' ||
+        accWatt.state !== 'KNOWN'
+      ) {
+        isUnknown = true;
+        reasons.push(
+          'USB-C charging connection requires verified fast charging protocol and power delivery wattage evidence.'
+        );
       }
     }
 
@@ -295,7 +363,12 @@ export function evaluateCompatibility(input: CompatibilityEngineInput): Compatib
           'protocol',
         ]);
 
-        if (devProto.state !== 'KNOWN' || accProto.state !== 'KNOWN') {
+        if (devProto.state === 'UNSUPPORTED' || accProto.state === 'UNSUPPORTED') {
+          isIncompatible = true;
+          reasons.push(
+            `Protocol ${expectedProto} is explicitly unsupported (Device: ${devProto.state}, Accessory: ${accProto.state}).`
+          );
+        } else if (devProto.state !== 'KNOWN' || accProto.state !== 'KNOWN') {
           isUnknown = true;
           reasons.push(
             `Protocol specification is missing or unverified for required protocol ${expectedProto}.`
@@ -335,7 +408,10 @@ export function evaluateCompatibility(input: CompatibilityEngineInput): Compatib
         'wattage',
       ]);
 
-      if (devWattSpec.state !== 'KNOWN' || accWattSpec.state !== 'KNOWN') {
+      if (devWattSpec.state === 'UNSUPPORTED' || accWattSpec.state === 'UNSUPPORTED') {
+        isIncompatible = true;
+        reasons.push('Power delivery wattage is explicitly unsupported.');
+      } else if (devWattSpec.state !== 'KNOWN' || accWattSpec.state !== 'KNOWN') {
         isUnknown = true;
         reasons.push('Power delivery wattage evidence is missing or unverified.');
       } else {
@@ -347,9 +423,10 @@ export function evaluateCompatibility(input: CompatibilityEngineInput): Compatib
           reasons.push('Power delivery wattage value could not be determined numerically.');
         } else {
           const requiredMin = conditions.power.minPowerWatt || devWatts;
+          const strict = conditions.power.strictPowerMatch !== false;
 
           if (accWatts < requiredMin) {
-            if (conditions.power.strictPowerMatch) {
+            if (strict) {
               isIncompatible = true;
               reasons.push(
                 `Power mismatch: Device requires ${requiredMin}W but accessory provides ${accWatts}W.`
@@ -369,18 +446,21 @@ export function evaluateCompatibility(input: CompatibilityEngineInput): Compatib
       const devOsSpec = resolveSpecValue(devSpecs, ['os', 'operating_system', 'platform']);
       const accOsSpec = resolveSpecValue(accSpecs, ['supported_os', 'compatible_os', 'os_support', 'os']);
 
-      if (devOsSpec.state !== 'KNOWN' || accOsSpec.state !== 'KNOWN') {
+      if (devOsSpec.state === 'UNSUPPORTED' || accOsSpec.state === 'UNSUPPORTED') {
+        isIncompatible = true;
+        reasons.push('Operating system compatibility is explicitly unsupported.');
+      } else if (devOsSpec.state !== 'KNOWN' || accOsSpec.state !== 'KNOWN') {
         isUnknown = true;
         reasons.push('Operating system compatibility evidence is unverified.');
       } else {
         const devOsList = normalizeArrayValue(devOsSpec.value);
         const accSupportedOs = normalizeArrayValue(accOsSpec.value);
+        const requiredOsList = conditions.os.requiredOs.map((s) => s.toUpperCase());
 
-        const hasOsOverlap = devOsList.some((os) =>
-          accSupportedOs.includes(os) || conditions.os?.requiredOs?.map((s) => s.toUpperCase()).includes(os)
-        );
+        const devSatisfiesRequired = devOsList.some((os) => requiredOsList.includes(os));
+        const accSupportsDevice = devOsList.some((os) => accSupportedOs.includes(os));
 
-        if (!hasOsOverlap) {
+        if (!devSatisfiesRequired || !accSupportsDevice) {
           isIncompatible = true;
           reasons.push(
             `OS mismatch: Device OS [${devOsList.join(', ')}] is not supported by accessory [${accSupportedOs.join(', ')}].`
@@ -389,7 +469,6 @@ export function evaluateCompatibility(input: CompatibilityEngineInput): Compatib
       }
     }
 
-    // Determine verdict for this rule
     let status: CompatibilityStatus = 'UNKNOWN';
     if (isIncompatible) {
       status = 'INCOMPATIBLE';
@@ -402,14 +481,64 @@ export function evaluateCompatibility(input: CompatibilityEngineInput): Compatib
       }
     }
 
-    return {
-      ...defaultDto,
+    evaluations.push({
+      rule,
       status,
       reasons,
       warnings,
-      matchedRuleId: rule.id,
-      matchedRuleCode: rule.ruleCode,
-      ruleRevision: rule.version,
+    });
+  }
+
+  // 6. Aggregate multi-rule evaluations
+  // Hierarchy: INCOMPATIBLE (any mismatch) > UNKNOWN (missing evidence) > COMPATIBLE (all conditions met)
+  const incompatibleResults = evaluations.filter((e) => e.status === 'INCOMPATIBLE');
+  if (incompatibleResults.length > 0) {
+    const allReasons = incompatibleResults.flatMap((e) => e.reasons);
+    const allWarnings = [...new Set(incompatibleResults.flatMap((e) => e.warnings))];
+    const primary = incompatibleResults[0];
+
+    return {
+      ...defaultDto,
+      status: 'INCOMPATIBLE',
+      reasons: allReasons,
+      warnings: allWarnings,
+      matchedRuleId: primary.rule.id,
+      matchedRuleCode: primary.rule.ruleCode,
+      ruleRevision: primary.rule.version,
+    };
+  }
+
+  const unknownResults = evaluations.filter((e) => e.status === 'UNKNOWN');
+  if (unknownResults.length > 0) {
+    const allReasons = unknownResults.flatMap((e) => e.reasons);
+    const allWarnings = [...new Set(unknownResults.flatMap((e) => e.warnings))];
+    const primary = unknownResults[0];
+
+    return {
+      ...defaultDto,
+      status: 'UNKNOWN',
+      reasons: allReasons,
+      warnings: allWarnings,
+      matchedRuleId: primary.rule.id,
+      matchedRuleCode: primary.rule.ruleCode,
+      ruleRevision: primary.rule.version,
+    };
+  }
+
+  const compatibleResults = evaluations.filter((e) => e.status === 'COMPATIBLE');
+  if (compatibleResults.length > 0) {
+    const allReasons = compatibleResults.flatMap((e) => e.reasons);
+    const allWarnings = [...new Set(compatibleResults.flatMap((e) => e.warnings))];
+    const primary = compatibleResults[0];
+
+    return {
+      ...defaultDto,
+      status: 'COMPATIBLE',
+      reasons: allReasons,
+      warnings: allWarnings,
+      matchedRuleId: primary.rule.id,
+      matchedRuleCode: primary.rule.ruleCode,
+      ruleRevision: primary.rule.version,
     };
   }
 

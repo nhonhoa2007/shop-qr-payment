@@ -130,7 +130,9 @@ export async function handleActivateRule(
       data: rule,
     };
   } catch (err: any) {
-    const status = err.message?.toLowerCase().includes('unauthorized') ? 403 : 400;
+    let status = 400;
+    if (err.message?.toLowerCase().includes('unauthorized')) status = 403;
+    else if (err.message?.toLowerCase().includes('not found')) status = 404;
     return {
       status,
       error: err.message || 'Failed to activate compatibility rule',
@@ -154,7 +156,9 @@ export async function handleRevokeRule(
       data: rule,
     };
   } catch (err: any) {
-    const status = err.message?.toLowerCase().includes('unauthorized') ? 403 : 400;
+    let status = 400;
+    if (err.message?.toLowerCase().includes('unauthorized')) status = 403;
+    else if (err.message?.toLowerCase().includes('not found')) status = 404;
     return {
       status,
       error: err.message || 'Failed to revoke compatibility rule',
@@ -207,7 +211,13 @@ export async function POST_ADMIN_RULES(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const body = await req.json();
+  let body: any;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
   const res = await handleDraftRule(body, session.user.id);
   return NextResponse.json(res.data || { error: res.error }, { status: res.status });
 }

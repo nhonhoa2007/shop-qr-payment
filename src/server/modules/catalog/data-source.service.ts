@@ -1,4 +1,5 @@
 import { prisma } from '@server/database/prisma';
+import { redis } from '@server/infrastructure/redis';
 import type { DataSourceType, SourceStatus } from '@shared/types/catalog';
 
 export interface DataSourceInput {
@@ -162,7 +163,7 @@ export async function transitionDataSource(
     }
   }
 
-  return await db.dataSource.update({
+  const updated = await db.dataSource.update({
     where: { id: input.id },
     data: {
       status: input.targetStatus,
@@ -174,6 +175,12 @@ export async function transitionDataSource(
           : null,
     },
   });
+
+  if (input.targetStatus === 'REVOKED') {
+    await redis.delPattern('compat:*');
+  }
+
+  return updated;
 }
 
 /**

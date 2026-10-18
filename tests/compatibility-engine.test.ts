@@ -84,6 +84,16 @@ describe('Compatibility Rule Validation DSL', () => {
       /unknown key/i
     );
   });
+
+  it('rejects rules with zero predicates in conditions', () => {
+    assert.throws(
+      () =>
+        validateCompatibilityConditions({
+          schemaVersion: 1,
+        }),
+      /at least one predicate|empty conditions/i
+    );
+  });
 });
 
 describe('Compatibility Engine - Pure Deterministic Evaluation', () => {
@@ -147,6 +157,64 @@ describe('Compatibility Engine - Pure Deterministic Evaluation', () => {
     assert.ok(
       result.reasons.some((r) => r.toLowerCase().includes('protocol') || r.toLowerCase().includes('power')),
       `Expected reason mentioning missing protocol or power, got: ${result.reasons.join('; ')}`
+    );
+  });
+
+  it('returns UNKNOWN when a rule only checks USB-C connector for laptop and charger without protocol or power evidence', () => {
+    const connectorOnlyRule: CompatibilityRuleDefinition = {
+      id: 'rule_connector_only',
+      ruleCode: 'RULE-USBC-ONLY',
+      name: 'USB-C Connector Only',
+      direction: 'HOST_TO_ACCESSORY',
+      categoryScope: {
+        sourceCategories: ['laptop'],
+        targetCategories: ['charger'],
+      },
+      market: 'VN',
+      conditions: {
+        schemaVersion: 1,
+        connectors: [{ requiredConnector: 'USB-C', accessoryConnector: 'USB-C' }],
+      },
+      version: 1,
+      status: 'ACTIVE',
+    };
+
+    const laptop: CompatibilityTargetSpecs = {
+      productId: 'prod_macbook',
+      productName: 'MacBook Air',
+      categorySlug: 'laptop',
+      market: 'VN',
+      specs: {
+        schemaVersion: 1,
+        values: {
+          charging_port: { state: 'KNOWN', value: 'USB-C' },
+        },
+      },
+    };
+
+    const charger: CompatibilityTargetSpecs = {
+      productId: 'prod_usbc_charger',
+      productName: 'USB-C Charger',
+      categorySlug: 'charger',
+      market: 'VN',
+      specs: {
+        schemaVersion: 1,
+        values: {
+          connector_type: { state: 'KNOWN', value: 'USB-C' },
+        },
+      },
+    };
+
+    const result = evaluateCompatibility({
+      device: laptop,
+      accessory: charger,
+      rules: [connectorOnlyRule],
+    });
+
+    assert.equal(
+      result.status,
+      'UNKNOWN',
+      'USB-C without protocol or power evidence must return UNKNOWN even if rule conditions omitted them'
     );
   });
 
@@ -298,6 +366,89 @@ describe('Compatibility Engine - Pure Deterministic Evaluation', () => {
     assert.ok(
       result.reasons.some((r) => r.toLowerCase().includes('protocol') || r.toLowerCase().includes('unknown')),
       `Expected unknown protocol reason, got: ${result.reasons.join('; ')}`
+    );
+  });
+
+  it('evaluates all applicable rules: INCOMPATIBLE or UNKNOWN overrides broad COMPATIBLE regardless of rule order', () => {
+    const broadConnectorRule: CompatibilityRuleDefinition = {
+      id: 'rule_broad_usbc',
+      ruleCode: 'RULE-USBC-GENERIC',
+      name: 'Generic USB-C Connection',
+      direction: 'HOST_TO_ACCESSORY',
+      categoryScope: {
+        sourceCategories: ['laptop'],
+        targetCategories: ['charger'],
+      },
+      market: 'VN',
+      conditions: {
+        schemaVersion: 1,
+        connectors: [{ requiredConnector: 'USB-C', accessoryConnector: 'USB-C' }],
+      },
+      version: 1,
+      status: 'ACTIVE',
+    };
+
+    const specificHighPowerRule: CompatibilityRuleDefinition = {
+      id: 'rule_specific_pd100w',
+      ruleCode: 'RULE-USBC-PD100W',
+      name: 'High Power 100W USB-C PD Charging',
+      direction: 'HOST_TO_ACCESSORY',
+      categoryScope: {
+        sourceCategories: ['laptop'],
+        targetCategories: ['charger'],
+      },
+      market: 'VN',
+      conditions: {
+        schemaVersion: 1,
+        connectors: [{ requiredConnector: 'USB-C', accessoryConnector: 'USB-C' }],
+        protocols: [{ requiredProtocol: 'PD_3_0' }],
+        power: { minPowerWatt: 100, strictPowerMatch: true },
+      },
+      version: 1,
+      status: 'ACTIVE',
+    };
+
+    const laptop: CompatibilityTargetSpecs = {
+      productId: 'prod_mbp16',
+      productName: 'MacBook Pro 16',
+      categorySlug: 'laptop',
+      market: 'VN',
+      specs: {
+        schemaVersion: 1,
+        values: {
+          charging_port: { state: 'KNOWN', value: 'USB-C' },
+          fast_charging_protocols: { state: 'KNOWN', value: 'PD_3_0' },
+          charging_power_watt: { state: 'KNOWN', value: 140, unit: 'W' },
+        },
+      },
+    };
+
+    const weakPhoneCharger: CompatibilityTargetSpecs = {
+      productId: 'prod_phone_charger_20w',
+      productName: '20W Phone Charger',
+      categorySlug: 'charger',
+      market: 'VN',
+      specs: {
+        schemaVersion: 1,
+        values: {
+          connector_type: { state: 'KNOWN', value: 'USB-C' },
+          fast_charging_protocols: { state: 'KNOWN', value: 'PD_3_0' },
+          charging_power_watt: { state: 'KNOWN', value: 20, unit: 'W' },
+        },
+      },
+    };
+
+    // Even when broad rule is first in array, specific rule must be checked and verdict must be INCOMPATIBLE
+    const result = evaluateCompatibility({
+      device: laptop,
+      accessory: weakPhoneCharger,
+      rules: [broadConnectorRule, specificHighPowerRule],
+    });
+
+    assert.equal(
+      result.status,
+      'INCOMPATIBLE',
+      'Should evaluate all rules and yield INCOMPATIBLE, not false COMPATIBLE from broad rule'
     );
   });
 

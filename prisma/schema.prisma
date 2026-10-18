@@ -346,7 +346,7 @@ enum DataSourceType {
 
 model CompatibilityRule {
   id               String                  @id @default(cuid())
-  ruleCode         String                  @unique
+  ruleCode         String
   name             String
   description      String?
   direction        CompatibilityDirection  @default(HOST_TO_ACCESSORY)
@@ -373,6 +373,7 @@ model CompatibilityRule {
   createdAt        DateTime                @default(now())
   updatedAt        DateTime                @updatedAt
 
+  @@unique([ruleCode, version])
   @@index([status, sourceCategoryId, targetCategoryId])
   @@index([ruleCode, status])
   @@index([sourceId])

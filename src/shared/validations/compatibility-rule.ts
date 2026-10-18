@@ -86,6 +86,8 @@ const ALLOWED_STATUSES: Set<CompatibilityRuleStatus> = new Set([
   'ARCHIVED',
 ]);
 
+const ALLOWED_OPERATORS = new Set(['EQUALS', 'CONTAINS', 'GTE', 'LTE', 'IN']);
+
 function rejectUnknownKeys(
   obj: Record<string, unknown>,
   allowed: Set<string>,
@@ -206,15 +208,32 @@ export function validateCompatibilityConditions(input: unknown): CompatibilityRu
         throw new Error(`Invalid customPredicate at index ${idx}`);
       }
       rejectUnknownKeys(cp as Record<string, unknown>, ALLOWED_CUSTOM_PREDICATE_KEYS, `customPredicate[${idx}]`);
+      const op = String(cp.operator).toUpperCase();
+      if (!ALLOWED_OPERATORS.has(op)) {
+        throw new Error(`Invalid operator in customPredicate[${idx}]: "${cp.operator}"`);
+      }
       return {
         key: String(cp.key),
-        operator: cp.operator as any,
+        operator: op as any,
         deviceValueKey: cp.deviceValueKey ? String(cp.deviceValueKey) : undefined,
         accessoryValueKey: cp.accessoryValueKey ? String(cp.accessoryValueKey) : undefined,
         expectedValue: cp.expectedValue,
         mandatory: cp.mandatory !== undefined ? Boolean(cp.mandatory) : true,
       };
     });
+  }
+
+  // Ensure conditions define at least one predicate
+  const hasPredicates = Boolean(
+    (result.connectors && result.connectors.length > 0) ||
+    (result.protocols && result.protocols.length > 0) ||
+    result.power ||
+    (result.os && result.os.requiredOs && result.os.requiredOs.length > 0) ||
+    (result.customPredicates && result.customPredicates.length > 0)
+  );
+
+  if (!hasPredicates) {
+    throw new Error('Compatibility conditions must define at least one predicate');
   }
 
   return result;
@@ -263,6 +282,21 @@ export function validateCompatibilityRule(input: unknown): CompatibilityRuleDefi
     warnings = obj.warnings.map((w) => String(w).trim());
   }
 
+  let categoryScope: { sourceCategories?: string[]; targetCategories?: string[] } | null = null;
+  if (obj.categoryScope !== undefined && obj.categoryScope !== null) {
+    if (typeof obj.categoryScope !== 'object' || Array.isArray(obj.categoryScope)) {
+      throw new Error('categoryScope must be an object');
+    }
+    const cs = obj.categoryScope as Record<string, unknown>;
+    const sourceCategories = Array.isArray(cs.sourceCategories)
+      ? cs.sourceCategories.map((c) => String(c).trim().toLowerCase())
+      : undefined;
+    const targetCategories = Array.isArray(cs.targetCategories)
+      ? cs.targetCategories.map((c) => String(c).trim().toLowerCase())
+      : undefined;
+    categoryScope = { sourceCategories, targetCategories };
+  }
+
   return {
     id: typeof obj.id === 'string' ? obj.id : `rule_${Date.now()}`,
     ruleCode: obj.ruleCode.trim(),
@@ -271,7 +305,7 @@ export function validateCompatibilityRule(input: unknown): CompatibilityRuleDefi
     direction,
     sourceCategoryId: typeof obj.sourceCategoryId === 'string' ? obj.sourceCategoryId : null,
     targetCategoryId: typeof obj.targetCategoryId === 'string' ? obj.targetCategoryId : null,
-    categoryScope: obj.categoryScope ? (obj.categoryScope as any) : null,
+    categoryScope,
     conditions,
     warnings: warnings || null,
     market: typeof obj.market === 'string' ? obj.market.trim() : 'VN',

@@ -85,6 +85,7 @@ export interface CompatibilityTargetSpecs {
   market?: string | null;
   price?: number | string | bigint | null;
   image?: string | null;
+  catalogVersion?: number | null;
   specs: unknown;
   specOverrides?: unknown;
 }

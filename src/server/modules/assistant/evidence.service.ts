@@ -94,6 +94,9 @@ export async function buildEvidenceBundle(
       where: { status: 'ACTIVE' },
     });
     for (const rule of activeRules) {
+      if (rule.sourceId && revokedSourceIds.includes(rule.sourceId)) {
+        continue;
+      }
       citations[rule.id] = {
         id: rule.id,
         type: 'COMPATIBILITY_RULE',

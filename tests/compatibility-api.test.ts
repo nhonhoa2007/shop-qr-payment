@@ -282,7 +282,10 @@ describe('Compatibility Public & Admin API Controllers', () => {
         ruleCode: 'RULE-NEW',
         name: 'New Rule',
         direction: 'HOST_TO_ACCESSORY',
-        conditions: { schemaVersion: 1 },
+        conditions: {
+          schemaVersion: 1,
+          connectors: [{ requiredConnector: 'USB-C' }],
+        },
       },
       'usr_customer',
       mockDb as any
@@ -295,7 +298,10 @@ describe('Compatibility Public & Admin API Controllers', () => {
         ruleCode: 'RULE-NEW',
         name: 'New Rule',
         direction: 'HOST_TO_ACCESSORY',
-        conditions: { schemaVersion: 1 },
+        conditions: {
+          schemaVersion: 1,
+          connectors: [{ requiredConnector: 'USB-C' }],
+        },
       },
       'usr_staff_knowledge',
       mockDb as any

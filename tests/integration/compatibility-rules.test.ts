@@ -205,9 +205,7 @@ describe('Compatibility Rules - Lifecycle, Governance & Cache Invalidation', () 
   beforeEach(async () => {
     mockDb = createMockDb();
     // Clear redis / in-memory cache namespace
-    if (typeof (redis as any).clear === 'function') {
-      (redis as any).clear();
-    }
+    await redis.flushall();
   });
 
   it('allows knowledge STAFF to draft a rule, but forbids unauthorized users', async () => {

@@ -119,6 +119,15 @@ export async function activateCompatibilityRule(
     throw new Error(`Compatibility rule not found: ${ruleId}`);
   }
 
+  if (existing.sourceId) {
+    const source = await db.dataSource.findUnique({
+      where: { id: existing.sourceId },
+    });
+    if (!source || source.status !== 'ACTIVE') {
+      throw new Error(`Cannot activate compatibility rule: linked DataSource ${existing.sourceId} is not ACTIVE`);
+    }
+  }
+
   const activated = await db.compatibilityRule.update({
     where: { id: ruleId },
     data: {
@@ -210,7 +219,7 @@ async function resolveTargetSpecs(
       where: { id: variantId },
       include: { product: true },
     });
-    if (!variant || !variant.product) return null;
+    if (!variant || !variant.isActive || !variant.product || !variant.product.isActive) return null;
 
     return {
       productId: variant.productId,
@@ -222,6 +231,7 @@ async function resolveTargetSpecs(
       market: variant.product.market || 'VN',
       price: variant.price,
       image: variant.image || variant.product.image || null,
+      catalogVersion: variant.product.catalogVersion ?? 1,
       specs: variant.product.specs,
       specOverrides: variant.specOverrides,
     };
@@ -231,7 +241,7 @@ async function resolveTargetSpecs(
     const product = await db.product.findUnique({
       where: { id: productId },
     });
-    if (!product) return null;
+    if (!product || !product.isActive) return null;
 
     return {
       productId: product.id,
@@ -243,6 +253,7 @@ async function resolveTargetSpecs(
       market: product.market || 'VN',
       price: product.price,
       image: product.image || null,
+      catalogVersion: product.catalogVersion ?? 1,
       specs: product.specs,
       specOverrides: null,
     };
@@ -259,19 +270,7 @@ export async function checkCompatibility(
   query: CompatibilityQuery,
   db: any = globalPrisma
 ): Promise<CompatibilityCheckDto> {
-  const cacheKey = buildCacheKey(query);
-
-  // 1. Check Redis cache
-  const cached = await redis.get<CompatibilityCheckDto>(cacheKey);
-  if (cached && cached.status === 'COMPATIBLE') {
-    return {
-      ...cached,
-      cacheHit: true,
-      evaluatedAt: new Date().toISOString(),
-    };
-  }
-
-  // 2. Resolve specs for device and accessory
+  // 1. Resolve specs for device and accessory (strictly checking active state)
   const device = await resolveTargetSpecs(query.deviceVariantId, query.deviceProductId, db);
   const accessory = await resolveTargetSpecs(query.accessoryVariantId, query.accessoryProductId, db);
 
@@ -288,7 +287,7 @@ export async function checkCompatibility(
         variantId: query.accessoryVariantId || null,
         productName: 'Unknown Accessory',
       },
-      reasons: ['Device or accessory could not be found in active catalog.'],
+      reasons: ['Device or accessory could not be found or is inactive.'],
       warnings: [],
       matchedRuleId: null,
       matchedRuleCode: null,
@@ -297,16 +296,33 @@ export async function checkCompatibility(
     };
   }
 
-  // 3. Fetch active rules
+  // 2. Fetch active rules whose linked source (if any) is also ACTIVE
   const activeRulesRaw = await db.compatibilityRule.findMany({
     where: { status: 'ACTIVE' },
+    include: { source: true },
+    orderBy: [{ version: 'desc' }, { createdAt: 'desc' }],
   });
 
-  const activeRules: CompatibilityRuleDefinition[] = activeRulesRaw.map((r: any) => ({
-    ...r,
-    conditions: r.conditions,
-    categoryScope: r.categoryScope,
-  }));
+  const activeRules: CompatibilityRuleDefinition[] = activeRulesRaw
+    .filter((r: any) => !r.sourceId || (r.source && r.source.status === 'ACTIVE'))
+    .map((r: any) => ({
+      ...r,
+      conditions: r.conditions,
+      categoryScope: r.categoryScope,
+    }));
+
+  const maxRuleRev = activeRules.length > 0 ? Math.max(...activeRules.map((r) => r.version)) : 1;
+  const cacheKey = `${COMPAT_CACHE_PREFIX}${device.productId}_${device.variantId || 'base'}_v${device.catalogVersion || 1}:${accessory.productId}_${accessory.variantId || 'base'}_v${accessory.catalogVersion || 1}:r${maxRuleRev}`;
+
+  // 3. Check Redis cache
+  const cached = await redis.get<CompatibilityCheckDto>(cacheKey);
+  if (cached && cached.status === 'COMPATIBLE') {
+    return {
+      ...cached,
+      cacheHit: true,
+      evaluatedAt: new Date().toISOString(),
+    };
+  }
 
   // 4. Pure deterministic evaluation
   const result = evaluateCompatibility({
@@ -339,13 +355,17 @@ export async function listCompatibleAccessories(
   // Fetch active rules to find target accessory categories
   const activeRulesRaw = await db.compatibilityRule.findMany({
     where: { status: 'ACTIVE' },
+    include: { source: true },
+    orderBy: [{ version: 'desc' }, { createdAt: 'desc' }],
   });
 
-  const activeRules: CompatibilityRuleDefinition[] = activeRulesRaw.map((r: any) => ({
-    ...r,
-    conditions: r.conditions,
-    categoryScope: r.categoryScope,
-  }));
+  const activeRules: CompatibilityRuleDefinition[] = activeRulesRaw
+    .filter((r: any) => !r.sourceId || (r.source && r.source.status === 'ACTIVE'))
+    .map((r: any) => ({
+      ...r,
+      conditions: r.conditions,
+      categoryScope: r.categoryScope,
+    }));
 
   if (activeRules.length === 0) return [];
 
