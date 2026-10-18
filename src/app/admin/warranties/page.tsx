@@ -3,6 +3,7 @@ import { authOptions } from '@server/modules/auth/auth-options';
 import { redirect } from 'next/navigation';
 import { prisma } from '@server/database/prisma';
 import { resolveOperatorAccess } from '@server/modules/admin/guards';
+import { bigIntJsonReplacer } from '@server/modules/money/money-serialization';
 import { AdminWarrantiesView } from '@client/views/admin/AdminWarrantiesView';
 import type { Metadata } from 'next';
 
@@ -37,5 +38,6 @@ export default async function AdminWarrantiesPage() {
     take: 50,
   });
 
-  return <AdminWarrantiesView initialClaims={claims} />;
+  const safeClaims = JSON.parse(JSON.stringify(claims, bigIntJsonReplacer));
+  return <AdminWarrantiesView initialClaims={safeClaims} />;
 }

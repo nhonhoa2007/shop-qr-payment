@@ -4,6 +4,7 @@ import {
   validateEvidenceRefs,
   validateWarrantyResolution,
 } from '@server/modules/warranties/warranty.fsm';
+import { applyInventoryMovement } from '@server/modules/inventory/inventory-ledger.service';
 import { appendAdminAudit } from '@server/modules/admin/audit-log.service';
 import type {
   CreateWarrantyInput,
@@ -204,6 +205,20 @@ export async function transitionWarranty(
       if (unit.status !== 'AVAILABLE') {
         throw new Error(`Replacement unit must be in AVAILABLE status, currently ${unit.status}`);
       }
+
+      // Verify SKU compatibility with order item
+      const orderItem = await tx.orderItem.findUnique({
+        where: { id: claim.orderItemId },
+      });
+      if (orderItem) {
+        if (unit.productId !== orderItem.productId) {
+          throw new Error('Replacement unit must have the same productId as the claimed item');
+        }
+        if (orderItem.variantId && unit.variantId && unit.variantId !== orderItem.variantId) {
+          throw new Error('Replacement unit must have the same variantId as the claimed item');
+        }
+      }
+
       // Reassign unit to order / customer
       await tx.serializedUnit.update({
         where: { id: replacementUnitId },
@@ -215,18 +230,37 @@ export async function transitionWarranty(
           soldAt: new Date(),
         },
       });
+
+      // Emits inventory movement if ledger is available
+      if ('inventoryMovement' in tx && typeof (tx as any).inventoryMovement?.create === 'function') {
+        await applyInventoryMovement(tx, {
+          operationKey: `${input.operationKey}:replacement:${unit.id}`,
+          target: { productId: unit.productId, variantId: unit.variantId },
+          kind: 'SHIP',
+          deltaOnHand: -1,
+          deltaReserved: 0,
+          deltaQuarantined: 0,
+          reason: `Warranty replacement unit allocated for claim ${claim.claimNumber}`,
+          referenceType: 'WARRANTY_CLAIM',
+          referenceId: claim.id,
+        });
+      }
     } else if (input.resolution.outcome === 'REFUND_RECOMMENDED') {
-      const sourceKey = `warranty:refund:${claim.id}`;
-      const refundCase = await tx.refundCase.create({
-        data: {
-          sourceKey,
-          orderId: claim.orderId,
-          amount: BigInt(0),
-          reason: input.resolution.note ?? `Đề xuất hoàn tiền từ hồ sơ bảo hành ${claim.claimNumber}`,
-          status: 'OPEN',
-        },
-      });
-      refundCaseId = refundCase.id;
+      if (!claim.refundCaseId) {
+        const sourceKey = `warranty:refund:${claim.id}`;
+        const refundCase = await tx.refundCase.create({
+          data: {
+            sourceKey,
+            orderId: claim.orderId,
+            amount: BigInt(0),
+            reason: input.resolution.note ?? `Đề xuất hoàn tiền từ hồ sơ bảo hành ${claim.claimNumber}`,
+            status: 'OPEN',
+          },
+        });
+        refundCaseId = refundCase.id;
+      } else {
+        refundCaseId = claim.refundCaseId;
+      }
     }
   }
 
@@ -288,6 +322,19 @@ export async function transitionWarranty(
     afterState: { status: input.targetStatus, version: updatedClaim.version },
     reason: input.reason ?? input.note ?? null,
   });
+
+  // 8. Create in-app notification
+  if ('notification' in tx && typeof (tx as any).notification?.create === 'function') {
+    await (tx as any).notification.create({
+      data: {
+        userId: claim.customerId,
+        type: 'WARRANTY_UPDATED',
+        title: `Cập nhật bảo hành #${claim.claimNumber}`,
+        message: `Hồ sơ bảo hành của bạn đã chuyển sang trạng thái ${input.targetStatus}`,
+        data: { claimId: claim.id, status: input.targetStatus },
+      },
+    });
+  }
 
   return mapClaimToDto(updatedClaim);
 }

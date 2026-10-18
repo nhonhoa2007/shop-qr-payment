@@ -44,9 +44,16 @@ export async function quotePartialRefund(
   }
 
   // 1. Allocate order discount across all items
+  // In production, OrderItem.price and unitPrice represent the unit price.
+  // Compute line gross = unitPrice * quantity, with fallback if price is already line-total.
+  const totalAsLineTotal = orderItems.reduce((sum: bigint, oi: any) => sum + BigInt(oi.price), BigInt(0));
+  const isAlreadyLineTotal = order.subtotal && totalAsLineTotal === BigInt(order.subtotal);
+
   const allocationItems: AllocationItem[] = orderItems.map((oi: any) => ({
     orderItemId: oi.id,
-    grossAmount: oi.price,
+    grossAmount: isAlreadyLineTotal
+      ? BigInt(oi.price)
+      : BigInt(oi.unitPrice ?? oi.price) * BigInt(oi.quantity),
     quantity: oi.quantity,
   }));
 
@@ -75,7 +82,26 @@ export async function quotePartialRefund(
     }
   }
 
-  // 3. Calculate refund for requested items
+  // 3. Aggregate requested quantities per orderItemId to prevent duplicate item multiplication
+  const aggregatedRequests = new Map<string, number>();
+  for (const item of input.items) {
+    const curr = aggregatedRequests.get(item.orderItemId) ?? 0;
+    aggregatedRequests.set(item.orderItemId, curr + item.quantity);
+  }
+
+  for (const [orderItemId, totalRequested] of aggregatedRequests.entries()) {
+    const alloc = allocationMap.get(orderItemId);
+    if (!alloc) {
+      throw new Error(`OrderItem ${orderItemId} not part of order ${input.orderId}`);
+    }
+    if (totalRequested <= 0 || totalRequested > alloc.quantity) {
+      throw new Error(
+        `Invalid total return quantity (${totalRequested}) for order item ${orderItemId} (purchased ${alloc.quantity})`
+      );
+    }
+  }
+
+  // 4. Calculate refund for requested items
   let itemsRefundAmount = BigInt(0);
   const itemsAllocation: {
     orderItemId: string;
@@ -84,16 +110,7 @@ export async function quotePartialRefund(
   }[] = [];
 
   for (const item of input.items) {
-    const alloc = allocationMap.get(item.orderItemId);
-    if (!alloc) {
-      throw new Error(`OrderItem ${item.orderItemId} not part of order ${input.orderId}`);
-    }
-
-    if (item.quantity <= 0 || item.quantity > alloc.quantity) {
-      throw new Error(
-        `Invalid return quantity (${item.quantity}) for order item ${item.orderItemId}`
-      );
-    }
+    const alloc = allocationMap.get(item.orderItemId)!;
 
     // Exact proportional net refund
     const allocatedNetRefund =
@@ -227,7 +244,22 @@ export async function executeRefundCase(
     },
   });
 
-  // 6. Update order paymentStatus to REFUNDED if fully refunded
+  // 6. Link ReturnRequest and WarrantyClaim if applicable
+  if (input.returnRequestId && 'returnRequest' in tx && typeof (tx as any).returnRequest?.update === 'function') {
+    await tx.returnRequest.update({
+      where: { id: input.returnRequestId },
+      data: { refundCaseId: refundCase.id },
+    });
+  }
+
+  if (input.warrantyClaimId && 'warrantyClaim' in tx && typeof (tx as any).warrantyClaim?.update === 'function') {
+    await tx.warrantyClaim.update({
+      where: { id: input.warrantyClaimId },
+      data: { refundCaseId: refundCase.id },
+    });
+  }
+
+  // 7. Update order paymentStatus to REFUNDED if fully refunded
   if (alreadyRefunded + quote.totalRefundAmount >= orderTotalAmount) {
     await tx.order.update({
       where: { id: order.id },
@@ -235,7 +267,20 @@ export async function executeRefundCase(
     });
   }
 
-  // 7. Admin audit log
+  // 8. Create notification for customer
+  if (order.userId && 'notification' in tx && typeof (tx as any).notification?.create === 'function') {
+    await tx.notification.create({
+      data: {
+        userId: order.userId,
+        type: 'REFUND_COMPLETED',
+        title: `Hoàn tiền đơn hàng #${order.orderCode}`,
+        message: `Đã hoàn ${quote.totalRefundAmount.toString()} đ vào ví tài khoản của bạn`,
+        data: { orderId: order.id, amount: quote.totalRefundAmount.toString(), refundCaseId: refundCase.id },
+      },
+    });
+  }
+
+  // 9. Admin audit log
   await appendAdminAudit(tx, {
     operationKey: input.sourceKey,
     actorId: input.actorId,

@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@server/modules/auth/auth-options';
 import { prisma } from '@server/database/prisma';
 import { resolveOperatorAccess } from '@server/modules/admin/guards';
+import { bigIntJsonReplacer } from '@server/modules/money/money-serialization';
 import {
   requestReturn,
   transitionReturn,
@@ -13,6 +14,10 @@ import type {
   ReturnTransitionInput,
   ReturnDispositionInput,
 } from '@shared/types/return';
+
+function toSafeJson<T>(data: T): T {
+  return JSON.parse(JSON.stringify(data, bigIntJsonReplacer));
+}
 
 export async function createReturnRequestHandler(req: Request) {
   const session = await getServerSession(authOptions);
@@ -78,7 +83,7 @@ export async function getReturnRequestsHandler(req: Request) {
     },
   });
 
-  return NextResponse.json({ returnRequests });
+  return NextResponse.json(toSafeJson({ returnRequests }));
 }
 
 export async function getReturnRequestDetailHandler(
@@ -109,7 +114,7 @@ export async function getReturnRequestDetailHandler(
     return NextResponse.json({ error: 'Bạn không có quyền xem yêu cầu này' }, { status: 403 });
   }
 
-  return NextResponse.json({ returnRequest });
+  return NextResponse.json(toSafeJson({ returnRequest }));
 }
 
 export async function transitionReturnHandler(

@@ -116,14 +116,14 @@ export function allocateOrderDiscount(
     return a.orderItemId.localeCompare(b.orderItemId);
   });
 
-  const bonusSet = new Set<string>();
+  const bonusSet = new Set<number>();
   for (let i = 0; i < remainderToDistribute && i < sorted.length; i++) {
-    bonusSet.add(sorted[i].orderItemId);
+    bonusSet.add(sorted[i].index);
   }
 
   // 3. Assemble allocations preserving original order
   const allocations: ItemAllocation[] = mapped.map((m) => {
-    let allocated = m.floor + (bonusSet.has(m.orderItemId) ? BigInt(1) : BigInt(0));
+    let allocated = m.floor + (bonusSet.has(m.index) ? BigInt(1) : BigInt(0));
     if (allocated > m.grossAmount) {
       allocated = m.grossAmount;
     }

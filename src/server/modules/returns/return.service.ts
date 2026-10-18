@@ -69,17 +69,33 @@ export async function requestReturn(
     throw new Error('Return request requires a COMPLETED order with non-null completion date');
   }
 
-  // Fetch active returns for this order to calculate in-flight requested quantities
-  const activeStatuses = ['REQUESTED', 'APPROVED', 'ITEM_RECEIVED', 'INSPECTED'];
-  const existingReturns = await tx.returnRequest.findMany({
+  // Fetch active returns for this order
+  // Note: in-flight quantity only counts pending 'REQUESTED' returns because 'APPROVED'+ returns
+  // have already incremented orderItem.returnedQuantity.
+  const inFlightReturns = await tx.returnRequest.findMany({
     where: {
       orderId: input.orderId,
-      status: { in: activeStatuses },
+      status: 'REQUESTED',
     },
   });
 
-  // 2. Validate each item's quantity and serials
+  const allActiveReturns = await tx.returnRequest.findMany({
+    where: {
+      orderId: input.orderId,
+      status: { in: ['REQUESTED', 'APPROVED', 'ITEM_RECEIVED', 'INSPECTED'] },
+    },
+  });
+
+  // 2. Validate and normalize each item's quantity, price snapshot and serials
+  const seenOrderItems = new Set<string>();
+  const normalizedItems: ReturnItemPayload[] = [];
+
   for (const item of input.items) {
+    if (seenOrderItems.has(item.orderItemId)) {
+      throw new Error(`Duplicate orderItemId ${item.orderItemId} in return request`);
+    }
+    seenOrderItems.add(item.orderItemId);
+
     const orderItem = await tx.orderItem.findUnique({
       where: { id: item.orderItemId },
     });
@@ -88,9 +104,19 @@ export async function requestReturn(
       throw new Error(`Order item ${item.orderItemId} does not belong to this order`);
     }
 
-    // Sum in-flight quantities for this orderItem across other active returns
+    if (item.productId !== orderItem.productId) {
+      throw new Error(
+        `Item productId ${item.productId} does not match order item product ${orderItem.productId}`
+      );
+    }
+
+    if (orderItem.variantId && item.variantId && item.variantId !== orderItem.variantId) {
+      throw new Error(`Item variantId does not match order item variant`);
+    }
+
+    // Sum unapproved in-flight quantities for this orderItem across other pending returns
     let inFlightQuantity = 0;
-    for (const er of existingReturns) {
+    for (const er of inFlightReturns) {
       for (const ei of (er.items as ReturnItemPayload[])) {
         if (ei.orderItemId === item.orderItemId) {
           inFlightQuantity += ei.quantity;
@@ -108,6 +134,10 @@ export async function requestReturn(
 
     // Validate serialized units if provided
     if (item.serializedUnitIds && item.serializedUnitIds.length > 0) {
+      if (new Set(item.serializedUnitIds).size !== item.serializedUnitIds.length) {
+        throw new Error('Duplicate serializedUnitIds provided for return item');
+      }
+
       for (const unitId of item.serializedUnitIds) {
         const unit = await tx.serializedUnit.findUnique({
           where: { id: unitId },
@@ -118,7 +148,7 @@ export async function requestReturn(
         }
 
         // Check if unit is already in an active return request
-        const isUnitActive = existingReturns.some((er: any) =>
+        const isUnitActive = allActiveReturns.some((er: any) =>
           (er.items as ReturnItemPayload[]).some((ei) =>
             ei.serializedUnitIds?.includes(unitId)
           )
@@ -129,6 +159,13 @@ export async function requestReturn(
         }
       }
     }
+
+    normalizedItems.push({
+      ...item,
+      productId: orderItem.productId,
+      variantId: orderItem.variantId ?? null,
+      unitPriceSnapshot: (orderItem.unitPrice ?? orderItem.price).toString(),
+    });
   }
 
   const returnNumber = generateReturnNumber();
@@ -149,7 +186,7 @@ export async function requestReturn(
       orderId: input.orderId,
       status: 'REQUESTED',
       reason: input.reason,
-      items: input.items,
+      items: normalizedItems,
       timeline: initialTimeline,
       evidenceRefs: input.evidenceRefs ?? [],
       disposition: null,
@@ -194,6 +231,17 @@ export async function transitionReturn(
   // 4. If transition to APPROVED: lock returnedQuantity on OrderItem via CAS
   if (input.targetStatus === 'APPROVED') {
     for (const item of (ret.items as ReturnItemPayload[])) {
+      const orderItem = await tx.orderItem.findUnique({
+        where: { id: item.orderItemId },
+      });
+      if (!orderItem) {
+        throw new Error(`Order item ${item.orderItemId} not found`);
+      }
+      if (orderItem.returnedQuantity + item.quantity > orderItem.quantity) {
+        throw new Error(
+          `Cannot approve return: returnedQuantity (${orderItem.returnedQuantity + item.quantity}) exceeds purchased quantity (${orderItem.quantity}) for item ${item.orderItemId}`
+        );
+      }
       await tx.orderItem.update({
         where: { id: item.orderItemId },
         data: {
@@ -203,7 +251,7 @@ export async function transitionReturn(
     }
   }
 
-  // 5. If transition to REJECTED or CANCELLED from APPROVED or later: release returnedQuantity
+  // 5. If transition to REJECTED or CANCELLED from APPROVED or later: release returnedQuantity and reverse quarantine if received
   if (
     (input.targetStatus === 'REJECTED' || input.targetStatus === 'CANCELLED') &&
     ['APPROVED', 'ITEM_RECEIVED', 'INSPECTED'].includes(ret.status)
@@ -215,6 +263,34 @@ export async function transitionReturn(
           returnedQuantity: { decrement: item.quantity },
         },
       });
+
+      // If items were already received into quarantine, reverse the quarantine movement
+      if (['ITEM_RECEIVED', 'INSPECTED'].includes(ret.status)) {
+        const itemKey = `${input.operationKey}:quarantine_reversal:${item.productId}:${item.variantId ?? 'base'}`;
+        await applyInventoryMovement(tx, {
+          operationKey: itemKey,
+          target: { productId: item.productId, variantId: item.variantId },
+          kind: 'ADJUST',
+          deltaOnHand: -item.quantity,
+          deltaReserved: 0,
+          deltaQuarantined: -item.quantity,
+          reason: `Quarantine reversed due to return ${input.targetStatus} for return ${ret.returnNumber}`,
+          referenceType: 'RETURN_REQUEST',
+          referenceId: ret.id,
+        });
+
+        if (item.serializedUnitIds && item.serializedUnitIds.length > 0) {
+          for (const unitId of item.serializedUnitIds) {
+            await tx.serializedUnit.update({
+              where: { id: unitId },
+              data: {
+                status: 'SOLD',
+                notes: `Returned to customer following return ${input.targetStatus} for return ${ret.returnNumber}`,
+              },
+            });
+          }
+        }
+      }
     }
   }
 
@@ -297,6 +373,19 @@ export async function transitionReturn(
     reason: input.reason ?? input.note ?? null,
   });
 
+  // 8. In-app notification
+  if ('notification' in tx && typeof (tx as any).notification?.create === 'function') {
+    await (tx as any).notification.create({
+      data: {
+        userId: ret.customerId,
+        type: 'RETURN_UPDATED',
+        title: `Cập nhật đổi trả #${ret.returnNumber}`,
+        message: `Yêu cầu đổi trả của bạn đã chuyển sang trạng thái ${input.targetStatus}`,
+        data: { returnRequestId: ret.id, status: input.targetStatus },
+      },
+    });
+  }
+
   return mapReturnToDto(updatedRet);
 }
 
@@ -310,6 +399,12 @@ export async function applyReturnDisposition(
 
   if (!ret) {
     throw new Error(`Return request ${input.requestId} not found`);
+  }
+
+  if (ret.status !== 'INSPECTED') {
+    throw new Error(
+      `Cannot apply disposition when return request is in status ${ret.status} (must be INSPECTED)`
+    );
   }
 
   const dispVal = validateReturnDisposition(input.disposition);

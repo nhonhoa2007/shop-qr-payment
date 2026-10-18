@@ -3,11 +3,16 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@server/modules/auth/auth-options';
 import { prisma } from '@server/database/prisma';
 import { resolveOperatorAccess } from '@server/modules/admin/guards';
+import { bigIntJsonReplacer } from '@server/modules/money/money-serialization';
 import {
   createWarrantyClaim,
   transitionWarranty,
 } from '@server/modules/warranties/warranty.service';
 import type { CreateWarrantyInput, WarrantyTransitionInput } from '@shared/types/warranty';
+
+function toSafeJson<T>(data: T): T {
+  return JSON.parse(JSON.stringify(data, bigIntJsonReplacer));
+}
 
 export async function createWarrantyClaimHandler(req: Request) {
   const session = await getServerSession(authOptions);
@@ -87,7 +92,7 @@ export async function getWarrantyClaimsHandler(req: Request) {
     },
   });
 
-  return NextResponse.json({ claims });
+  return NextResponse.json(toSafeJson({ claims }));
 }
 
 export async function getWarrantyClaimDetailHandler(
@@ -121,7 +126,7 @@ export async function getWarrantyClaimDetailHandler(
     return NextResponse.json({ error: 'Bạn không có quyền xem hồ sơ bảo hành này' }, { status: 403 });
   }
 
-  return NextResponse.json({ claim });
+  return NextResponse.json(toSafeJson({ claim }));
 }
 
 export async function transitionWarrantyHandler(

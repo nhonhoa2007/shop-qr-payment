@@ -3,6 +3,7 @@ import { authOptions } from '@server/modules/auth/auth-options';
 import { redirect } from 'next/navigation';
 import { prisma } from '@server/database/prisma';
 import { resolveOperatorAccess } from '@server/modules/admin/guards';
+import { bigIntJsonReplacer } from '@server/modules/money/money-serialization';
 import { AdminReturnsView } from '@client/views/admin/AdminReturnsView';
 import type { Metadata } from 'next';
 
@@ -31,5 +32,6 @@ export default async function AdminReturnsPage() {
     take: 50,
   });
 
-  return <AdminReturnsView initialReturns={returns} />;
+  const safeReturns = JSON.parse(JSON.stringify(returns, bigIntJsonReplacer));
+  return <AdminReturnsView initialReturns={safeReturns} />;
 }

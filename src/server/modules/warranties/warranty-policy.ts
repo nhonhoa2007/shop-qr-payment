@@ -57,7 +57,12 @@ export function resolveWarrantyTerms(
 
   const startDate = new Date(completedAt);
   const endDate = new Date(startDate);
+  const originalDay = endDate.getDate();
   endDate.setMonth(endDate.getMonth() + periodMonths);
+  // Guard against JavaScript Date overflow (e.g., Jan 31 -> Feb 28/29 instead of Mar 2/3)
+  if (endDate.getDate() !== originalDay) {
+    endDate.setDate(0);
+  }
 
   const isExpiredAt = (evaluationDate: Date = new Date()): boolean => {
     return evaluationDate.getTime() > endDate.getTime();

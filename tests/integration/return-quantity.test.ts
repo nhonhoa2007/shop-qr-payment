@@ -207,6 +207,7 @@ describe('Return Request - Quantity Limits, Quarantine FSM & Disposition Integra
           return Array.from(returnRequests.values()).filter((r) => {
             if (where.orderId && r.orderId !== where.orderId) return false;
             if (where.status?.in && !where.status.in.includes(r.status)) return false;
+            if (typeof where.status === 'string' && r.status !== where.status) return false;
             return true;
           });
         },
@@ -575,5 +576,220 @@ describe('Return Request - Quantity Limits, Quarantine FSM & Disposition Integra
 
     // Available stock must NEVER increase!
     assert.equal(prodAfter.stock, prodBefore.stock);
+  });
+
+  it('allows returning legitimate remaining quantity after an earlier approved return (2 + 1 <= 3)', async () => {
+    const { tx } = createReturnMockDb();
+
+    // First return: 2 units
+    const first = await requestReturn(
+      tx,
+      {
+        orderId: 'ord_1',
+        reason: 'Đổi ý lần 1',
+        items: [
+          {
+            orderItemId: 'item_headphone',
+            productId: 'prod_headphone',
+            quantity: 2,
+            unitPriceSnapshot: '8000000',
+            returnReason: 'Không vừa',
+          },
+        ],
+        evidenceRefs: [],
+      },
+      'usr_cust1'
+    );
+
+    // Approve the first return
+    await transitionReturn(tx, {
+      requestId: first.id,
+      targetStatus: 'APPROVED',
+      expectedVersion: 1,
+      operationKey: 'op_rem_appr',
+      actorId: 'staff_1',
+      actorRole: 'STAFF',
+    });
+
+    // Second return: remaining 1 unit out of 3 MUST SUCCEED!
+    const second = await requestReturn(
+      tx,
+      {
+        orderId: 'ord_1',
+        reason: 'Đổi ý lần 2 cho chiếc còn lại',
+        items: [
+          {
+            orderItemId: 'item_headphone',
+            productId: 'prod_headphone',
+            quantity: 1,
+            unitPriceSnapshot: '8000000',
+            returnReason: 'Trả nốt chiếc còn lại',
+          },
+        ],
+        evidenceRefs: [],
+      },
+      'usr_cust1'
+    );
+
+    assert.ok(second.id);
+    assert.equal(second.status, 'REQUESTED');
+    assert.equal(second.items[0].quantity, 1);
+  });
+
+  it('rejects intra-batch duplicate orderItemId in return request', async () => {
+    const { tx } = createReturnMockDb();
+
+    await assert.rejects(
+      () =>
+        requestReturn(
+          tx,
+          {
+            orderId: 'ord_1',
+            reason: 'Trùng lặp item',
+            items: [
+              {
+                orderItemId: 'item_headphone',
+                productId: 'prod_headphone',
+                quantity: 1,
+                unitPriceSnapshot: '8000000',
+                returnReason: 'Lần 1',
+              },
+              {
+                orderItemId: 'item_headphone',
+                productId: 'prod_headphone',
+                quantity: 1,
+                unitPriceSnapshot: '8000000',
+                returnReason: 'Lần 2',
+              },
+            ],
+            evidenceRefs: [],
+          },
+          'usr_cust1'
+        ),
+      /duplicate orderItemId/i
+    );
+  });
+
+  it('rejects spoofed productId that does not match orderItem', async () => {
+    const { tx } = createReturnMockDb();
+
+    await assert.rejects(
+      () =>
+        requestReturn(
+          tx,
+          {
+            orderId: 'ord_1',
+            reason: 'Spoofed product',
+            items: [
+              {
+                orderItemId: 'item_headphone',
+                productId: 'prod_phone', // wrong productId!
+                quantity: 1,
+                unitPriceSnapshot: '8000000',
+                returnReason: 'Thử lừa hệ thống',
+              },
+            ],
+            evidenceRefs: [],
+          },
+          'usr_cust1'
+        ),
+      /does not match order item product/i
+    );
+  });
+
+  it('reverses quarantined stock upon return REJECTED after ITEM_RECEIVED', async () => {
+    const { tx, products, movements } = createReturnMockDb();
+
+    const ret = await requestReturn(
+      tx,
+      {
+        orderId: 'ord_1',
+        reason: 'Hàng lỗi',
+        items: [
+          {
+            orderItemId: 'item_headphone',
+            productId: 'prod_headphone',
+            quantity: 1,
+            unitPriceSnapshot: '8000000',
+            returnReason: 'Lỗi',
+          },
+        ],
+        evidenceRefs: [],
+      },
+      'usr_cust1'
+    );
+
+    await transitionReturn(tx, {
+      requestId: ret.id,
+      targetStatus: 'APPROVED',
+      expectedVersion: 1,
+      operationKey: 'op_rev_appr',
+      actorId: 'staff_1',
+      actorRole: 'STAFF',
+    });
+
+    await transitionReturn(tx, {
+      requestId: ret.id,
+      targetStatus: 'ITEM_RECEIVED',
+      expectedVersion: 2,
+      operationKey: 'op_rev_rcv',
+      actorId: 'staff_1',
+      actorRole: 'STAFF',
+    });
+
+    const qBefore = products.get('prod_headphone').quarantinedStock;
+
+    // Reject after physical receipt: quarantine is reversed back to customer
+    await transitionReturn(tx, {
+      requestId: ret.id,
+      targetStatus: 'REJECTED',
+      expectedVersion: 3,
+      operationKey: 'op_rev_rej',
+      actorId: 'staff_1',
+      actorRole: 'STAFF',
+      reason: 'Sản phẩm có dấu hiệu rơi vỡ do người dùng, từ chối nhận lại',
+    });
+
+    const qAfter = products.get('prod_headphone').quarantinedStock;
+    assert.equal(qAfter, qBefore - 1); // Quarantined stock deducted
+
+    const revMovement = movements.find((m) => m.operationKey.includes('quarantine_reversal'));
+    assert.ok(revMovement);
+  });
+
+  it('rejects applying disposition when return request is not in INSPECTED status', async () => {
+    const { tx } = createReturnMockDb();
+
+    const ret = await requestReturn(
+      tx,
+      {
+        orderId: 'ord_1',
+        reason: 'Chưa kiểm định',
+        items: [
+          {
+            orderItemId: 'item_headphone',
+            productId: 'prod_headphone',
+            quantity: 1,
+            unitPriceSnapshot: '8000000',
+            returnReason: 'Test',
+          },
+        ],
+        evidenceRefs: [],
+      },
+      'usr_cust1'
+    );
+
+    // In REQUESTED status
+    await assert.rejects(
+      () =>
+        applyReturnDisposition(tx, {
+          requestId: ret.id,
+          disposition: 'RESTOCKABLE',
+          operationKey: 'op_disp_premature',
+          actorId: 'staff_1',
+          actorRole: 'STAFF',
+        }),
+      /must be INSPECTED/i
+    );
   });
 });
