@@ -682,6 +682,9 @@ enum NotificationType {
   ORDER_COMPLETED
   NEW_MESSAGE
   OTP_SENT
+  WARRANTY_UPDATED
+  RETURN_UPDATED
+  REFUND_COMPLETED
 }
 
 // ==========================================

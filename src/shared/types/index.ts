@@ -69,7 +69,17 @@ export interface OrderItem {
 
 export type OrderStatus = 'PENDING' | 'CONFIRMED' | 'PROCESSING' | 'SHIPPING' | 'COMPLETED' | 'CANCELLED';
 export type PaymentStatus = 'UNPAID' | 'PAID' | 'EXPIRED' | 'REFUNDED';
-export type NotificationType = 'ORDER_CREATED' | 'ORDER_CONFIRMED' | 'PAYMENT_RECEIVED' | 'ORDER_SHIPPING' | 'ORDER_COMPLETED' | 'NEW_MESSAGE' | 'OTP_SENT';
+export type NotificationType =
+  | 'ORDER_CREATED'
+  | 'ORDER_CONFIRMED'
+  | 'PAYMENT_RECEIVED'
+  | 'ORDER_SHIPPING'
+  | 'ORDER_COMPLETED'
+  | 'NEW_MESSAGE'
+  | 'OTP_SENT'
+  | 'WARRANTY_UPDATED'
+  | 'RETURN_UPDATED'
+  | 'REFUND_COMPLETED';
 export type MessageType = 'TEXT' | 'IMAGE' | 'SYSTEM';
 
 export interface Order {
