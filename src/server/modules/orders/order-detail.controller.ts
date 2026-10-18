@@ -41,7 +41,7 @@ export async function GET(
       where: { id },
       include: {
         items: { include: { product: true, variant: true } },
-        transaction: true,
+        bankTransfers: true,
         shipment: true,
         user: { select: { id: true, name: true, email: true, phone: true } },
       },

@@ -125,7 +125,7 @@ export class AdminService {
     const orders = await prisma.order.findMany({
       include: {
         items: { include: { product: true } },
-        transaction: true,
+        bankTransfers: true,
         shipment: { select: { trackingCode: true } },
         user: { select: { id: true, name: true, email: true } },
       },
@@ -476,7 +476,7 @@ export class AdminService {
 
     const periodRevenue = recentPaidOrdersMapped.reduce((sum, o) => sum + o.totalAmount, 0);
     const paidOrdersForDistributionMapped = paidOrdersForDistribution.map((o) => ({
-      transaction: o.transaction,
+      bankTransfers: o.bankTransfers,
       shipment: o.shipment ? { codAmount: Number(o.shipment.codAmount) } : null,
     }));
     const paymentMethodDistribution = calculatePaymentMethodDistribution(paidOrdersForDistributionMapped);

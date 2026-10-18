@@ -282,7 +282,6 @@ export async function payOrderWithWallet(
         bankTransId: txRecord.id,
         description: `Thanh toán qua Ví nội bộ: ${order.orderCode}`,
         status: 'APPLIED_ORDER',
-        userId,
         receivedAt: currentTime,
       },
     });

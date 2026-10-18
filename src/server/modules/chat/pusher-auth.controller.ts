@@ -22,11 +22,12 @@ export async function POST(req: Request) {
 
     if (channelName.startsWith('private-chat-')) {
       const roomId = channelName.replace('private-chat-', '');
-      const participant = await prisma.chatRoomParticipant.findUnique({
-        where: { roomId_userId: { roomId, userId: session.user.id } },
+      const room = await (prisma as any).chatRoom.findUnique({
+        where: { id: roomId },
       });
+      const isRoomMember = room && (room.customerId === session.user.id || room.assignedStaffId === session.user.id);
       const canAccessChat = resolveOperatorAccess(session.user, 'chat');
-      if (!participant && !canAccessChat) return new Response('Forbidden', { status: 403 });
+      if (!isRoomMember && !canAccessChat) return new Response('Forbidden', { status: 403 });
     }
 
     if (channelName.startsWith('private-user-')) {

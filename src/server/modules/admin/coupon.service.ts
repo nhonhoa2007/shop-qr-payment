@@ -26,7 +26,6 @@ export async function validateCoupon(
 ): Promise<CouponValidationResult> {
   const coupon = await prisma.coupon.findUnique({
     where: { code: code.trim().toUpperCase() },
-    include: { _count: { select: { userUsages: true } } },
   });
 
   if (!coupon || !coupon.isActive) {
@@ -38,7 +37,7 @@ export async function validateCoupon(
     return { valid: false, error: 'Mã giảm giá chưa hoặc đã hết hạn sử dụng' };
   }
 
-  if (coupon._count.userUsages >= coupon.usageLimit) {
+  if (coupon.usedCount >= coupon.usageLimit) {
     return { valid: false, error: 'Mã giảm giá đã hết lượt sử dụng' };
   }
 
