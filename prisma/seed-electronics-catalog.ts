@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { computeVariantOptionHash } from '../src/shared/validations/catalog-json.ts';
 import { invalidateProductCache } from '../src/server/infrastructure/redis.ts';
 import type { CategorySpecSchema, ProductKind, ProductSegment } from '../src/shared/types/catalog.ts';
@@ -904,9 +904,9 @@ export async function seedElectronicsCatalog(db = prisma): Promise<{
       update: {
         name: c.name,
         kind: c.kind,
-        specSchema: c.specSchema as unknown as Record<string, unknown>,
+        specSchema: c.specSchema as unknown as Prisma.InputJsonValue,
         specSchemaVersion: c.specSchemaVersion,
-        warrantyConfig: c.warrantyConfig as unknown as Record<string, unknown>,
+        warrantyConfig: c.warrantyConfig as unknown as Prisma.InputJsonValue,
         isActive: c.isActive,
       },
       create: {
@@ -914,9 +914,9 @@ export async function seedElectronicsCatalog(db = prisma): Promise<{
         name: c.name,
         slug: c.slug,
         kind: c.kind,
-        specSchema: c.specSchema as unknown as Record<string, unknown>,
+        specSchema: c.specSchema as unknown as Prisma.InputJsonValue,
         specSchemaVersion: c.specSchemaVersion,
-        warrantyConfig: c.warrantyConfig as unknown as Record<string, unknown>,
+        warrantyConfig: c.warrantyConfig as unknown as Prisma.InputJsonValue,
         isActive: c.isActive,
       },
     });
@@ -935,7 +935,6 @@ export async function seedElectronicsCatalog(db = prisma): Promise<{
       where: { id: p.id },
       update: {
         name: p.name,
-        slug: p.slug,
         description: p.description,
         price: BigInt(minPrice),
         image: p.images[0]?.url || null,
@@ -945,9 +944,9 @@ export async function seedElectronicsCatalog(db = prisma): Promise<{
         kind: p.kind,
         segment: p.segment,
         isLegacy: false,
-        specs: p.specs as unknown as Record<string, unknown>,
-        images: p.images as unknown as Record<string, unknown>[],
-        warrantyConfig: p.warrantyConfig as unknown as Record<string, unknown>,
+        specs: p.specs as unknown as Prisma.InputJsonValue,
+        images: p.images as unknown as Prisma.InputJsonValue,
+        warrantyConfig: p.warrantyConfig as unknown as Prisma.InputJsonValue,
         weightGrams: p.weight,
         lengthCm: p.length,
         widthCm: p.width,
@@ -959,7 +958,6 @@ export async function seedElectronicsCatalog(db = prisma): Promise<{
       create: {
         id: p.id,
         name: p.name,
-        slug: p.slug,
         description: p.description,
         price: BigInt(minPrice),
         image: p.images[0]?.url || null,
@@ -969,9 +967,9 @@ export async function seedElectronicsCatalog(db = prisma): Promise<{
         kind: p.kind,
         segment: p.segment,
         isLegacy: false,
-        specs: p.specs as unknown as Record<string, unknown>,
-        images: p.images as unknown as Record<string, unknown>[],
-        warrantyConfig: p.warrantyConfig as unknown as Record<string, unknown>,
+        specs: p.specs as unknown as Prisma.InputJsonValue,
+        images: p.images as unknown as Prisma.InputJsonValue,
+        warrantyConfig: p.warrantyConfig as unknown as Prisma.InputJsonValue,
         weightGrams: p.weight,
         lengthCm: p.length,
         widthCm: p.width,
@@ -996,7 +994,7 @@ export async function seedElectronicsCatalog(db = prisma): Promise<{
           color: v.color || null,
           size: v.size || null,
           image: p.images[0]?.url || null,
-          optionValues: v.optionValues as unknown as Record<string, unknown>,
+          optionValues: v.optionValues as unknown as Prisma.InputJsonValue,
           optionHash,
           isActive: true,
         },
@@ -1009,7 +1007,7 @@ export async function seedElectronicsCatalog(db = prisma): Promise<{
           color: v.color || null,
           size: v.size || null,
           image: p.images[0]?.url || null,
-          optionValues: v.optionValues as unknown as Record<string, unknown>,
+          optionValues: v.optionValues as unknown as Prisma.InputJsonValue,
           optionHash,
           isActive: true,
         },
@@ -1032,7 +1030,7 @@ export async function seedElectronicsCatalog(db = prisma): Promise<{
         version: src.version,
         checksum: src.checksum,
         isSynthetic: src.isSynthetic,
-        payload: src.payload as unknown as Record<string, unknown>,
+        payload: src.payload as unknown as Prisma.InputJsonValue,
       },
       create: {
         id: src.id,
@@ -1045,7 +1043,7 @@ export async function seedElectronicsCatalog(db = prisma): Promise<{
         version: src.version,
         checksum: src.checksum,
         isSynthetic: src.isSynthetic,
-        payload: src.payload as unknown as Record<string, unknown>,
+        payload: src.payload as unknown as Prisma.InputJsonValue,
       },
     });
   }

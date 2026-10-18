@@ -178,7 +178,6 @@ function slugify(text: string): string {
 export function adaptLegacyColorSizeToOptionValues(legacy: {
   color?: string | null;
   size?: string | null;
-  [key: string]: unknown;
 }): {
   color: string | null;
   size: string | null;

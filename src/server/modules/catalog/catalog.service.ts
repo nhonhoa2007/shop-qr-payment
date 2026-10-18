@@ -277,7 +277,6 @@ export class CatalogService {
       const result: Product = {
         id: product.id,
         name: product.name,
-        slug: product.slug,
         description: product.description,
         price: detailDto.price.amount,
         effectivePrice: detailDto.effectivePrice.amount,

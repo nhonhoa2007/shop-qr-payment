@@ -33,7 +33,7 @@ This registry tracks all Prisma models across project milestones in accordance w
 | 7 | `Order` | ACTIVE | M0 | Order aggregate, state machine, payment, fulfillment |
 | 8 | `BankTransfer` | ACTIVE | M0 | VietQR / Casso webhook transactions and reconciliation |
 | 9 | `RefundCase` | ACTIVE | M0 | Order refund operations with idempotent source keys |
-| 10 | `OrderItem` | ACTIVE | M0 | Order line items with frozen commercial snapshots |
+| 10 | `OrderItem` | ACTIVE | M0 (Updated M1) | Order line items with frozen commercial, warranty, and packing snapshots |
 | 11 | `Coupon` | ACTIVE | M0 | Discount voucher policies and usage constraints |
 | 12 | `CouponUsage` | TRANSITIONAL | M0 (Retire M5) | Coupon usage counter; to be absorbed into Order claim fields |
 | 13 | `Review` | ACTIVE | M0 | Verified purchaser product reviews and ratings |

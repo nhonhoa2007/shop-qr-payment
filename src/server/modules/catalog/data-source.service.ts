@@ -12,6 +12,8 @@ export interface DataSourceInput {
   version?: string | null;
   checksum?: string | null;
   isSynthetic?: boolean;
+  status?: SourceStatus | string;
+  rejectionReason?: string | null;
   payload?: unknown;
 }
 

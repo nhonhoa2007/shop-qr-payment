@@ -173,7 +173,7 @@ export async function POST(req: Request) {
         const snapshot = buildOrderItemSnapshot({
           product: prod ?? {
             id: item.productId,
-            name: item.productTitle || '',
+            name: '',
             price: BigInt(item.price),
           },
           variant,
