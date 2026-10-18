@@ -22,6 +22,18 @@ export interface Product {
   reviewCount?: number;
   createdAt: Date | string;
   updatedAt: Date | string;
+  brandId?: string | null;
+  categoryId?: string | null;
+  kind?: string | null;
+  segment?: string | null;
+  specs?: unknown;
+  images?: unknown;
+  warrantyConfig?: unknown;
+  weightGrams?: number | null;
+  lengthCm?: number | null;
+  widthCm?: number | null;
+  heightCm?: number | null;
+  catalogVersion?: number;
 }
 
 export interface CartItem {
@@ -160,6 +172,12 @@ export interface ProductVariant {
   stock: number;
   image?: string | null;
   isActive: boolean;
+  optionValues?: unknown;
+  optionHash?: string | null;
+  specOverrides?: unknown;
+  images?: unknown;
+  warrantyConfig?: unknown;
+  serializationRequired?: boolean;
   createdAt: Date | string;
   updatedAt: Date | string;
 }

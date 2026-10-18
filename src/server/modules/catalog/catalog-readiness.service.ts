@@ -34,6 +34,10 @@ export interface ProductForReadiness {
   length?: number | null;
   width?: number | null;
   height?: number | null;
+  weightGrams?: number | null;
+  lengthCm?: number | null;
+  widthCm?: number | null;
+  heightCm?: number | null;
   specs?: unknown;
   warrantyConfig?: unknown;
   brand?: {
@@ -116,10 +120,10 @@ export async function evaluateCatalogReadiness(
   const missing: string[] = [];
   const warnings: string[] = [];
 
-  const weight = product.weight ?? 0;
-  const length = product.length ?? 0;
-  const width = product.width ?? 0;
-  const height = product.height ?? 0;
+  const weight = product.weight ?? product.weightGrams ?? 0;
+  const length = product.length ?? product.lengthCm ?? 0;
+  const width = product.width ?? product.widthCm ?? 0;
+  const height = product.height ?? product.heightCm ?? 0;
 
   // 1. Kiểm tra sản phẩm cũ (Legacy)
   const isLegacy = Boolean(product.isLegacy || product.kind === 'LEGACY');
