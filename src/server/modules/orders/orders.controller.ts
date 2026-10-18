@@ -15,6 +15,7 @@ import { pusherServer } from '@server/infrastructure/pusher';
 import { resolveOperatorAccess } from '@server/modules/admin/guards';
 import { formatNewOrderMessage, sendTelegramMessage } from '@server/infrastructure/telegram';
 import { quoteShipping, QuoteError } from '@server/modules/shipping/shipping-quote.service';
+import { buildOrderItemSnapshot } from '@server/modules/orders/order-item-snapshot.service';
 import {
   serializeOrderDto,
   serializeMoneyVnd,
@@ -138,6 +139,66 @@ export async function POST(req: Request) {
         throw new Error(`Sản phẩm hoặc biến thể không đủ tồn kho: ${failedId}`);
       }
 
+      const productIds = [...new Set(validated.orderItems!.map((item) => item.productId))];
+      const products = await tx.product.findMany({
+        where: { id: { in: productIds } },
+        include: {
+          variants: { where: { isActive: true } },
+          categoryRef: true,
+        },
+      });
+      const activeSources = await tx.dataSource.findMany({
+        where: {
+          status: 'ACTIVE',
+          sourceType: { in: ['CATALOG', 'MANUFACTURER'] },
+        },
+      });
+
+      const productMap = new Map(products.map((p) => [p.id, p]));
+      const sourceMap = new Map<string, { id: string; version?: string | null; status: string }>();
+      for (const s of activeSources) {
+        if (s.payload && typeof s.payload === 'object' && 'mapping' in (s.payload as Record<string, unknown>)) {
+          const mapping = (s.payload as { mapping?: { productId?: string } }).mapping;
+          if (mapping && mapping.productId) {
+            sourceMap.set(mapping.productId, { id: s.id, version: s.version, status: s.status });
+          }
+        }
+      }
+
+      const orderItemsCreate = validated.orderItems!.map((item) => {
+        const prod = productMap.get(item.productId);
+        const variant = item.variantId ? prod?.variants?.find((v) => v.id === item.variantId) : null;
+        const activeSource = prod ? sourceMap.get(prod.id) : null;
+
+        const snapshot = buildOrderItemSnapshot({
+          product: prod ?? {
+            id: item.productId,
+            name: item.productTitle || '',
+            price: BigInt(item.price),
+          },
+          variant,
+          activeSource,
+          quantity: item.quantity,
+        });
+
+        return {
+          productId: item.productId,
+          variantId: item.variantId || null,
+          variantTitle: item.variantTitle || null,
+          quantity: item.quantity,
+          price: BigInt(item.price),
+          productName: snapshot.productName,
+          sku: snapshot.sku,
+          variantOptions: (snapshot.variantOptions as unknown as Prisma.InputJsonValue) ?? undefined,
+          unitPrice: snapshot.unitPrice,
+          warrantySnapshot: (snapshot.warrantySnapshot as unknown as Prisma.InputJsonValue) ?? undefined,
+          packingLineSnapshot: (snapshot.packingLineSnapshot as unknown as Prisma.InputJsonValue) ?? undefined,
+          schemaRevision: snapshot.schemaRevision,
+          sourceRevision: snapshot.sourceRevision,
+          returnedQuantity: 0,
+        };
+      });
+
       const createdOrder = await tx.order.create({
         data: {
           orderCode,
@@ -160,13 +221,7 @@ export async function POST(req: Request) {
           note: note || null,
           expiresAt: new Date(Date.now() + 15 * 60 * 1000),
           items: {
-            create: validated.orderItems!.map((item) => ({
-              productId: item.productId,
-              variantId: item.variantId || null,
-              variantTitle: item.variantTitle || null,
-              quantity: item.quantity,
-              price: BigInt(item.price),
-            })),
+            create: orderItemsCreate,
           },
         },
         include: { items: { include: { product: true, variant: true } } },

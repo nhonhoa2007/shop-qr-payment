@@ -117,13 +117,27 @@ export function serializeOrderDto<
         ? order.totalAmount
         : parseMoneyVnd(order.totalAmount, 'totalAmount')
     ),
-    items: order.items?.map((item) => ({
-      ...item,
-      price: serializeMoneyVnd(
+    items: order.items?.map((item) => {
+      const priceStr = serializeMoneyVnd(
         typeof item.price === 'bigint' ? item.price : parseMoneyVnd(item.price, 'price')
-      ),
-      product: item.product ? serializeProductDto(item.product) : undefined,
-    })),
+      );
+      const rawUnitPrice = (item as { unitPrice?: MoneyValue | null }).unitPrice;
+      const unitPriceStr =
+        rawUnitPrice !== undefined && rawUnitPrice !== null
+          ? serializeMoneyVnd(
+              typeof rawUnitPrice === 'bigint'
+                ? rawUnitPrice
+                : parseMoneyVnd(rawUnitPrice, 'unitPrice')
+            )
+          : priceStr;
+
+      return {
+        ...item,
+        price: priceStr,
+        unitPrice: unitPriceStr,
+        product: item.product ? serializeProductDto(item.product) : undefined,
+      };
+    }),
   };
 }
 
