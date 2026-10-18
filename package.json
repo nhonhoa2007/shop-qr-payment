@@ -17,6 +17,7 @@
     "db:restore": "node scripts/db-restore.js",
     "ghn:import": "node scripts/fetch-ghn-locations.js",
     "schema:budget": "node scripts/check-prisma-model-budget.mjs",
+    "eval:assistant": "node --experimental-strip-types --import ./tests/register-alias.mjs scripts/eval-assistant.ts",
     "seed:demo": "node --experimental-strip-types --env-file=.env prisma/seed-demo-data.ts",
     "seed:electronics": "node --experimental-strip-types --env-file=.env prisma/seed-electronics-catalog.ts"
   },
