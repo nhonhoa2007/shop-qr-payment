@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import crypto from 'node:crypto';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@server/modules/auth/auth.config.ts';
+import { authOptions } from '@server/modules/auth/auth-options.ts';
 import { FakeAiProvider } from '@server/infrastructure/ai/fake-provider.ts';
 import type { AiProvider } from '@server/infrastructure/ai/provider.ts';
 import {

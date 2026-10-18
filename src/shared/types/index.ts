@@ -50,6 +50,11 @@ export interface CartItem {
   quantity: number;
   variantId?: string | null;
   variantTitle?: string | null;
+  attachedToProductId?: string | null;
+  attachedToVariantId?: string | null;
+  isAddon?: boolean;
+  compatibilityStatus?: string | null;
+  caveatAcknowledged?: boolean;
 }
 
 export interface OrderItem {

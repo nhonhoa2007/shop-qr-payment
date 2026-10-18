@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import Link from 'next/link';
 import Image from 'next/image';
 import type { Product } from '@shared/types';
+import type { CompatibilityCheckDto } from '@shared/types/compatibility';
 
 export function ProductDetailView({ product }: { product: Product }) {
   const router = useRouter();
@@ -23,6 +24,8 @@ export function ProductDetailView({ product }: { product: Product }) {
   const toggleWishlist = useWishlistStore((s) => s.toggleWishlist);
   const fetchWishlist = useWishlistStore((s) => s.fetchWishlist);
   const [quantity, setQuantity] = useState(1);
+  const [accessories, setAccessories] = useState<CompatibilityCheckDto[]>([]);
+  const [selectedAddonIds, setSelectedAddonIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchWishlist();
@@ -45,6 +48,38 @@ export function ProductDetailView({ product }: { product: Product }) {
     if (!hasVariants) return null;
     return activeVariants.find((v) => v.id === selectedVariantId) || null;
   }, [hasVariants, activeVariants, selectedVariantId]);
+
+  useEffect(() => {
+    const targetVariantId = selectedVariant?.id;
+    if (!targetVariantId) return;
+
+    let cancelled = false;
+    fetch(`/api/compatibility/accessories?deviceVariantId=${encodeURIComponent(targetVariantId)}`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        if (!cancelled && Array.isArray(data)) {
+          setAccessories(data);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      setAccessories([]);
+      setSelectedAddonIds(new Set());
+    };
+  }, [selectedVariant?.id]);
+
+  const toggleAddon = (id: string) => {
+    setSelectedAddonIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
 
   // Extract dimensions: colors and sizes
   const colors = useMemo(() => {
@@ -145,8 +180,30 @@ export function ProductDetailView({ product }: { product: Product }) {
       effectiveQuantity
     );
 
+    // Add selected compatible accessories
+    for (const acc of accessories) {
+      const accKey = acc.accessory.variantId || acc.accessory.productId;
+      if (selectedAddonIds.has(accKey)) {
+        addItem(
+          {
+            productId: acc.accessory.productId,
+            name: acc.accessory.productName,
+            price: acc.accessory.price ? Number(acc.accessory.price) : 0,
+            image: acc.accessory.image || undefined,
+            variantId: acc.accessory.variantId || null,
+            variantTitle: acc.accessory.variantName || null,
+            attachedToVariantId: selectedVariant?.id || null,
+            isAddon: true,
+            compatibilityStatus: 'COMPATIBLE',
+          },
+          1
+        );
+      }
+    }
+
     const variantLabel = selectedVariant ? ` (${selectedVariant.title})` : '';
-    toast.success(`Đã thêm ${effectiveQuantity} × "${product.name}${variantLabel}" vào giỏ`);
+    const addonNote = selectedAddonIds.size > 0 ? ` + ${selectedAddonIds.size} phụ kiện kèm theo` : '';
+    toast.success(`Đã thêm ${effectiveQuantity} × "${product.name}${variantLabel}"${addonNote} vào giỏ`);
   };
 
   const handleBuyNow = () => {
@@ -170,6 +227,27 @@ export function ProductDetailView({ product }: { product: Product }) {
       },
       effectiveQuantity
     );
+
+    // Add selected compatible accessories
+    for (const acc of accessories) {
+      const accKey = acc.accessory.variantId || acc.accessory.productId;
+      if (selectedAddonIds.has(accKey)) {
+        addItem(
+          {
+            productId: acc.accessory.productId,
+            name: acc.accessory.productName,
+            price: acc.accessory.price ? Number(acc.accessory.price) : 0,
+            image: acc.accessory.image || undefined,
+            variantId: acc.accessory.variantId || null,
+            variantTitle: acc.accessory.variantName || null,
+            attachedToVariantId: selectedVariant?.id || null,
+            isAddon: true,
+            compatibilityStatus: 'COMPATIBLE',
+          },
+          1
+        );
+      }
+    }
 
     router.push('/checkout');
   };
@@ -521,6 +599,67 @@ export function ProductDetailView({ product }: { product: Product }) {
               </div>
             )}
           </div>
+
+          {/* Compatible Accessories Add-on Section */}
+          {accessories.length > 0 && (
+            <div className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  <span className="text-xs font-semibold text-emerald-900 tracking-[-0.014em]">
+                    Phụ kiện tương thích được khuyên dùng
+                  </span>
+                </div>
+                <span className="text-[11px] font-medium text-emerald-700 bg-emerald-100/60 px-2 py-0.5 rounded-full">
+                  100% Tương thích
+                </span>
+              </div>
+              <p className="text-[12px] text-muted-gray leading-relaxed">
+                Đã kiểm chứng deterministic qua Compatibility Engine. Mua kèm tiện lợi và đảm bảo an toàn thiết bị.
+              </p>
+              <div className="space-y-2">
+                {accessories.map((item) => {
+                  const key = item.accessory.variantId || item.accessory.productId;
+                  const isChecked = selectedAddonIds.has(key);
+                  return (
+                    <label
+                      key={key}
+                      className={`flex items-center justify-between p-2.5 rounded-xl border transition cursor-pointer ${
+                        isChecked
+                          ? 'border-emerald-500 bg-white shadow-xs'
+                          : 'border-faint-border bg-white/70 hover:border-emerald-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => toggleAddon(key)}
+                          className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-gray-300"
+                        />
+                        <div>
+                          <p className="text-xs font-medium text-ink-black tracking-[-0.014em]">
+                            {item.accessory.productName}
+                            {item.accessory.variantName ? ` - ${item.accessory.variantName}` : ''}
+                          </p>
+                          {item.warnings && item.warnings.length > 0 && (
+                            <p className="text-[11px] text-amber-700 mt-0.5">
+                              {item.warnings[0]}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      {item.accessory.price && (
+                        <span className="text-xs font-semibold text-ink-black">
+                          +{formatVND(Number(item.accessory.price))}
+                        </span>
+                      )}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Action Buttons */}
           <div className="space-y-3 pt-4">

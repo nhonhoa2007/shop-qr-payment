@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type {
   AssistantMessageDto,
-  ConversationDto,
   AssistantAnswerDto,
 } from '@/shared/types/assistant.ts';
 
@@ -50,7 +49,7 @@ export function AssistantPanel({
           if (data.success && data.conversation) {
             setConversationId(data.conversation.id);
           }
-        } catch (err) {
+        } catch {
           setError('Không thể khởi tạo phiên trò chuyện trợ lý.');
         }
       }
@@ -63,63 +62,67 @@ export function AssistantPanel({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
 
-  const handleSendMessage = async (textToSend?: string) => {
-    const text = (textToSend || inputMessage).trim();
-    if (!text || !conversationId || isLoading) return;
+  const handleSendMessage = useCallback(
+    async (textToSend?: string) => {
+      const text = (textToSend || inputMessage).trim();
+      if (!text || !conversationId || isLoading) return;
 
-    setInputMessage('');
-    setError(null);
-    setIsLoading(true);
+      setInputMessage('');
+      setError(null);
+      setIsLoading(true);
 
-    const tempUserMsg: AssistantMessageDto = {
-      id: `temp_${Date.now()}`,
-      conversationId,
-      role: 'USER',
-      content: text,
-      citations: [],
-      claims: [],
-      isGrounded: true,
-      createdAt: new Date().toISOString(),
-    };
-
-    setMessages((prev) => [...prev, tempUserMsg]);
-
-    try {
-      const res = await fetch(`/api/assistant/conversations/${conversationId}/messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: text,
-          productIds: defaultProductIds,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Lỗi xử lý phản hồi từ trợ lý.');
-      }
-
-      const answerDto = data.answer as AssistantAnswerDto;
-      const assistantMsg: AssistantMessageDto = {
-        id: answerDto.messageId || `msg_${Date.now()}`,
+      const nowIso = new Date().toISOString();
+      const tempUserMsg: AssistantMessageDto = {
+        id: `temp_${nowIso}_${Math.random().toString(36).substring(2, 6)}`,
         conversationId,
-        role: 'ASSISTANT',
-        content: answerDto.answer,
-        followUpQuestion: answerDto.followUpQuestion,
-        citations: answerDto.citations,
-        claims: answerDto.claims,
-        isGrounded: answerDto.isGrounded,
-        fallbackReason: answerDto.fallbackReason,
-        createdAt: new Date().toISOString(),
+        role: 'USER',
+        content: text,
+        citations: [],
+        claims: [],
+        isGrounded: true,
+        createdAt: nowIso,
       };
 
-      setMessages((prev) => [...prev, assistantMsg]);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Lỗi kết nối trợ lý.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      setMessages((prev) => [...prev, tempUserMsg]);
+
+      try {
+        const res = await fetch(`/api/assistant/conversations/${conversationId}/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            content: text,
+            productIds: defaultProductIds,
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || 'Lỗi xử lý phản hồi từ trợ lý.');
+        }
+
+        const answerDto = data.answer as AssistantAnswerDto;
+        const assistantMsg: AssistantMessageDto = {
+          id: answerDto.messageId || `msg_${nowIso}_${Math.random().toString(36).substring(2, 6)}`,
+          conversationId,
+          role: 'ASSISTANT',
+          content: answerDto.answer,
+          followUpQuestion: answerDto.followUpQuestion,
+          citations: answerDto.citations,
+          claims: answerDto.claims,
+          isGrounded: answerDto.isGrounded,
+          fallbackReason: answerDto.fallbackReason,
+          createdAt: new Date().toISOString(),
+        };
+
+        setMessages((prev) => [...prev, assistantMsg]);
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Lỗi kết nối trợ lý.');
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [inputMessage, conversationId, isLoading, defaultProductIds]
+  );
 
   return (
     <div

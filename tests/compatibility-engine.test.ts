@@ -2,14 +2,12 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   evaluateCompatibility,
-  extractDeviceSpecProfile,
 } from '../src/server/modules/compatibility/compatibility.engine.ts';
 import {
   validateCompatibilityRule,
   validateCompatibilityConditions,
 } from '../src/shared/validations/compatibility-rule.ts';
 import type {
-  CompatibilityEngineInput,
   CompatibilityRuleDefinition,
   CompatibilityTargetSpecs,
 } from '../src/shared/types/compatibility.ts';

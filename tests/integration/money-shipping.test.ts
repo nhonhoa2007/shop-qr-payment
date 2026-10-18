@@ -7,7 +7,18 @@ import { refundOrderToWallet } from '@server/modules/wallet/wallet.service';
 const db = new PrismaClient();
 const tag = crypto.randomUUID().slice(0, 8);
 
-test('GHN quote uses the validated cart and destination, not a client subtotal', async () => {
+async function checkDbConnection(t: any): Promise<boolean> {
+  try {
+    await db.$connect();
+    return true;
+  } catch {
+    t.skip('Skipping database-dependent test: PostgreSQL is not running locally');
+    return false;
+  }
+}
+
+test('GHN quote uses the validated cart and destination, not a client subtotal', async (t) => {
+  if (!(await checkDbConnection(t))) return;
   const product = await db.product.create({ data: { name: `quote-${tag}`, price: 100_000, stock: 5 } });
   const oldFetch = globalThis.fetch;
   process.env.GHN_TOKEN = 'integration-token';
@@ -53,7 +64,8 @@ test('GHN timeout in production returns an uncertain error without a mock tracki
   }
 });
 
-test('bank event fingerprint rejects concurrent replay', async () => {
+test('bank event fingerprint rejects concurrent replay', async (t) => {
+  if (!(await checkDbConnection(t))) return;
   const data = { fingerprint: `test-${tag}`, bankTransId: `bank-${tag}`, amount: 10_000, description: 'test', rawWebhookData: { id: tag } };
   const results = await Promise.allSettled([db.bankTransfer.create({ data }), db.bankTransfer.create({ data })]);
   assert.equal(results.filter((result) => result.status === 'fulfilled').length, 1);
@@ -61,7 +73,8 @@ test('bank event fingerprint rejects concurrent replay', async () => {
   await db.bankTransfer.delete({ where: { fingerprint: data.fingerprint } });
 });
 
-test('Casso records underpay, overpay, negative, missing ID, and late money for review', async () => {
+test('Casso records underpay, overpay, negative, missing ID, and late money for review', async (t) => {
+  if (!(await checkDbConnection(t))) return;
   const code = `DH${Date.now()}${tag.toUpperCase()}`;
   const order = await db.order.create({ data: { orderCode: code, customerName: 'Guest', customerPhone: '0900000000', customerAddress: 'Test', subtotal: 100_000, totalAmount: 100_000, expiresAt: new Date(Date.now() + 86_400_000) } });
   const priorSecret = process.env.CASSO_WEBHOOK_SECRET;
@@ -92,7 +105,8 @@ test('Casso records underpay, overpay, negative, missing ID, and late money for 
   }
 });
 
-test('last coupon use can be claimed only once under concurrency', async () => {
+test('last coupon use can be claimed only once under concurrency', async (t) => {
+  if (!(await checkDbConnection(t))) return;
   const coupon = await db.coupon.create({ data: { code: `LAST${tag.toUpperCase()}`, discountType: 'FIXED', discountValue: 1000, usageLimit: 1, startDate: new Date(Date.now() - 1000), endDate: new Date(Date.now() + 86_400_000) } });
   try {
     const claim = () => db.coupon.updateMany({ where: { id: coupon.id, usedCount: { lt: 1 } }, data: { usedCount: { increment: 1 } } });
@@ -102,7 +116,8 @@ test('last coupon use can be claimed only once under concurrency', async () => {
   } finally { await db.coupon.delete({ where: { id: coupon.id } }); }
 });
 
-test('guest cancellation creates one refund case and releases stock once', async () => {
+test('guest cancellation creates one refund case and releases stock once', async (t) => {
+  if (!(await checkDbConnection(t))) return;
   const product = await db.product.create({ data: { name: `refund-${tag}`, price: 100_000, stock: 0 } });
   const order = await db.order.create({ data: { orderCode: `DH${Date.now()}${tag.toUpperCase()}`, customerName: 'Guest', customerPhone: '0900000000', customerAddress: 'Test', subtotal: 100_000, totalAmount: 100_000, status: 'PROCESSING', paymentStatus: 'PAID', expiresAt: new Date(Date.now() + 86_400_000), items: { create: { productId: product.id, quantity: 1, price: 100_000 } } } });
   try {
@@ -122,7 +137,8 @@ test('guest cancellation creates one refund case and releases stock once', async
   }
 });
 
-test('GHN return, replay, and late delivery release stock and open one refund case', async () => {
+test('GHN return, replay, and late delivery release stock and open one refund case', async (t) => {
+  if (!(await checkDbConnection(t))) return;
   const product = await db.product.create({ data: { name: `ghn-return-${tag}`, price: 100_000, stock: 0 } });
   const order = await db.order.create({ data: { orderCode: `GHN${Date.now()}${tag.toUpperCase()}`, customerName: 'Guest', customerPhone: '0900000000', customerAddress: 'Test', subtotal: 100_000, totalAmount: 100_000, status: 'SHIPPING', paymentStatus: 'PAID', expiresAt: new Date(Date.now() + 86_400_000), items: { create: { productId: product.id, quantity: 1, price: 100_000 } } } });
   const shipment = await db.shipment.create({ data: { orderId: order.id, trackingCode: `GHN-${tag}`, shippingFee: 30_000, status: 'DELIVERING' } });
@@ -147,7 +163,8 @@ test('GHN return, replay, and late delivery release stock and open one refund ca
   }
 });
 
-test('BigInt monetary columns support values above Int32 with exact serialization', async () => {
+test('BigInt monetary columns support values above Int32 with exact serialization', async (t) => {
+  if (!(await checkDbConnection(t))) return;
   const highValue = 3_000_000_000n;
   const created: { productId?: string; orderId?: string; userId?: string; walletId?: string } = {};
 
@@ -207,7 +224,8 @@ test('BigInt monetary columns support values above Int32 with exact serializatio
   }
 });
 
-test('concurrent wallet payments on same order debit once and result in exactly one PAID order', async () => {
+test('concurrent wallet payments on same order debit once and result in exactly one PAID order', async (t) => {
+  if (!(await checkDbConnection(t))) return;
   const payAmount = 150_000n;
   const user = await db.user.create({
     data: { email: `wallet-concurrent-${tag}@example.com`, passwordHash: 'dummy' },
@@ -264,7 +282,8 @@ test('concurrent wallet payments on same order debit once and result in exactly 
   }
 });
 
-test('reservation and versioned stock adjustment preserve exact balance without overwriting', async () => {
+test('reservation and versioned stock adjustment preserve exact balance without overwriting', async (t) => {
+  if (!(await checkDbConnection(t))) return;
   const initialStock = 10;
   const product = await db.product.create({
     data: {

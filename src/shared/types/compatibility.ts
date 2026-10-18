@@ -83,6 +83,8 @@ export interface CompatibilityTargetSpecs {
   categoryId?: string | null;
   categorySlug?: string | null;
   market?: string | null;
+  price?: number | string | bigint | null;
+  image?: string | null;
   specs: unknown;
   specOverrides?: unknown;
 }
@@ -110,6 +112,8 @@ export interface CompatibilityCheckDto {
     variantName?: string | null;
     categoryId?: string | null;
     categorySlug?: string | null;
+    price?: number | string | bigint | null;
+    image?: string | null;
   };
   reasons: string[];
   warnings: string[];

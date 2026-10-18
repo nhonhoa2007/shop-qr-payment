@@ -17,7 +17,6 @@ function createMockDb() {
   const variants = new Map<string, any>();
   const categories = new Map<string, any>();
   const users = new Map<string, any>();
-  const permissions = new Map<string, any>();
 
   // Seed sample users & roles
   users.set('usr_staff_knowledge', {
@@ -159,7 +158,7 @@ function createMockDb() {
       },
     },
     product: {
-      findUnique: async ({ where, include }: { where: { id: string }; include?: any }) => {
+      findUnique: async ({ where }: { where: { id: string } }) => {
         const p = products.get(where.id);
         if (!p) return null;
         return { ...p };

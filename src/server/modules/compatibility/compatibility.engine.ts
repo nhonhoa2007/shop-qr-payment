@@ -196,6 +196,8 @@ export function evaluateCompatibility(input: CompatibilityEngineInput): Compatib
       variantName: accessory.variantName || null,
       categoryId: accessory.categoryId || null,
       categorySlug: accessory.categorySlug || null,
+      price: accessory.price !== undefined ? (typeof accessory.price === 'bigint' ? accessory.price.toString() : accessory.price) : null,
+      image: accessory.image || null,
     },
     reasons: [],
     warnings: [],

@@ -220,6 +220,8 @@ async function resolveTargetSpecs(
       categoryId: variant.product.categoryId,
       categorySlug: variant.product.categoryRef?.slug || variant.product.category,
       market: variant.product.market || 'VN',
+      price: variant.price,
+      image: variant.image || variant.product.image || null,
       specs: variant.product.specs,
       specOverrides: variant.specOverrides,
     };
@@ -239,6 +241,8 @@ async function resolveTargetSpecs(
       categoryId: product.categoryId,
       categorySlug: product.categoryRef?.slug || product.category,
       market: product.market || 'VN',
+      price: product.price,
+      image: product.image || null,
       specs: product.specs,
       specOverrides: null,
     };
@@ -374,6 +378,8 @@ export async function listCompatibleAccessories(
       categoryId: variant.product.categoryId,
       categorySlug: variant.product.categoryRef?.slug || variant.product.category,
       market: variant.product.market || 'VN',
+      price: variant.price,
+      image: variant.image || variant.product.image || null,
       specs: variant.product.specs,
       specOverrides: variant.specOverrides,
     };
