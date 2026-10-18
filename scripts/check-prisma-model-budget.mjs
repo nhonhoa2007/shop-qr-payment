@@ -3,6 +3,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+export const PROJECT_ROOT = path.resolve(__dirname, '..');
+export const DEFAULT_SCHEMA_PATH = path.resolve(PROJECT_ROOT, 'prisma/schema.prisma');
+export const DEFAULT_REGISTRY_PATH = path.resolve(PROJECT_ROOT, 'docs/architecture/prisma-model-registry.md');
+
 export const HARD_CAP = 40;
 export const TARGET_CEILING = 37;
 export const DEFAULT_EXPECTED_M0 = 22;
@@ -116,6 +122,7 @@ export function parseRegistryModels(registryContent) {
 
   const lines = contentToScan.split(/\r?\n/);
   const models = [];
+  let modelColIndex = -1;
 
   for (const rawLine of lines) {
     const line = rawLine.trim();
@@ -123,9 +130,29 @@ export function parseRegistryModels(registryContent) {
 
     // Check markdown table rows: | 1 | `User` | ACTIVE | ...
     if (line.startsWith('|')) {
-      const cells = line.split('|').map((c) => c.trim()).filter(Boolean);
-      for (const cell of cells) {
-        const match = cell.match(/^`([A-Za-z0-9_]+)`$/);
+      const trimmed = line.replace(/^\|/, '').replace(/\|$/, '');
+      const cells = trimmed.split('|').map((c) => c.trim());
+
+      // Check if this row is a header row containing a "Model" column
+      const headerIdx = cells.findIndex((c) => c.toLowerCase() === 'model');
+      if (headerIdx !== -1) {
+        modelColIndex = headerIdx;
+        continue;
+      }
+
+      // Skip table divider row |---|---|
+      if (cells.every((c) => /^:?-+:?$/.test(c))) {
+        continue;
+      }
+
+      // If Model column was identified, parse ONLY that column
+      let targetCol = modelColIndex;
+      if (targetCol === -1 && cells.length >= 2 && /^\d+$/.test(cells[0])) {
+        targetCol = 1;
+      }
+
+      if (targetCol !== -1 && targetCol < cells.length) {
+        const match = cells[targetCol].match(/^`([A-Za-z0-9_]+)`$/);
         if (match) {
           const name = match[1];
           if (!models.includes(name) && name !== 'Model') {
@@ -135,6 +162,9 @@ export function parseRegistryModels(registryContent) {
       }
       continue;
     }
+
+    // Reset table header index on non-table lines
+    modelColIndex = -1;
 
     // Check markdown list items: - `User`
     const listMatch = line.match(/^[-*]\s+`([A-Za-z0-9_]+)`/);
@@ -169,13 +199,15 @@ export function checkModelBudget(options = {}) {
   const forbiddenList = options.forbiddenModels ?? FORBIDDEN_MODELS;
 
   let schemaContent = options.schemaContent;
-  if (schemaContent === undefined && options.schemaPath) {
-    schemaContent = fs.readFileSync(options.schemaPath, 'utf8');
+  const schemaPath = options.schemaPath ?? DEFAULT_SCHEMA_PATH;
+  if (schemaContent === undefined && schemaPath && fs.existsSync(schemaPath)) {
+    schemaContent = fs.readFileSync(schemaPath, 'utf8');
   }
 
   let registryContent = options.registryContent;
-  if (registryContent === undefined && options.registryPath && fs.existsSync(options.registryPath)) {
-    registryContent = fs.readFileSync(options.registryPath, 'utf8');
+  const registryPath = options.registryPath ?? DEFAULT_REGISTRY_PATH;
+  if (registryContent === undefined && registryPath && fs.existsSync(registryPath)) {
+    registryContent = fs.readFileSync(registryPath, 'utf8');
   }
 
   const models = parsePrismaModels(schemaContent ?? '');
@@ -270,8 +302,8 @@ export function checkModelBudget(options = {}) {
 export function runCli(argv = process.argv.slice(2)) {
   let expected = undefined;
   let lockRegistry = false;
-  let schemaPath = path.resolve(process.cwd(), 'prisma/schema.prisma');
-  let registryPath = path.resolve(process.cwd(), 'docs/architecture/prisma-model-registry.md');
+  let schemaPath = DEFAULT_SCHEMA_PATH;
+  let registryPath = DEFAULT_REGISTRY_PATH;
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -282,8 +314,8 @@ Usage: node scripts/check-prisma-model-budget.mjs [options]
 Options:
   --expected=<number>     Expected model count (e.g. --expected=22, --expected=25)
   --lock-registry         Enforce zero difference between schema models and registry
-  --schema=<path>         Path to schema.prisma (default: prisma/schema.prisma)
-  --registry=<path>       Path to registry md (default: docs/architecture/prisma-model-registry.md)
+  --schema=<path>         Path to schema.prisma (default: prisma/schema.prisma anchored to project root)
+  --registry=<path>       Path to registry md (default: docs/architecture/prisma-model-registry.md anchored to project root)
   --help, -h              Show this help message
       `.trim());
       process.exit(0);
@@ -295,8 +327,12 @@ Options:
       lockRegistry = true;
     } else if (arg.startsWith('--schema=')) {
       schemaPath = path.resolve(process.cwd(), arg.slice('--schema='.length));
+    } else if (arg === '--schema') {
+      schemaPath = path.resolve(process.cwd(), argv[++i]);
     } else if (arg.startsWith('--registry=')) {
       registryPath = path.resolve(process.cwd(), arg.slice('--registry='.length));
+    } else if (arg === '--registry') {
+      registryPath = path.resolve(process.cwd(), argv[++i]);
     }
   }
 

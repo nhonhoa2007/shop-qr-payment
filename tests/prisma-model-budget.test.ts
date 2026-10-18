@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import { execFileSync } from 'node:child_process';
 import {
   parsePrismaModels,
@@ -80,6 +81,20 @@ describe('Prisma Model Budget and Registry Gate', () => {
       const registryContent = fs.readFileSync(REGISTRY_PATH, 'utf8');
       const registered = parseRegistryModels(registryContent);
       assert.equal(registered.length, 22, `Expected registry to list 22 M0 models, found ${registered.length}`);
+    });
+
+    it('parses only the designated Model column and ignores backtick tokens in other columns', () => {
+      const sampleRegistryWithOtherBackticks = `
+# Prisma Model Registry
+<!-- REGISTRY_MODELS_START -->
+| # | Model | Status | Milestone | Notes |
+|---|---|---|---|---|
+| 1 | \`Alpha\` | \`ACTIVE\` | M0 | Replaces \`LegacyAlpha\` |
+| 2 | \`Beta\` | \`PENDING\` | M1 | See \`ConfigDoc\` |
+<!-- REGISTRY_MODELS_END -->
+      `;
+      const registered = parseRegistryModels(sampleRegistryWithOtherBackticks);
+      assert.deepEqual(registered, ['Alpha', 'Beta']);
     });
   });
 
@@ -194,6 +209,8 @@ describe('Prisma Model Budget and Registry Gate', () => {
       `;
       const registry = `
 <!-- REGISTRY_MODELS_START -->
+| # | Model | Status | Milestone |
+|---|---|---|---|
 | 1 | \`User\` | ACTIVE | M0 |
 | 2 | \`Product\` | ACTIVE | M0 |
 | 3 | \`OldModel\` | ACTIVE | M0 |
@@ -256,6 +273,16 @@ describe('Prisma Model Budget and Registry Gate', () => {
       const output = execFileSync(process.execPath, [SCRIPT_PATH, '--expected=22'], {
         encoding: 'utf8',
         cwd: PROJECT_ROOT,
+      });
+      assert.ok(output.includes('22'));
+      assert.ok(output.toLowerCase().includes('pass'));
+    });
+
+    it('executes zero-argument CLI from a non-root cwd and successfully anchors defaults to project root', () => {
+      const nonRootCwd = os.tmpdir();
+      const output = execFileSync(process.execPath, [SCRIPT_PATH], {
+        encoding: 'utf8',
+        cwd: nonRootCwd,
       });
       assert.ok(output.includes('22'));
       assert.ok(output.toLowerCase().includes('pass'));
