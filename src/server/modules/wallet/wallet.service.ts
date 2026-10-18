@@ -268,18 +268,35 @@ export async function payOrderWithWallet(
     },
   });
 
-  // 4. Tạo bản ghi Transaction đối soát
-  await tx.transaction.create({
-    data: {
-      orderId: order.id,
-      amount: orderAmountBigInt,
-      bankName: 'SHOP_WALLET',
-      bankTransId: txRecord.id,
-      description: `Thanh toán qua Ví nội bộ: ${order.orderCode}`,
-      verified: true,
-      receivedAt: currentTime,
-    },
-  });
+  // 4. Tạo bản ghi BankTransfer / Transaction đối soát
+  if ('bankTransfer' in tx && typeof (tx as any).bankTransfer?.create === 'function') {
+    await tx.bankTransfer.create({
+      data: {
+        fingerprint: `wallet_pay:${order.id}:${txRecord.id}`,
+        orderId: order.id,
+        amount: orderAmountBigInt,
+        bankName: 'SHOP_WALLET',
+        bankTransId: txRecord.id,
+        description: `Thanh toán qua Ví nội bộ: ${order.orderCode}`,
+        status: 'APPLIED_ORDER',
+        userId,
+        receivedAt: currentTime,
+      },
+    });
+  }
+  if ('transaction' in tx && typeof (tx as any).transaction?.create === 'function') {
+    await (tx as any).transaction.create({
+      data: {
+        orderId: order.id,
+        amount: orderAmountBigInt,
+        bankName: 'SHOP_WALLET',
+        bankTransId: txRecord.id,
+        description: `Thanh toán qua Ví nội bộ: ${order.orderCode}`,
+        verified: true,
+        receivedAt: currentTime,
+      },
+    });
+  }
 
   const remainingBalance = BigInt(wallet.balance) - orderAmountBigInt;
   return {

@@ -405,23 +405,6 @@ enum CompatibilityRuleStatus {
   ARCHIVED
 }
 
-model StockAdjustment {
-  id            String   @id @default(cuid())
-  operationKey  String   @unique
-  productId     String
-  variantId     String?
-  delta         Int
-  previousStock Int
-  newStock      Int
-  version       Int
-  reason        String
-  actorId       String
-  createdAt     DateTime @default(now())
-
-  @@index([productId, variantId])
-  @@index([createdAt])
-}
-
 model Order {
   id              String        @id @default(cuid())
   orderCode       String        @unique
@@ -443,7 +426,6 @@ model Order {
   coupon          Coupon?       @relation(fields: [couponId], references: [id])
   status          OrderStatus   @default(PENDING)
   paymentStatus   PaymentStatus @default(UNPAID)
-  transaction     Transaction?
   chatRoom        ChatRoom?
   shipment        Shipment?
   bankTransfers   BankTransfer[]
@@ -504,8 +486,9 @@ model BankTransfer {
   amount          BigInt
   description     String
   bankName        String?
+  senderAccount   String?
   receivedAt      DateTime?
-  rawWebhookData  Json
+  rawWebhookData  Json?
   orderId         String?
   order           Order?             @relation(fields: [orderId], references: [id])
   topupCode       String?
@@ -637,21 +620,6 @@ model Wishlist {
   createdAt DateTime @default(now())
 
   @@unique([userId, productId])
-}
-
-model Transaction {
-  id             String    @id @default(cuid())
-  orderId        String    @unique
-  order          Order     @relation(fields: [orderId], references: [id])
-  bankTransId    String?   @unique
-  amount         BigInt
-  description    String
-  bankName       String?
-  senderAccount  String?
-  receivedAt     DateTime?
-  verified       Boolean   @default(false)
-  rawWebhookData Json?
-  createdAt      DateTime  @default(now())
 }
 
 model ChatRoom {

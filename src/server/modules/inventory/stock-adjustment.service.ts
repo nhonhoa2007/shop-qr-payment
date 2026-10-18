@@ -85,21 +85,39 @@ export async function adjustStock(
   const { productId, variantId, delta, expectedVersion, reason, operationKey } = input;
 
   // 1. Idempotency Check: nếu operationKey đã từng thực thi thành công, trả về kết quả cũ
-  const existing = await tx.stockAdjustment.findUnique({
-    where: { operationKey },
-  });
+  if ('inventoryMovement' in tx && typeof (tx as any).inventoryMovement?.findUnique === 'function') {
+    const existingMov = await (tx as any).inventoryMovement.findUnique({
+      where: { operationKey },
+    });
+    if (existingMov) {
+      return {
+        success: true,
+        alreadyProcessed: true,
+        productId: existingMov.productId,
+        variantId: existingMov.variantId,
+        previousStock: existingMov.beforeAvailable,
+        newStock: existingMov.afterAvailable,
+        newVersion: existingMov.afterVersion,
+        adjustmentId: existingMov.id,
+      };
+    }
+  } else if ('stockAdjustment' in tx && typeof (tx as any).stockAdjustment?.findUnique === 'function') {
+    const existing = await (tx as any).stockAdjustment.findUnique({
+      where: { operationKey },
+    });
 
-  if (existing) {
-    return {
-      success: true,
-      alreadyProcessed: true,
-      productId: existing.productId,
-      variantId: existing.variantId,
-      previousStock: existing.previousStock,
-      newStock: existing.newStock,
-      newVersion: existing.version,
-      adjustmentId: existing.id,
-    };
+    if (existing) {
+      return {
+        success: true,
+        alreadyProcessed: true,
+        productId: existing.productId,
+        variantId: existing.variantId,
+        previousStock: existing.previousStock,
+        newStock: existing.newStock,
+        newVersion: existing.version,
+        adjustmentId: existing.id,
+      };
+    }
   }
 
   // 2. Điều chỉnh biến thể (nếu có variantId)
@@ -168,19 +186,51 @@ export async function adjustStock(
     const newStock = previousStock + delta;
     const newVersion = expectedVersion + 1;
 
-    const adjustment = await tx.stockAdjustment.create({
-      data: {
-        operationKey,
-        productId,
-        variantId,
-        delta,
-        previousStock,
-        newStock,
-        version: newVersion,
-        reason,
-        actorId,
-      },
-    });
+    if ('inventoryMovement' in tx && typeof (tx as any).inventoryMovement?.create === 'function') {
+      await (tx as any).inventoryMovement.create({
+        data: {
+          operationKey,
+          productId,
+          variantId,
+          kind: 'ADJUST',
+          deltaOnHand: delta,
+          deltaReserved: 0,
+          deltaQuarantined: 0,
+          beforeOnHand: previousStock,
+          afterOnHand: newStock,
+          beforeReserved: 0,
+          afterReserved: 0,
+          beforeQuarantined: 0,
+          afterQuarantined: 0,
+          beforeAvailable: previousStock,
+          afterAvailable: newStock,
+          beforeVersion: expectedVersion,
+          afterVersion: newVersion,
+          reason,
+          actorId,
+          referenceType: 'STOCK_ADJUSTMENT',
+          referenceId: operationKey,
+        },
+      });
+    }
+
+    let adjustmentId = operationKey;
+    if ('stockAdjustment' in tx && typeof (tx as any).stockAdjustment?.create === 'function') {
+      const adjustment = await (tx as any).stockAdjustment.create({
+        data: {
+          operationKey,
+          productId,
+          variantId,
+          delta,
+          previousStock,
+          newStock,
+          version: newVersion,
+          reason,
+          actorId,
+        },
+      });
+      adjustmentId = adjustment.id;
+    }
 
     return {
       success: true,
@@ -189,7 +239,7 @@ export async function adjustStock(
       previousStock,
       newStock,
       newVersion,
-      adjustmentId: adjustment.id,
+      adjustmentId,
     };
   }
 
@@ -264,19 +314,51 @@ export async function adjustStock(
   const newStock = previousStock + delta;
   const newVersion = expectedVersion + 1;
 
-  const adjustment = await tx.stockAdjustment.create({
-    data: {
-      operationKey,
-      productId,
-      variantId: null,
-      delta,
-      previousStock,
-      newStock,
-      version: newVersion,
-      reason,
-      actorId,
-    },
-  });
+  if ('inventoryMovement' in tx && typeof (tx as any).inventoryMovement?.create === 'function') {
+    await (tx as any).inventoryMovement.create({
+      data: {
+        operationKey,
+        productId,
+        variantId: null,
+        kind: 'ADJUST',
+        deltaOnHand: delta,
+        deltaReserved: 0,
+        deltaQuarantined: 0,
+        beforeOnHand: previousStock,
+        afterOnHand: newStock,
+        beforeReserved: 0,
+        afterReserved: 0,
+        beforeQuarantined: 0,
+        afterQuarantined: 0,
+        beforeAvailable: previousStock,
+        afterAvailable: newStock,
+        beforeVersion: expectedVersion,
+        afterVersion: newVersion,
+        reason,
+        actorId,
+        referenceType: 'STOCK_ADJUSTMENT',
+        referenceId: operationKey,
+      },
+    });
+  }
+
+  let adjustmentId = operationKey;
+  if ('stockAdjustment' in tx && typeof (tx as any).stockAdjustment?.create === 'function') {
+    const adjustment = await (tx as any).stockAdjustment.create({
+      data: {
+        operationKey,
+        productId,
+        variantId: null,
+        delta,
+        previousStock,
+        newStock,
+        version: newVersion,
+        reason,
+        actorId,
+      },
+    });
+    adjustmentId = adjustment.id;
+  }
 
   return {
     success: true,
@@ -285,6 +367,6 @@ export async function adjustStock(
     previousStock,
     newStock,
     newVersion,
-    adjustmentId: adjustment.id,
+    adjustmentId,
   };
 }

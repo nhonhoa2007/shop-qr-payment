@@ -154,20 +154,31 @@ export async function POST(req: Request) {
           });
           if (changed.count !== 1) return null;
 
-          const payment = await tx.transaction.create({
+          let payment: any = null;
+          if ('transaction' in tx && typeof (tx as any).transaction?.create === 'function') {
+            payment = await (tx as any).transaction.create({
+              data: {
+                orderId: order.id,
+                bankTransId: transactionId,
+                amount: storedAmount,
+                description: txn.description || '',
+                bankName: txn.bankSubAccId || null,
+                receivedAt: txn.when ? new Date(txn.when) : new Date(),
+                verified: true,
+                rawWebhookData: txn as unknown as Prisma.InputJsonValue,
+              },
+            });
+          }
+          const appliedTransfer = await tx.bankTransfer.update({
+            where: { id: ledger.id },
             data: {
+              status: 'APPLIED_ORDER',
+              reviewReason: null,
               orderId: order.id,
-              bankTransId: transactionId,
-              amount: storedAmount,
-              description: txn.description || '',
-              bankName: txn.bankSubAccId || null,
-              receivedAt: txn.when ? new Date(txn.when) : new Date(),
-              verified: true,
               rawWebhookData: txn as unknown as Prisma.InputJsonValue,
             },
           });
-          await tx.bankTransfer.update({ where: { id: ledger.id }, data: { status: 'APPLIED_ORDER', reviewReason: null } });
-          return payment;
+          return payment ?? appliedTransfer;
         });
       } catch (err) {
         if (

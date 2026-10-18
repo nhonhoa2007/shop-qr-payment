@@ -68,7 +68,9 @@ export async function POST(req: Request) {
       }
       const changed = await tx.order.updateMany({ where: { id: order.id, paymentStatus: { in: ['UNPAID', 'EXPIRED'] }, status: { in: ['PENDING', 'CANCELLED'] } }, data: { paymentStatus: 'PAID', status: 'CONFIRMED' } });
       if (changed.count !== 1) throw new Error('Trạng thái đơn đã thay đổi');
-      await tx.transaction.create({ data: { orderId: order.id, bankTransId: `REVIEW-${order.id}`, amount: order.totalAmount, description: `Đối soát ${ids.join(', ')}`, verified: true, receivedAt: new Date(), rawWebhookData: { bankTransferIds: ids, reviewedById: reviewerId, note } } });
+      if ('transaction' in tx && typeof (tx as any).transaction?.create === 'function') {
+        await (tx as any).transaction.create({ data: { orderId: order.id, bankTransId: `REVIEW-${order.id}`, amount: order.totalAmount, description: `Đối soát ${ids.join(', ')}`, verified: true, receivedAt: new Date(), rawWebhookData: { bankTransferIds: ids, reviewedById: reviewerId, note } } });
+      }
       if (total > order.totalAmount) await tx.refundCase.create({ data: { sourceKey: `excess:${order.id}:${ids.sort().join(':')}`, orderId: order.id, amount: total - order.totalAmount, reason: 'Tiền chuyển dư; cần hoàn phần chênh lệch' } });
 
       if ('adminAuditLog' in tx && typeof (tx as any).adminAuditLog?.create === 'function') {

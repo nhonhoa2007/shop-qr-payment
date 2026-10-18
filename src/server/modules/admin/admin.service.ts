@@ -241,7 +241,10 @@ export class AdminService {
   }
 
   static async getAdminTransactions() {
-    const transactions = await prisma.transaction.findMany({
+    const bankTransfers = await prisma.bankTransfer.findMany({
+      where: {
+        status: { in: ['APPLIED_ORDER', 'PENDING_REVIEW'] },
+      },
       include: {
         order: {
           select: {
@@ -259,7 +262,21 @@ export class AdminService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return JSON.parse(JSON.stringify(transactions, bigIntJsonReplacer));
+    const mapped = bankTransfers.map((b) => ({
+      id: b.id,
+      orderId: b.orderId,
+      bankTransId: b.bankTransId,
+      amount: b.amount,
+      description: b.description,
+      bankName: b.bankName,
+      senderAccount: (b as any).senderAccount ?? null,
+      receivedAt: b.receivedAt,
+      verified: b.status === 'APPLIED_ORDER',
+      order: b.order,
+      createdAt: b.createdAt,
+    }));
+
+    return JSON.parse(JSON.stringify(mapped, bigIntJsonReplacer));
   }
 
   static async getAdminAnalytics(range: AnalyticsRange = '7days'): Promise<AdminAnalyticsResponse> {
@@ -371,17 +388,15 @@ export class AdminService {
       }),
       // 14. Total shipments
       prisma.shipment.count(),
-      // 15. Total transactions
-      prisma.transaction.count(),
-      // 16. Unmatched transactions (verified: false)
-      prisma.transaction.count({
-        where: { verified: false },
-      }),
+      // 15. Total transactions (from BankTransfer)
+      prisma.bankTransfer.count({ where: { status: 'APPLIED_ORDER' } }),
+      // 16. Unmatched transactions (PENDING_REVIEW)
+      prisma.bankTransfer.count({ where: { status: 'PENDING_REVIEW' } }),
       // 17. Paid orders for payment distribution (giới hạn 500 đơn gần nhất thay vì load toàn bộ DB)
       prisma.order.findMany({
         where: { paymentStatus: 'PAID' },
         select: {
-          transaction: { select: { bankName: true } },
+          bankTransfers: { select: { bankName: true }, take: 1 },
           shipment: { select: { codAmount: true } },
         },
         orderBy: { createdAt: 'desc' },
