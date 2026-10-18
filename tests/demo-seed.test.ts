@@ -84,7 +84,7 @@ describe('Task 5: Electronics Synthetic Demo Data Fixtures', () => {
       },
       warrantyClaim: {
         findUnique: async ({ where }: any) => {
-          return createdClaims.find((c) => c.claimCode === where.claimCode) ?? null;
+          return createdClaims.find((c) => (c.claimNumber && c.claimNumber === where.claimNumber) || (c.claimCode && c.claimCode === where.claimCode)) ?? null;
         },
         create: async ({ data }: any) => {
           createdClaims.push(data);
@@ -93,7 +93,7 @@ describe('Task 5: Electronics Synthetic Demo Data Fixtures', () => {
       },
       returnRequest: {
         findUnique: async ({ where }: any) => {
-          return createdReturns.find((r) => r.requestCode === where.requestCode) ?? null;
+          return createdReturns.find((r) => (r.returnNumber && r.returnNumber === where.returnNumber) || (r.requestCode && r.requestCode === where.requestCode)) ?? null;
         },
         create: async ({ data }: any) => {
           createdReturns.push(data);

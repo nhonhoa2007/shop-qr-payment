@@ -289,9 +289,18 @@ export async function importElectronicsCatalog(
 
   // 1. Check existing sources for checksum drift (audit protection)
   const sourceIds = manifest.sources.map((s) => s.id);
-  const existingSources = await db.dataSource.findMany({
-    where: { id: { in: sourceIds } },
-  });
+  let existingSources: any[] = [];
+  try {
+    existingSources = await db.dataSource.findMany({
+      where: { id: { in: sourceIds } },
+    });
+  } catch (err: any) {
+    if (options.dryRun) {
+      report.warnings.push(`Database connection skipped during dry-run: ${err.message || 'offline'}`);
+    } else {
+      throw err;
+    }
+  }
   const existingSourceMap = new Map(existingSources.map((s) => [s.id, s]));
 
   for (const src of manifest.sources) {
@@ -313,13 +322,14 @@ export async function importElectronicsCatalog(
   // 2. Persist DataSources (never activate revoked sources)
   for (const src of manifest.sources) {
     const effectiveStatus = src.status === 'REVOKED' || src.status === 'QUARANTINED' ? 'REVOKED' : 'ACTIVE';
+    const effectiveType = src.sourceType === 'COMMUNITY' ? 'REVIEW_AGGREGATE' : src.sourceType;
     const existing = existingSourceMap.get(src.id);
     if (!existing) {
       await db.dataSource.create({
         data: {
           id: src.id,
           name: src.name,
-          sourceType: src.sourceType,
+          sourceType: effectiveType as any,
           status: effectiveStatus,
           publisher: src.publisher,
           url: src.url,
@@ -392,16 +402,15 @@ export async function importElectronicsCatalog(
         data: {
           id: product.id,
           name: product.name,
-          slug: product.slug,
           description: product.description ?? '',
           brandId: product.brandId,
           categoryId: product.categoryId,
           kind: product.kind,
           segment: (product.segment as any) ?? 'MID',
-          weight: product.weight,
-          length: product.length,
-          width: product.width,
-          height: product.height,
+          weightGrams: Math.round(product.weight * 1000),
+          lengthCm: Math.round(product.length),
+          widthCm: Math.round(product.width),
+          heightCm: Math.round(product.height),
           specs: (product.specs as any) ?? {},
           warrantyConfig: (product.warrantyConfig as any) ?? {},
           images: (product.images as any) ?? [],

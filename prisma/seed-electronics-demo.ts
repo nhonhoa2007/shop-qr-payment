@@ -79,7 +79,7 @@ export async function seedElectronicsDemo(
           email: u.email,
           name: u.name,
           role: u.role,
-          password: hashedPassword,
+          passwordHash: hashedPassword,
         },
       });
       report.created.users++;
@@ -98,14 +98,13 @@ export async function seedElectronicsDemo(
 
   const productId = sampleProduct?.id ?? 'demo-prod-fallback';
   const variantId = sampleVariant?.id ?? 'demo-var-fallback';
-  const variantSku = sampleVariant?.sku ?? 'SKU-DEMO-MBP-14';
   const unitPrice = sampleVariant ? BigInt(sampleVariant.price) : BigInt(49990000);
 
   // 3. Demo Completed Order with Commercial Snapshots
   const demoOrderCode = 'DH-DEMO-M7-001';
   let demoOrder = await db.order.findUnique({
     where: { orderCode: demoOrderCode },
-    include: { orderItems: true },
+    include: { items: true },
   });
 
   if (!demoOrder) {
@@ -124,7 +123,6 @@ export async function seedElectronicsDemo(
         totalAmount: unitPrice + BigInt(30000),
         status: 'COMPLETED',
         paymentStatus: 'PAID',
-        paymentMethod: 'VIETQR',
         qrContent: `Thanh toan don hang ${demoOrderCode}`,
         expiresAt: new Date(Date.now() + 15 * 60_000),
         createdAt: new Date(Date.now() - 5 * 86_400_000),
@@ -141,7 +139,7 @@ export async function seedElectronicsDemo(
           ],
         },
       },
-      include: { orderItems: true },
+      include: { items: true },
     });
     report.created.orders++;
   } else {
@@ -173,20 +171,19 @@ export async function seedElectronicsDemo(
     where: { serialNumber: demoSerial },
   });
 
-  const orderItemId = (demoOrder as any).orderItems?.[0]?.id ?? (demoOrder as any).items?.[0]?.id ?? 'item-demo-1';
+  const orderItemId = (demoOrder as any).items?.[0]?.id ?? (demoOrder as any).orderItems?.[0]?.id ?? 'item-demo-1';
 
   let unitId = existingSerial?.id ?? 'unit-demo-mbp-001';
   if (!existingSerial) {
     const createdUnit = await db.serializedUnit.create({
       data: {
         id: unitId,
+        productId,
         variantId,
         serialNumber: demoSerial,
         imei1: '351234567890123',
         status: 'SOLD',
         orderItemId,
-        disposition: 'DELIVERED',
-        isQuarantined: false,
       },
     });
     unitId = createdUnit.id;
@@ -196,23 +193,23 @@ export async function seedElectronicsDemo(
   }
 
   // 6. Warranty Claim Lifecycle with Timeline JSON
-  const claimCode = 'WC-DEMO-M7-001';
+  const claimNumber = 'WC-DEMO-M7-001';
   const existingClaim = await db.warrantyClaim.findUnique({
-    where: { claimCode },
+    where: { claimNumber },
   });
 
   if (!existingClaim) {
     await db.warrantyClaim.create({
       data: {
         id: 'claim-demo-m7-001',
-        claimCode,
+        claimNumber,
         orderId: demoOrder.id,
         orderItemId,
         serializedUnitId: unitId,
-        userId: 'user-demo-customer',
-        reason: 'Bàn phím phát tiếng lách cách nhẹ, bảo hành vệ sinh và kiểm tra switch.',
+        customerId: 'user-demo-customer',
+        issueDescription: 'Bàn phím phát tiếng lách cách nhẹ, bảo hành vệ sinh và kiểm tra switch.',
         status: 'RESOLVED',
-        resolutionNote: 'Đã bảo hành vệ sinh chuyên sâu, thiết bị hoạt động hoàn hảo.',
+        warrantyTermsSnapshot: { policyType: 'OFFICIAL', periodMonths: 12 },
         timeline: [
           { status: 'SUBMITTED', at: new Date(Date.now() - 3 * 86_400_000).toISOString(), note: 'Khách gửi yêu cầu' },
           { status: 'RECEIVED', at: new Date(Date.now() - 2 * 86_400_000).toISOString(), note: 'Đã nhận máy tại TTBH' },
@@ -230,21 +227,22 @@ export async function seedElectronicsDemo(
   }
 
   // 7. Partial Return Request & Idempotent Refund
-  const requestCode = 'RR-DEMO-M7-001';
+  const returnNumber = 'RR-DEMO-M7-001';
   const existingReturn = await db.returnRequest.findUnique({
-    where: { requestCode },
+    where: { returnNumber },
   });
 
   if (!existingReturn) {
     await db.returnRequest.create({
       data: {
         id: 'return-demo-m7-001',
-        requestCode,
+        returnNumber,
         orderId: demoOrder.id,
-        userId: 'user-demo-customer',
+        customerId: 'user-demo-customer',
         reason: 'Khách đổi ý muốn nâng cấp cấu hình cao hơn.',
         status: 'RESOLVED',
         disposition: 'RESTOCKABLE',
+        evidenceRefs: [],
         items: [
           {
             orderItemId,
@@ -279,11 +277,9 @@ export async function seedElectronicsDemo(
         id: 'refund-demo-m7-001',
         sourceKey: refundSourceKey,
         orderId: demoOrder.id,
-        returnRequestId: 'return-demo-m7-001',
         amount: unitPrice,
         status: 'COMPLETED',
         reason: 'Hoàn tiền trả hàng linh kiện demo',
-        destination: 'WALLET',
       },
     });
     report.created.refundCases++;

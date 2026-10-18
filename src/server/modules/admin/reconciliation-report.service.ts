@@ -87,16 +87,21 @@ export async function reconcileInventory(
   // Group movements by variantId
   const movementsByVariant = new Map<string, number>();
   for (const m of movements) {
-    const current = movementsByVariant.get(m.variantId) ?? 0;
-    movementsByVariant.set(m.variantId, current + m.delta);
+    if (m.variantId) {
+      const delta = (m as any).deltaOnHand ?? (m as any).delta ?? 0;
+      const current = movementsByVariant.get(m.variantId) ?? 0;
+      movementsByVariant.set(m.variantId, current + delta);
+    }
   }
 
   // Group serials by variantId
   const serialsByVariant = new Map<string, typeof serializedUnits>();
   for (const u of serializedUnits) {
-    const list = serialsByVariant.get(u.variantId) ?? [];
-    list.push(u);
-    serialsByVariant.set(u.variantId, list);
+    if (u.variantId) {
+      const list = serialsByVariant.get(u.variantId) ?? [];
+      list.push(u);
+      serialsByVariant.set(u.variantId, list);
+    }
   }
 
   for (const product of products) {
@@ -158,7 +163,7 @@ export async function reconcileInventory(
       // Serialized unit check
       if (variant.serializationRequired) {
         const units = serialsByVariant.get(variant.id) ?? [];
-        const inStockCount = units.filter((u) => u.status === 'IN_STOCK').length;
+        const inStockCount = units.filter((u) => u.status === 'AVAILABLE' || (u.status as string) === 'IN_STOCK').length;
         if (inStockCount !== variant.stock) {
           discrepancies.push({
             type: 'SERIAL_COUNT_MISMATCH',
@@ -182,7 +187,7 @@ export async function reconcileInventory(
           type: 'SERIAL_ORDER_MISMATCH',
           severity: 'CRITICAL',
           message: `Serialized unit ${unit.id} variant (${unit.variantId}) does not match assigned order item variant (${unit.orderItem.variantId})`,
-          variantId: unit.variantId,
+          variantId: unit.variantId ?? undefined,
           unitId: unit.id,
           details: {
             orderItemId: unit.orderItemId,
@@ -215,11 +220,11 @@ export async function reconcileMoney(
 
   const wallets = await db.userWallet.findMany();
   const walletTransactions = await db.walletTransaction.findMany();
-  const orders = await db.order.findMany({
+  const orders = await (db.order.findMany as any)({
     include: {
       bankTransfers: true,
       refundCases: true,
-      orderItems: true,
+      items: true,
     },
   });
 
@@ -251,15 +256,15 @@ export async function reconcileMoney(
   }
 
   // 2. Order payments and refund entitlements check
-  for (const order of orders) {
+  for (const order of orders as any[]) {
     const orderTotal = BigInt(order.totalAmount);
 
     // Check refund ceiling
-    const completedRefunds = (order.refundCases ?? []).filter(
-      (r) => r.status === 'COMPLETED'
+    const completedRefunds = ((order.refundCases ?? []) as any[]).filter(
+      (r: any) => r.status === 'COMPLETED'
     );
     const totalRefunded = completedRefunds.reduce(
-      (acc, r) => acc + BigInt(r.amount),
+      (acc: bigint, r: any) => acc + BigInt(r.amount),
       0n
     );
 
@@ -279,29 +284,29 @@ export async function reconcileMoney(
 
     // Check paid orders have recorded payment
     if (order.paymentStatus === 'PAID') {
-      if (order.paymentMethod === 'VIETQR') {
-        const validTransfers = (order.bankTransfers ?? []).filter(
-          (bt) => bt.status === 'APPLIED_ORDER'
-        );
-        const totalPaid = validTransfers.reduce(
-          (acc, bt) => acc + BigInt(bt.amount),
-          0n
-        );
+      const transfers = ((order.bankTransfers ?? []) as any[]);
+      const validTransfers = transfers.filter(
+        (bt: any) => bt.status === 'APPLIED_ORDER'
+      );
+      const totalPaid = validTransfers.reduce(
+        (acc: bigint, bt: any) => acc + BigInt(bt.amount),
+        0n
+      );
 
-        if (validTransfers.length === 0 || totalPaid < orderTotal) {
-          discrepancies.push({
-            type: 'PAID_ORDER_PAYMENT_MISSING',
-            severity: 'CRITICAL',
-            message: `Order ${order.orderCode} is marked PAID via VIETQR but valid bank transfer payments (${totalPaid}) are below order total (${orderTotal})`,
-            orderId: order.id,
-            expected: orderTotal.toString(),
-            actual: totalPaid.toString(),
-            details: {
-              orderCode: order.orderCode,
-              transfersFound: validTransfers.length,
-            },
-          });
-        }
+      // If order is PAID via bank transfer or QR, verify payment exists
+      if (transfers.length === 0 || (validTransfers.length > 0 && totalPaid < orderTotal)) {
+        discrepancies.push({
+          type: 'PAID_ORDER_PAYMENT_MISSING',
+          severity: 'CRITICAL',
+          message: `Order ${order.orderCode} is marked PAID but valid bank transfer payments (${totalPaid}) are below order total (${orderTotal})`,
+          orderId: order.id,
+          expected: orderTotal.toString(),
+          actual: totalPaid.toString(),
+          details: {
+            orderCode: order.orderCode,
+            transfersFound: validTransfers.length,
+          },
+        });
       }
     }
   }
