@@ -32,3 +32,102 @@ describe('Checkout Calculation Logic', () => {
     assert.equal(totalsNegative.shippingFee, STANDARD_SHIPPING_FEE);
   });
 });
+
+describe('Checkout Add-on Accessory & Compatibility Revalidation', () => {
+  const mockDb = {
+    product: {
+      findUnique: async ({ where }: { where: { id: string } }) => {
+        if (where.id === 'prod_laptop') {
+          return { id: 'prod_laptop', name: 'Laptop', price: 20000000n, isActive: true };
+        }
+        if (where.id === 'prod_charger') {
+          return { id: 'prod_charger', name: 'Charger', price: 500000n, isActive: true };
+        }
+        return null;
+      },
+    },
+    productVariant: {
+      findUnique: async ({ where }: { where: { id: string } }) => {
+        if (where.id === 'var_laptop') {
+          return {
+            id: 'var_laptop',
+            productId: 'prod_laptop',
+            price: 20000000n,
+            isActive: true,
+            product: { id: 'prod_laptop', name: 'Laptop', price: 20000000n, isActive: true, category: 'laptop', specs: null },
+          };
+        }
+        if (where.id === 'var_charger') {
+          return {
+            id: 'var_charger',
+            productId: 'prod_charger',
+            price: 500000n,
+            isActive: true,
+            product: { id: 'prod_charger', name: 'Charger', price: 500000n, isActive: true, category: 'charger', specs: null },
+          };
+        }
+        return null;
+      },
+    },
+    compatibilityRule: {
+      findMany: async () => [],
+    },
+  };
+
+  it('rejects checkout with 409 Conflict when item price is stale', async () => {
+    const { revalidateCartCompatibility } = await import(
+      '../src/server/modules/compatibility/compatibility-cart.service.ts'
+    );
+
+    const items = [
+      {
+        productId: 'prod_laptop',
+        variantId: 'var_laptop',
+        quantity: 1,
+        price: 18000000, // Stale! DB is 20000000
+      },
+    ];
+
+    const result = await revalidateCartCompatibility(items, mockDb as any);
+    assert.equal(result.valid, false);
+    assert.equal(result.status, 409);
+  });
+
+  it('requires caveat acknowledgment when add-on accessory compatibility is UNKNOWN', async () => {
+    const { revalidateCartCompatibility } = await import(
+      '../src/server/modules/compatibility/compatibility-cart.service.ts'
+    );
+
+    const itemsWithoutCaveat = [
+      {
+        productId: 'prod_laptop',
+        variantId: 'var_laptop',
+        quantity: 1,
+        price: 20000000,
+      },
+      {
+        productId: 'prod_charger',
+        variantId: 'var_charger',
+        quantity: 1,
+        price: 500000,
+        isAddon: true,
+        attachedToVariantId: 'var_laptop',
+        caveatAcknowledged: false,
+      },
+    ];
+
+    const res = await revalidateCartCompatibility(itemsWithoutCaveat, mockDb as any);
+    assert.equal(res.valid, false);
+    assert.equal(res.status, 422);
+
+    const itemsWithCaveat = [
+      { ...itemsWithoutCaveat[0] },
+      { ...itemsWithoutCaveat[1], caveatAcknowledged: true },
+    ];
+
+    const resValid = await revalidateCartCompatibility(itemsWithCaveat, mockDb as any);
+    assert.equal(resValid.valid, true);
+    assert.equal(resValid.status, 200);
+  });
+});
+

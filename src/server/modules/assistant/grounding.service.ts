@@ -92,6 +92,11 @@ export function validateAssistantAnswer(
       continue;
     }
 
+    if (citation.sourceId && revokedSet.has(citation.sourceId)) {
+      violations.push(`REVOKED_CITATION: ${citId} (source: ${citation.sourceId})`);
+      continue;
+    }
+
     validatedCitations.push(citation);
   }
 

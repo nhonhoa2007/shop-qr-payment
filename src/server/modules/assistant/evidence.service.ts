@@ -42,6 +42,11 @@ export interface AssistantEvidenceDb {
       take?: number;
     }): Promise<any[]>;
   };
+  compatibilityRule?: {
+    findMany(args: {
+      where?: Record<string, unknown>;
+    }): Promise<any[]>;
+  };
 }
 
 export async function buildEvidenceBundle(
@@ -80,6 +85,27 @@ export async function buildEvidenceBundle(
       };
     } else if (src.status === 'REVOKED') {
       revokedSourceIds.push(src.id);
+    }
+  }
+
+  // 1.5. Fetch active compatibility rules for accessory / compatibility questions
+  if (db.compatibilityRule) {
+    const activeRules = await db.compatibilityRule.findMany({
+      where: { status: 'ACTIVE' },
+    });
+    for (const rule of activeRules) {
+      if (rule.sourceId && revokedSourceIds.includes(rule.sourceId)) {
+        continue;
+      }
+      citations[rule.id] = {
+        id: rule.id,
+        type: 'COMPATIBILITY_RULE',
+        title: `Quy tắc tương thích: ${rule.name}`,
+        sourceId: rule.sourceId || undefined,
+        publisher: 'Shop Compatibility Engine',
+        license: 'Internal Rule Engine',
+        isSynthetic: false,
+      };
     }
   }
 

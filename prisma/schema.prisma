@@ -30,6 +30,8 @@ model User {
   grantedPermissions StaffPermission[]     @relation("GrantedPermissions")
   reviewedDataSources DataSource[]
   assistantConversations AssistantConversation[]
+  createdRules CompatibilityRule[] @relation("CreatedCompatibilityRules")
+  approvedRules CompatibilityRule[] @relation("ApprovedCompatibilityRules")
   createdAt     DateTime              @default(now())
   updatedAt     DateTime              @updatedAt
 }
@@ -183,6 +185,8 @@ model Category {
   warrantyConfig    Json?
   isActive          Boolean     @default(true)
   products          Product[]
+  sourceRules       CompatibilityRule[] @relation("SourceCategoryRules")
+  targetRules       CompatibilityRule[] @relation("TargetCategoryRules")
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
 
@@ -208,6 +212,7 @@ model DataSource {
   rejectionReason String?
   payload         Json?
   benchmarks      BenchmarkMeasurement[]
+  compatibilityRules CompatibilityRule[]
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
@@ -333,6 +338,58 @@ enum DataSourceType {
   BENCHMARK
   COMPATIBILITY
   MANUFACTURER
+}
+
+// ==========================================
+// M4: DETERMINISTIC COMPATIBILITY RULE ENGINE
+// ==========================================
+
+model CompatibilityRule {
+  id               String                  @id @default(cuid())
+  ruleCode         String
+  name             String
+  description      String?
+  direction        CompatibilityDirection  @default(HOST_TO_ACCESSORY)
+  sourceCategoryId String?
+  sourceCategory   Category?               @relation("SourceCategoryRules", fields: [sourceCategoryId], references: [id])
+  targetCategoryId String?
+  targetCategory   Category?               @relation("TargetCategoryRules", fields: [targetCategoryId], references: [id])
+  categoryScope    Json?
+  conditions       Json
+  warnings         Json?
+  market           String?                 @default("VN")
+  version          Int                     @default(1)
+  status           CompatibilityRuleStatus @default(DRAFT)
+  sourceId         String?
+  source           DataSource?             @relation(fields: [sourceId], references: [id])
+  createdById      String?
+  createdBy        User?                   @relation("CreatedCompatibilityRules", fields: [createdById], references: [id])
+  approvedById     String?
+  approvedBy       User?                   @relation("ApprovedCompatibilityRules", fields: [approvedById], references: [id])
+  approvedAt       DateTime?
+  rejectionReason  String?
+  revokedAt        DateTime?
+  revocationReason String?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  @@unique([ruleCode, version])
+  @@index([status, sourceCategoryId, targetCategoryId])
+  @@index([ruleCode, status])
+  @@index([sourceId])
+}
+
+enum CompatibilityDirection {
+  HOST_TO_ACCESSORY
+  ACCESSORY_TO_HOST
+  BIDIRECTIONAL
+}
+
+enum CompatibilityRuleStatus {
+  DRAFT
+  ACTIVE
+  REVOKED
+  ARCHIVED
 }
 
 model StockAdjustment {
