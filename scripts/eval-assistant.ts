@@ -271,6 +271,35 @@ export function runAssistantEval(): {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const argv = process.argv.slice(2);
+  let isOnline = false;
+  let budgetUsd = 0;
+
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === '--online') {
+      isOnline = true;
+    } else if (arg.startsWith('--budget-usd=')) {
+      budgetUsd = parseFloat(arg.slice('--budget-usd='.length));
+    } else if (arg === '--budget-usd') {
+      budgetUsd = parseFloat(argv[++i]);
+    }
+  }
+
+  if (isOnline) {
+    if (budgetUsd <= 0) {
+      console.error('[BLOCKED] Online evaluation requires explicit positive spend budget via --budget-usd=<val>.');
+      process.exit(1);
+    }
+    const hasKey = Boolean(process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY);
+    if (!hasKey) {
+      console.error('[BLOCKED] Online evaluation requires provider credentials. None configured.');
+      process.exit(1);
+    }
+    console.warn('[BLOCKED] Live provider transport is disabled in this environment.');
+    process.exit(1);
+  }
+
   const result = runAssistantEval();
   console.log(result.reportMarkdown);
 

@@ -59,4 +59,67 @@ describe('Commerce Intelligence: Assistant 100-Case Grounding Evaluation', () =>
     const reportPath = path.resolve(process.cwd(), 'docs/verification/assistant-eval.md');
     assert.ok(fs.existsSync(reportPath), 'docs/verification/assistant-eval.md must be generated');
   });
+
+  describe('Online Safety & Spend Gates', () => {
+    it('blocks online evaluation if --budget-usd is missing or zero', async () => {
+      const { runCommerceIntelligenceEval } = await import('../scripts/eval-commerce-intelligence.ts');
+      const result = await runCommerceIntelligenceEval({
+        online: true,
+        budgetUsd: 0,
+      });
+
+      assert.equal(result.status, 'BLOCKED');
+      assert.ok(
+        result.message.includes('Budget') || result.message.includes('Explicit budget'),
+        'Must require explicit positive USD budget'
+      );
+    });
+
+    it('blocks online evaluation if provider credentials are not explicitly configured without throwing secrets', async () => {
+      const { runCommerceIntelligenceEval } = await import('../scripts/eval-commerce-intelligence.ts');
+      const result = await runCommerceIntelligenceEval({
+        online: true,
+        budgetUsd: 1.0,
+        providerApiKey: '', // empty key
+      });
+
+      assert.equal(result.status, 'BLOCKED');
+      assert.ok(result.message.includes('Provider') || result.message.includes('credentials'));
+      // Secret leakage test
+      assert.equal(JSON.stringify(result).includes('ANTHROPIC_API_KEY'), false);
+      assert.equal(JSON.stringify(result).includes('OPENAI_API_KEY'), false);
+    });
+  });
+
+  describe('Commerce Intelligence Offline Evaluation Suite', () => {
+    it('runs offline evaluation deterministically and reports complete metric set', async () => {
+      const { runCommerceIntelligenceEval } = await import('../scripts/eval-commerce-intelligence.ts');
+      const result = await runCommerceIntelligenceEval({
+        online: false,
+      });
+
+      assert.equal(result.status, 'COMPLETED');
+      assert.equal(result.mode, 'OFFLINE');
+      assert.ok(result.metrics, 'Result must contain metrics');
+
+      // Metric checks
+      assert.equal(typeof result.metrics.sourceAccuracy, 'number');
+      assert.equal(typeof result.metrics.numericExactness, 'number');
+      assert.equal(typeof result.metrics.citationPrecision, 'number');
+      assert.equal(typeof result.metrics.groundedClaimRate, 'number');
+      assert.equal(typeof result.metrics.abstentionCorrectness, 'number');
+      assert.equal(typeof result.metrics.averageLatencyMs, 'number');
+      assert.equal(result.metrics.costPerAnswerUsd, 0, 'Offline evaluation cost must be $0.00');
+
+      // Versioning checks
+      assert.ok(result.versions.modelVersion, 'Must declare modelVersion');
+      assert.ok(result.versions.promptVersion, 'Must declare promptVersion');
+      assert.ok(result.versions.sourceRegistryVersion, 'Must declare sourceRegistryVersion');
+      assert.ok(result.versions.scoringVersion, 'Must declare scoringVersion');
+
+      // Report file generation
+      const reportPath = path.resolve(process.cwd(), 'docs/verification/commerce-intelligence-eval.md');
+      assert.ok(fs.existsSync(reportPath), 'docs/verification/commerce-intelligence-eval.md must exist');
+    });
+  });
 });
