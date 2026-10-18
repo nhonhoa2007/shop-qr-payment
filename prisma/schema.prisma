@@ -34,6 +34,7 @@ model User {
   approvedRules CompatibilityRule[] @relation("ApprovedCompatibilityRules")
   createdPurchaseOrders PurchaseOrder[] @relation("PoCreatedBy")
   warrantyClaims WarrantyClaim[]
+  returnRequests ReturnRequest[]
   createdAt     DateTime              @default(now())
   updatedAt     DateTime              @updatedAt
 }
@@ -434,6 +435,7 @@ model Order {
   refundCases     RefundCase[]
   serializedUnits SerializedUnit[]
   warrantyClaims  WarrantyClaim[]
+  returnRequests  ReturnRequest[]
   fulfillmentState         FulfillmentState @default(NONE)
   manualFulfillmentOutcome String?
   customerConsentRef       String?
@@ -526,6 +528,7 @@ model RefundCase {
   resolutionNote   String?
   resolvedAt       DateTime?
   warrantyClaim    WarrantyClaim?
+  returnRequest    ReturnRequest?
   createdAt        DateTime         @default(now())
 
   @@index([status, createdAt])
@@ -980,6 +983,52 @@ model WarrantyClaim {
   @@index([serializedUnitId])
   @@index([status, createdAt])
 }
+
+enum ReturnRequestStatus {
+  REQUESTED
+  APPROVED
+  ITEM_RECEIVED
+  INSPECTED
+  RESOLVED
+  REJECTED
+  CANCELLED
+}
+
+enum ReturnDisposition {
+  RESTOCKABLE
+  REFURBISH
+  DEFECTIVE
+  RETURN_TO_SUPPLIER
+  DISPOSED
+}
+
+model ReturnRequest {
+  id               String              @id @default(cuid())
+  returnNumber     String              @unique
+  customerId       String
+  customer         User                @relation(fields: [customerId], references: [id])
+  orderId          String
+  order            Order               @relation(fields: [orderId], references: [id])
+  status           ReturnRequestStatus @default(REQUESTED)
+  reason           String
+  items            Json
+  timeline         Json
+  evidenceRefs     Json
+  disposition      ReturnDisposition?
+  dispositionNotes String?
+  refundCaseId     String?             @unique
+  refundCase       RefundCase?         @relation(fields: [refundCaseId], references: [id])
+  version          Int                 @default(1)
+  lastOperationKey String?
+  resolvedAt       DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  @@index([customerId, status])
+  @@index([orderId])
+  @@index([status, createdAt])
+}
+
 
 
 

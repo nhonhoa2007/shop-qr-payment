@@ -18,15 +18,15 @@ describe('M1 Electronics Catalog Prisma Schema Contracts', () => {
   const schemaContent = fs.readFileSync(SCHEMA_PATH, 'utf8');
   const models = parsePrismaModels(schemaContent);
 
-  it('contains exactly 33 models for M6 Task 8 (with WarrantyClaim)', () => {
+  it('contains exactly 34 models for M6 final milestone (with WarrantyClaim and ReturnRequest)', () => {
     assert.equal(
       models.length,
-      33,
-      `Expected exactly 33 models in schema, found ${models.length}: ${models.join(', ')}`
+      34,
+      `Expected exactly 34 models in schema, found ${models.length}: ${models.join(', ')}`
     );
   });
 
-  it('contains Brand, Category, DataSource, BenchmarkMeasurement, ProductScoreSnapshot, AssistantConversation, AssistantMessage, CompatibilityRule, InventoryMovement, Supplier, PurchaseOrder, PurchaseOrderItem, SerializedUnit, AdminAuditLog, and WarrantyClaim models', () => {
+  it('contains Brand, Category, DataSource, BenchmarkMeasurement, ProductScoreSnapshot, AssistantConversation, AssistantMessage, CompatibilityRule, InventoryMovement, Supplier, PurchaseOrder, PurchaseOrderItem, SerializedUnit, AdminAuditLog, WarrantyClaim, and ReturnRequest models', () => {
     assert.ok(models.includes('Brand'), 'Schema must include model Brand');
     assert.ok(models.includes('Category'), 'Schema must include model Category');
     assert.ok(models.includes('DataSource'), 'Schema must include model DataSource');
@@ -42,6 +42,7 @@ describe('M1 Electronics Catalog Prisma Schema Contracts', () => {
     assert.ok(models.includes('SerializedUnit'), 'Schema must include model SerializedUnit');
     assert.ok(models.includes('AdminAuditLog'), 'Schema must include model AdminAuditLog');
     assert.ok(models.includes('WarrantyClaim'), 'Schema must include model WarrantyClaim');
+    assert.ok(models.includes('ReturnRequest'), 'Schema must include model ReturnRequest');
     assert.equal(models.includes('StockAdjustment'), false);
     assert.equal(models.includes('Transaction'), false);
     assert.equal(models.includes('CouponUsage'), false);
@@ -52,7 +53,7 @@ describe('M1 Electronics Catalog Prisma Schema Contracts', () => {
     const budget = checkModelBudget({
       schemaContent,
       registryPath: REGISTRY_PATH,
-      expected: 33,
+      expected: 34,
       lockRegistry: true,
     });
     assert.equal(budget.forbiddenModels.length, 0, `Forbidden models found: ${budget.forbiddenModels.join(', ')}`);

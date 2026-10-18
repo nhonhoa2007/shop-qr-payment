@@ -57,6 +57,7 @@ This registry tracks all Prisma models across project milestones in accordance w
 | 31 | `SerializedUnit` | ACTIVE | M5 | Serialized unit tracking with nullable unique serial/IMEI identifiers |
 | 32 | `AdminAuditLog` | ACTIVE | M5 | Immutable redacted administrative and sensitive operations audit log |
 | 33 | `WarrantyClaim` | ACTIVE | M6 | Warranty claim with validated timeline/evidence JSON, versioned FSM and replacement unit tracking |
+| 34 | `ReturnRequest` | ACTIVE | M6 | Partial return request with bounded items/timeline JSON, quarantine FSM and disposition lifecycle |
 <!-- REGISTRY_MODELS_END -->
 
 ---
