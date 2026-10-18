@@ -19,7 +19,7 @@ This registry tracks all Prisma models across project milestones in accordance w
 
 ---
 
-## 2. Active Registry (M2 Intelligence — 27 Models)
+## 2. Active Registry (M3 Assistant — 29 Models)
 
 <!-- REGISTRY_MODELS_START -->
 | # | Model | Status | Milestone | Role / Description |
@@ -51,6 +51,8 @@ This registry tracks all Prisma models across project milestones in accordance w
 | 25 | `DataSource` | ACTIVE | M1 | Unified provenance, licensing, and approved evidence payload |
 | 26 | `BenchmarkMeasurement` | ACTIVE | M2 | High-cardinality benchmark measurement with source/product/variant/metric |
 | 27 | `ProductScoreSnapshot` | ACTIVE | M2 | Immutable value-for-money score snapshot, rubric/evidence/breakdown JSON |
+| 28 | `AssistantConversation` | ACTIVE | M3 | Isolated assistant conversation session with 30-day retention |
+| 29 | `AssistantMessage` | ACTIVE | M3 | Conversation message with embedded citations, usage, and claims JSON |
 <!-- REGISTRY_MODELS_END -->
 
 ---
