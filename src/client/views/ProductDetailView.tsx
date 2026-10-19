@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import Link from 'next/link';
 import Image from 'next/image';
 import type { Product } from '@shared/types';
+import type { CompatibilityCheckDto } from '@shared/types/compatibility';
 
 export function ProductDetailView({ product }: { product: Product }) {
   const router = useRouter();
@@ -23,6 +24,8 @@ export function ProductDetailView({ product }: { product: Product }) {
   const toggleWishlist = useWishlistStore((s) => s.toggleWishlist);
   const fetchWishlist = useWishlistStore((s) => s.fetchWishlist);
   const [quantity, setQuantity] = useState(1);
+  const [accessories, setAccessories] = useState<CompatibilityCheckDto[]>([]);
+  const [selectedAddonIds, setSelectedAddonIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchWishlist();
@@ -45,6 +48,38 @@ export function ProductDetailView({ product }: { product: Product }) {
     if (!hasVariants) return null;
     return activeVariants.find((v) => v.id === selectedVariantId) || null;
   }, [hasVariants, activeVariants, selectedVariantId]);
+
+  useEffect(() => {
+    const targetVariantId = selectedVariant?.id;
+    if (!targetVariantId) return;
+
+    let cancelled = false;
+    fetch(`/api/compatibility/accessories?deviceVariantId=${encodeURIComponent(targetVariantId)}`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        if (!cancelled && Array.isArray(data)) {
+          setAccessories(data);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      setAccessories([]);
+      setSelectedAddonIds(new Set());
+    };
+  }, [selectedVariant?.id]);
+
+  const toggleAddon = (id: string) => {
+    setSelectedAddonIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
 
   // Extract dimensions: colors and sizes
   const colors = useMemo(() => {
@@ -145,8 +180,30 @@ export function ProductDetailView({ product }: { product: Product }) {
       effectiveQuantity
     );
 
+    // Add selected compatible accessories
+    for (const acc of accessories) {
+      const accKey = acc.accessory.variantId || acc.accessory.productId;
+      if (selectedAddonIds.has(accKey)) {
+        addItem(
+          {
+            productId: acc.accessory.productId,
+            name: acc.accessory.productName,
+            price: acc.accessory.price ? Number(acc.accessory.price) : 0,
+            image: acc.accessory.image || undefined,
+            variantId: acc.accessory.variantId || null,
+            variantTitle: acc.accessory.variantName || null,
+            attachedToVariantId: selectedVariant?.id || null,
+            isAddon: true,
+            compatibilityStatus: 'COMPATIBLE',
+          },
+          1
+        );
+      }
+    }
+
     const variantLabel = selectedVariant ? ` (${selectedVariant.title})` : '';
-    toast.success(`Đã thêm ${effectiveQuantity} × "${product.name}${variantLabel}" vào giỏ`);
+    const addonNote = selectedAddonIds.size > 0 ? ` + ${selectedAddonIds.size} phụ kiện kèm theo` : '';
+    toast.success(`Đã thêm ${effectiveQuantity} × "${product.name}${variantLabel}"${addonNote} vào giỏ`);
   };
 
   const handleBuyNow = () => {
@@ -170,6 +227,27 @@ export function ProductDetailView({ product }: { product: Product }) {
       },
       effectiveQuantity
     );
+
+    // Add selected compatible accessories
+    for (const acc of accessories) {
+      const accKey = acc.accessory.variantId || acc.accessory.productId;
+      if (selectedAddonIds.has(accKey)) {
+        addItem(
+          {
+            productId: acc.accessory.productId,
+            name: acc.accessory.productName,
+            price: acc.accessory.price ? Number(acc.accessory.price) : 0,
+            image: acc.accessory.image || undefined,
+            variantId: acc.accessory.variantId || null,
+            variantTitle: acc.accessory.variantName || null,
+            attachedToVariantId: selectedVariant?.id || null,
+            isAddon: true,
+            compatibilityStatus: 'COMPATIBLE',
+          },
+          1
+        );
+      }
+    }
 
     router.push('/checkout');
   };
@@ -264,6 +342,20 @@ export function ProductDetailView({ product }: { product: Product }) {
         <div className="flex flex-col justify-between space-y-6">
           <div className="space-y-5">
             <div>
+              {(product.brand || product.segment) && (
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  {product.brand && (
+                    <span className="text-[11px] font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-canvas-mist text-ink-black border border-faint-border">
+                      {product.brand.name}
+                    </span>
+                  )}
+                  {product.segment && (
+                    <span className="text-[11px] font-medium tracking-wide px-2 py-0.5 rounded-full bg-violet-50 text-shop-violet border border-violet-100">
+                      {product.segment}
+                    </span>
+                  )}
+                </div>
+              )}
               <h1 className="text-2xl sm:text-3xl font-semibold text-ink-black tracking-[-0.05em] leading-snug">
                 {product.name}
               </h1>
@@ -508,6 +600,67 @@ export function ProductDetailView({ product }: { product: Product }) {
             )}
           </div>
 
+          {/* Compatible Accessories Add-on Section */}
+          {accessories.length > 0 && (
+            <div className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  <span className="text-xs font-semibold text-emerald-900 tracking-[-0.014em]">
+                    Phụ kiện tương thích được khuyên dùng
+                  </span>
+                </div>
+                <span className="text-[11px] font-medium text-emerald-700 bg-emerald-100/60 px-2 py-0.5 rounded-full">
+                  100% Tương thích
+                </span>
+              </div>
+              <p className="text-[12px] text-muted-gray leading-relaxed">
+                Đã kiểm chứng deterministic qua Compatibility Engine. Mua kèm tiện lợi và đảm bảo an toàn thiết bị.
+              </p>
+              <div className="space-y-2">
+                {accessories.map((item) => {
+                  const key = item.accessory.variantId || item.accessory.productId;
+                  const isChecked = selectedAddonIds.has(key);
+                  return (
+                    <label
+                      key={key}
+                      className={`flex items-center justify-between p-2.5 rounded-xl border transition cursor-pointer ${
+                        isChecked
+                          ? 'border-emerald-500 bg-white shadow-xs'
+                          : 'border-faint-border bg-white/70 hover:border-emerald-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => toggleAddon(key)}
+                          className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-gray-300"
+                        />
+                        <div>
+                          <p className="text-xs font-medium text-ink-black tracking-[-0.014em]">
+                            {item.accessory.productName}
+                            {item.accessory.variantName ? ` - ${item.accessory.variantName}` : ''}
+                          </p>
+                          {item.warnings && item.warnings.length > 0 && (
+                            <p className="text-[11px] text-amber-700 mt-0.5">
+                              {item.warnings[0]}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      {item.accessory.price && (
+                        <span className="text-xs font-semibold text-ink-black">
+                          +{formatVND(Number(item.accessory.price))}
+                        </span>
+                      )}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Action Buttons */}
           <div className="space-y-3 pt-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -550,6 +703,74 @@ export function ProductDetailView({ product }: { product: Product }) {
           </div>
         </div>
       </div>
+
+      {/* Technical Specifications */}
+      {product.detail?.specs && product.detail.specs.items.length > 0 && (
+        <div className="mt-12 bg-white rounded-[24px] border border-faint-border p-6 sm:p-8 space-y-4">
+          <h2 className="text-lg font-semibold text-ink-black tracking-[-0.03em]">
+            Thông số kỹ thuật
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+            {product.detail.specs.items.map((spec) => (
+              <div
+                key={spec.code}
+                className="flex items-center justify-between p-3 rounded-[16px] bg-canvas-mist border border-faint-border"
+              >
+                <span className="text-muted-gray text-xs">{spec.label}</span>
+                <span className="font-medium text-ink-black text-xs text-right">
+                  {spec.state === 'KNOWN' ? (
+                    spec.formatted || String(spec.value)
+                  ) : spec.state === 'UNSUPPORTED' ? (
+                    <span className="text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full text-[11px]">
+                      Không hỗ trợ
+                    </span>
+                  ) : (
+                    <span className="text-muted-gray italic text-[11px]">Chưa xác định</span>
+                  )}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Verified Data Sources / Provenance */}
+      {product.sources && product.sources.length > 0 && (
+        <div className="mt-6 bg-white rounded-[24px] border border-faint-border p-6 sm:p-8 space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-ink-black tracking-[-0.02em] flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              Nguồn dữ liệu kiểm chứng ({product.sources.length})
+            </h2>
+            <span className="text-[11px] text-muted-gray">Dữ liệu minh bạch</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+            {product.sources.map((src) => (
+              <div
+                key={src.id}
+                className="p-3 rounded-[16px] bg-canvas-mist border border-faint-border flex items-center justify-between"
+              >
+                <div>
+                  <p className="font-medium text-ink-black">{src.publisher}</p>
+                  <p className="text-[11px] text-muted-gray">
+                    {src.sourceType} {src.version ? `v${src.version}` : ''}
+                  </p>
+                </div>
+                {src.url && (
+                  <a
+                    href={src.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-shop-violet hover:underline text-[11px] font-medium"
+                  >
+                    Xem nguồn
+                  </a>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Product Reviews */}
       <ProductReviews productId={product.id} />

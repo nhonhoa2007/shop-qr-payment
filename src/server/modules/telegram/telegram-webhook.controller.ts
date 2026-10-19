@@ -63,13 +63,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, ignored: true });
     }
 
-    // Xác thực người bấm callback (chỉ cho phép ADMIN / Chat ID được cấu hình)
+    // Xác thực người bấm callback (chỉ cho phép ADMIN / Chat ID được cấu hình - Fail Closed)
     const fromId = String(callback.from?.id || '');
     const chatId = String(callback.message?.chat?.id || '');
-    const configuredChatId = String(process.env.TELEGRAM_CHAT_ID || '');
+    const configuredChatId = String(process.env.TELEGRAM_CHAT_ID || '').trim();
 
     const isAuthorized =
-      !configuredChatId || fromId === configuredChatId || chatId === configuredChatId;
+      Boolean(configuredChatId) && (fromId === configuredChatId || chatId === configuredChatId);
 
     if (!isAuthorized) {
       await answerCallbackQuery({
@@ -125,7 +125,7 @@ export async function POST(req: Request) {
           const formatted = formatApprovedOrderMessage({
             orderCode: result.orderCode,
             customerName: order.customerName,
-            totalAmount: order.totalAmount,
+            totalAmount: Number(order.totalAmount),
             trackingCode: result.trackingCode || 'GHN',
             shippingFee: result.shippingFee || 30000,
             expectedDeliveryTime: result.expectedDeliveryTime,

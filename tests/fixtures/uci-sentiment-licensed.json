@@ -1,0 +1,65 @@
+{
+  "dataset": "UCI Sentiment Labelled Sentences (Amazon Cell Phones subset)",
+  "license": "Creative Commons Attribution 4.0 International (CC BY 4.0) / Public Domain for Research",
+  "sourceUrl": "https://archive.ics.uci.edu/dataset/331/sentiment+labelled+sentences",
+  "evalOnly": true,
+  "disclaimer": "This fixture is strictly for offline NLP sentiment analyzer evaluation and regression tests. It is never used as real product attribution or commercial score source.",
+  "samples": [
+    {
+      "id": "uci_1",
+      "text": "Good phone, nice screen and excellent battery life.",
+      "sentiment": "POSITIVE",
+      "aspect": "battery",
+      "isShippingComplaint": false
+    },
+    {
+      "id": "uci_2",
+      "text": "The battery drains way too fast, barely lasts 4 hours.",
+      "sentiment": "NEGATIVE",
+      "aspect": "battery",
+      "isShippingComplaint": false
+    },
+    {
+      "id": "uci_3",
+      "text": "The camera takes sharp photos in bright daylight but struggles in low light.",
+      "sentiment": "MIXED",
+      "aspect": "camera",
+      "isShippingComplaint": false
+    },
+    {
+      "id": "uci_4",
+      "text": "Fast performance with snappy multitasking, no lag.",
+      "sentiment": "POSITIVE",
+      "aspect": "performance",
+      "isShippingComplaint": false
+    },
+    {
+      "id": "uci_5",
+      "text": "The display is vibrant with accurate colors and high brightness.",
+      "sentiment": "POSITIVE",
+      "aspect": "display",
+      "isShippingComplaint": false
+    },
+    {
+      "id": "uci_6",
+      "text": "Solid build quality with premium aluminum chassis.",
+      "sentiment": "POSITIVE",
+      "aspect": "build_quality",
+      "isShippingComplaint": false
+    },
+    {
+      "id": "uci_7",
+      "text": "Delivery was late and box was crushed by shipper, but the device works.",
+      "sentiment": "NEGATIVE",
+      "aspect": "shipping",
+      "isShippingComplaint": true
+    },
+    {
+      "id": "uci_8",
+      "text": "Worst delivery ever, package arrived completely smashed by carrier.",
+      "sentiment": "NEGATIVE",
+      "aspect": "shipping",
+      "isShippingComplaint": true
+    }
+  ]
+}

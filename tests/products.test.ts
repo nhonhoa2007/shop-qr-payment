@@ -261,6 +261,7 @@ describe('createProductWithVariants - Transactional Creation', () => {
         category: null,
         stock: 20,
         isActive: true,
+        inventoryMode: 'BASE',
       },
       include: {
         variants: {
@@ -326,6 +327,7 @@ describe('createProductWithVariants - Transactional Creation', () => {
         category: null,
         stock: 30, // Đồng bộ tổng tồn kho
         isActive: true,
+        inventoryMode: 'VARIANT',
         variants: {
           create: [
             {

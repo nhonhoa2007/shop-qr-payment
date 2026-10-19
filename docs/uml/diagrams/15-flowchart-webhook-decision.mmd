@@ -18,6 +18,6 @@ flowchart TD
     G6 -- "Có" --> S6["SKIP · ORDER_EXPIRED / ORDER_CANCELLED"]
     G6 -- "Không" --> G7{"amount nhỏ hơn totalAmount?"}
     G7 -- "Có" --> S7["SKIP · UNDERPAID — không chấp nhận trả thiếu"]
-    G7 -- "Đủ tiền" --> OK["✅ PROCESS trong 1 transaction:<br/>PAID + CONFIRMED + Transaction verified"]
+    G7 -- "Đủ tiền" --> OK["✅ PROCESS trong 1 transaction:<br/>PAID + CONFIRMED + BankTransfer APPLIED_ORDER"]
     OK --> FX["Pusher payment-success cho khách<br/>thông báo khách + mọi admin<br/>tin SYSTEM vào chat đơn · analytics-updated"]
     OK -. "webhook trùng gửi lại → lỗi P2002 được nuốt" .-> S1

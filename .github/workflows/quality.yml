@@ -1,0 +1,114 @@
+name: Quality and Schema Budget Gates
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - 'feature/**'
+  pull_request:
+    branches:
+      - main
+      - master
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static-and-unit-gates:
+    name: Unit, Lint, Architecture & Schema Budget
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://validation:validation@localhost:5432/schema_validation?schema=public
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate Prisma Schema
+        run: npx prisma validate
+
+      - name: Enforce 34-Model Schema Registry & Budget
+        run: npm run schema:budget -- --expected=34 --lock-registry
+
+      - name: Lint codebase
+        run: npm run lint
+
+      - name: Verify Architecture Layer Boundaries
+        run: npm run arch:check
+
+      - name: Run Unit Test Suite
+        run: npm test
+
+      - name: Next.js Production Build
+        run: npm run build
+        env:
+          NODE_ENV: production
+          NEXT_TELEMETRY_DISABLED: 1
+
+  integration-gate:
+    name: Ephemeral Database & Integration Rehearsal
+    runs-on: ubuntu-latest
+    needs: static-and-unit-gates
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgrespassword
+          POSTGRES_DB: shop_qr_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgrespassword@localhost:5432/shop_qr_test?schema=public
+      UPSTASH_REDIS_REST_URL: ''
+      UPSTASH_REDIS_REST_TOKEN: ''
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Deploy Database Migrations
+        run: npx prisma migrate deploy
+
+      - name: Run Integration Tests
+        run: npm run test:integration
+
+      - name: Offline AI Assistant Grounding Eval (Zero Network Transport)
+        run: npm run eval:assistant
+
+      - name: Offline Commerce Intelligence Eval
+        run: npm run eval:commerce
+
+      - name: Read-Only Inventory & Serial Reconciliation Check
+        run: node --experimental-strip-types --import ./tests/register-alias.mjs scripts/reconcile-inventory.ts
+
+      - name: Read-Only Financial & Money Reconciliation Check
+        run: node --experimental-strip-types --import ./tests/register-alias.mjs scripts/reconcile-money.ts

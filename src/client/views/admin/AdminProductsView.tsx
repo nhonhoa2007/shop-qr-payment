@@ -30,6 +30,7 @@ import {
   Tag,
   Info,
   Check,
+  Cpu,
 } from 'lucide-react';
 
 interface VariantFormItem {
@@ -56,7 +57,7 @@ export function AdminProductsView({ initialProducts }: { initialProducts: Produc
   const [filterCategory, setFilterCategory] = useState('ALL');
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [activeTab, setActiveTab] = useState<'general' | 'variants'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'variants' | 'specs'>('general');
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -64,7 +65,7 @@ export function AdminProductsView({ initialProducts }: { initialProducts: Produc
   // Mở rộng dòng xem nhanh danh sách biến thể trong bảng
   const [expandedProductIds, setExpandedProductIds] = useState<Set<string>>(new Set());
 
-  // Form Thông tin cơ bản
+  // Form Thông tin cơ bản & Điện tử
   const [form, setForm] = useState({
     name: '',
     description: '',
@@ -73,6 +74,16 @@ export function AdminProductsView({ initialProducts }: { initialProducts: Produc
     category: '',
     image: '',
     isActive: true,
+    brandId: '',
+    categoryId: '',
+    kind: '',
+    segment: '',
+    weight: 0,
+    length: 0,
+    width: 0,
+    height: 0,
+    warrantyMonths: 12,
+    specsJson: '',
   });
 
   // Form Danh sách biến thể
@@ -113,6 +124,16 @@ export function AdminProductsView({ initialProducts }: { initialProducts: Produc
       category: 'Thời trang',
       image: '',
       isActive: true,
+      brandId: '',
+      categoryId: '',
+      kind: '',
+      segment: '',
+      weight: 0,
+      length: 0,
+      width: 0,
+      height: 0,
+      warrantyMonths: 12,
+      specsJson: '',
     });
     setVariants([]);
     setMatrixColors('');
@@ -126,21 +147,40 @@ export function AdminProductsView({ initialProducts }: { initialProducts: Produc
     setEditingProduct(product);
     setActiveTab('general');
     setShowMatrixGen(false);
+
+    const warrantyMonths =
+      product.warrantyConfig &&
+      typeof product.warrantyConfig === 'object' &&
+      'periodMonths' in (product.warrantyConfig as Record<string, unknown>)
+        ? Number((product.warrantyConfig as Record<string, unknown>).periodMonths) || 12
+        : 12;
+    const specsJson = product.specs ? JSON.stringify(product.specs, null, 2) : '';
+
     setForm({
       name: product.name,
       description: product.description || '',
-      price: product.price,
+      price: Number(product.price),
       stock: product.stock,
       category: product.category || '',
       image: product.image || '',
       isActive: product.isActive,
+      brandId: product.brandId || '',
+      categoryId: product.categoryId || '',
+      kind: product.kind || '',
+      segment: product.segment || '',
+      weight: product.weightGrams ?? 0,
+      length: product.lengthCm ?? 0,
+      width: product.widthCm ?? 0,
+      height: product.heightCm ?? 0,
+      warrantyMonths,
+      specsJson,
     });
 
     const existingVariants: VariantFormItem[] = (product.variants || []).map((v) => ({
       id: v.id,
       sku: v.sku || '',
       title: v.title || '',
-      price: v.price,
+      price: Number(v.price),
       stock: v.stock,
       color: v.color || '',
       size: v.size || '',
@@ -160,7 +200,7 @@ export function AdminProductsView({ initialProducts }: { initialProducts: Produc
                 id: v.id,
                 sku: v.sku || '',
                 title: v.title || '',
-                price: v.price,
+                price: Number(v.price),
                 stock: v.stock,
                 color: v.color || '',
                 size: v.size || '',
@@ -175,7 +215,7 @@ export function AdminProductsView({ initialProducts }: { initialProducts: Produc
 
     setMatrixColors('');
     setMatrixSizes('');
-    setMatrixPrice(product.price);
+    setMatrixPrice(Number(product.price));
     setMatrixStock(10);
     setShowModal(true);
   };
@@ -348,6 +388,18 @@ export function AdminProductsView({ initialProducts }: { initialProducts: Produc
     setLoading(true);
 
     try {
+      let parsedSpecs: unknown = undefined;
+      if (form.specsJson.trim()) {
+        try {
+          parsedSpecs = JSON.parse(form.specsJson.trim());
+        } catch {
+          toast.error('JSON thông số kỹ thuật (Specs) không đúng định dạng');
+          setActiveTab('specs');
+          setLoading(false);
+          return;
+        }
+      }
+
       const totalStock =
         variants.length > 0
           ? variants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0)
@@ -361,6 +413,19 @@ export function AdminProductsView({ initialProducts }: { initialProducts: Produc
         category: form.category.trim() || null,
         image: form.image.trim() || null,
         isActive: form.isActive,
+        brandId: form.brandId.trim() || undefined,
+        categoryId: form.categoryId.trim() || undefined,
+        kind: form.kind || undefined,
+        segment: form.segment.trim() || undefined,
+        weight: Number(form.weight) || 0,
+        length: Number(form.length) || 0,
+        width: Number(form.width) || 0,
+        height: Number(form.height) || 0,
+        warrantyConfig:
+          form.warrantyMonths > 0
+            ? { type: 'OFFICIAL', periodMonths: Number(form.warrantyMonths), provider: 'MANUFACTURER' }
+            : undefined,
+        specs: parsedSpecs,
         variants:
           variants.length > 0
             ? variants.map((v, idx) => ({
@@ -852,6 +917,22 @@ export function AdminProductsView({ initialProducts }: { initialProducts: Produc
                   </span>
                 )}
               </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('specs')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                  activeTab === 'specs'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                <Cpu className="w-4 h-4" />
+                <span>Thông số & Logistics</span>
+                {(form.categoryId || form.specsJson) && (
+                  <span className="ml-1 w-2 h-2 rounded-full bg-emerald-300 inline-block" />
+                )}
+              </button>
             </div>
 
             {/* Modal Body / Tab Contents */}
@@ -916,15 +997,17 @@ export function AdminProductsView({ initialProducts }: { initialProducts: Produc
                         type="number"
                         required
                         min={0}
-                        disabled={variants.length > 0}
+                        disabled={variants.length > 0 || Boolean(editingProduct)}
                         value={variants.length > 0 ? variantSummary.totalStock : form.stock}
                         onChange={(e) => setForm({ ...form, stock: Number(e.target.value) })}
                         className={`w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-medium ${
-                          variants.length > 0 ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''
+                          variants.length > 0 || Boolean(editingProduct) ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''
                         }`}
                       />
                       <p className="text-[11px] text-gray-400 mt-1">
-                        {variants.length > 0
+                        {editingProduct
+                          ? 'Tồn kho được bảo vệ; điều chỉnh qua endpoint điều chỉnh phiên bản'
+                          : variants.length > 0
                           ? `Đồng bộ từ tổng tồn kho của ${variants.length} biến thể`
                           : 'Số lượng hàng thực tế trong kho'}
                       </p>
@@ -1056,7 +1139,7 @@ export function AdminProductsView({ initialProducts }: { initialProducts: Produc
                     />
                   </div>
                 </div>
-              ) : (
+              ) : activeTab === 'variants' ? (
                 /* TAB 2: CẤU HÌNH BIẾN THỂ */
                 <div className="space-y-4">
                   {/* Variants Toolbar */}
@@ -1409,6 +1492,162 @@ export function AdminProductsView({ initialProducts }: { initialProducts: Produc
                       </div>
                     </div>
                   )}
+                </div>
+              ) : (
+                /* TAB 3: THÔNG SỐ & LOGISTICS (M1 Electronics) */
+                <div className="space-y-4">
+                  <div className="p-3.5 rounded-2xl bg-emerald-50/80 border border-emerald-200/70 flex items-start gap-3 text-emerald-900">
+                    <Info className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                    <div className="text-xs">
+                      <p className="font-bold">Cấu hình sản phẩm điện tử & thông số đóng gói (M1 Electronics)</p>
+                      <p className="text-emerald-700 mt-0.5">
+                        Điền Category ID để kích hoạt quy trình xác thực schema JSON và đánh giá tính sẵn sàng xuất bản (Catalog Readiness).
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Category ID (Bắt buộc cho đồ điện tử)
+                      </label>
+                      <input
+                        type="text"
+                        value={form.categoryId}
+                        onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 font-mono text-sm"
+                        placeholder="cat-laptop-mainstream..."
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Brand ID
+                      </label>
+                      <input
+                        type="text"
+                        value={form.brandId}
+                        onChange={(e) => setForm({ ...form, brandId: e.target.value })}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 font-mono text-sm"
+                        placeholder="brand-dell, brand-apple..."
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Loại sản phẩm (Kind)
+                      </label>
+                      <select
+                        value={form.kind}
+                        onChange={(e) => setForm({ ...form, kind: e.target.value })}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 bg-white text-sm"
+                      >
+                        <option value="">-- Mặc định (Legacy/Khác) --</option>
+                        <option value="LAPTOP">LAPTOP (Máy tính xách tay)</option>
+                        <option value="PHONE">PHONE (Điện thoại thông minh)</option>
+                        <option value="ACCESSORY">ACCESSORY (Phụ kiện điện tử)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Phân khúc (Segment)
+                      </label>
+                      <input
+                        type="text"
+                        value={form.segment}
+                        onChange={(e) => setForm({ ...form, segment: e.target.value })}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+                        placeholder="GAMING, ULTRABOOK, FLAGSHIP..."
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Bảo hành chính hãng (Tháng)
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={form.warrantyMonths}
+                        onChange={(e) => setForm({ ...form, warrantyMonths: Number(e.target.value) })}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+                        placeholder="12, 24, 36..."
+                      />
+                    </div>
+                  </div>
+
+                  {/* Kích thước đóng gói & Trọng lượng logistics */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Kích thước đóng gói & Khối lượng (Logistics GHN / Tiêu chuẩn đóng gói)
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div>
+                        <span className="text-xs text-gray-500 mb-1 block">Khối lượng (gram)</span>
+                        <input
+                          type="number"
+                          min={0}
+                          value={form.weight}
+                          onChange={(e) => setForm({ ...form, weight: Number(e.target.value) })}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm"
+                          placeholder="2200"
+                        />
+                      </div>
+                      <div>
+                        <span className="text-xs text-gray-500 mb-1 block">Dài (cm)</span>
+                        <input
+                          type="number"
+                          min={0}
+                          value={form.length}
+                          onChange={(e) => setForm({ ...form, length: Number(e.target.value) })}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm"
+                          placeholder="38"
+                        />
+                      </div>
+                      <div>
+                        <span className="text-xs text-gray-500 mb-1 block">Rộng (cm)</span>
+                        <input
+                          type="number"
+                          min={0}
+                          value={form.width}
+                          onChange={(e) => setForm({ ...form, width: Number(e.target.value) })}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm"
+                          placeholder="26"
+                        />
+                      </div>
+                      <div>
+                        <span className="text-xs text-gray-500 mb-1 block">Cao (cm)</span>
+                        <input
+                          type="number"
+                          min={0}
+                          value={form.height}
+                          onChange={(e) => setForm({ ...form, height: Number(e.target.value) })}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm"
+                          placeholder="6"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* JSON Specs Editor */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Thông số kỹ thuật JSON (Specs Schema)
+                      </label>
+                      <span className="text-xs text-gray-400">Định dạng JSON chuẩn theo Category specSchema</span>
+                    </div>
+                    <textarea
+                      rows={8}
+                      value={form.specsJson}
+                      onChange={(e) => setForm({ ...form, specsJson: e.target.value })}
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 font-mono text-xs bg-gray-50 text-gray-800"
+                      placeholder={`{\n  "schemaVersion": 1,\n  "attributes": {\n    "cpu_model": { "type": "KNOWN", "value": "Intel Core i7-13700H" },\n    "ram_capacity_gb": { "type": "KNOWN", "value": 16 }\n  }\n}`}
+                    />
+                  </div>
                 </div>
               )}
 

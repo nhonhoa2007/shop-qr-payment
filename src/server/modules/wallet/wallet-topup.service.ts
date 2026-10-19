@@ -12,14 +12,16 @@ type TransactionClient = Prisma.TransactionClient | PrismaClient;
 // In-memory fallback map cho local development và unit tests khi Redis không khả dụng
 export const inMemoryTopupStore = new Map<string, WalletTopupSession>();
 
+import type { MoneyVnd } from '@shared/types/money';
+
 export interface WalletTopupProcessResult {
   success: boolean;
   error?: string;
   alreadyProcessed?: boolean;
-  newBalance?: number;
+  newBalance?: MoneyVnd | number | bigint;
   transactionId?: string;
   topupCode?: string;
-  amount?: number;
+  amount?: MoneyVnd | number | bigint;
   userId?: string;
 }
 
@@ -285,17 +287,19 @@ export async function processWalletTopup(
       };
     }
 
+    const amountBigInt = BigInt(amount);
+
     // 4. Cộng tiền nguyên tử vào ví người dùng
     const updatedWallet = await tx.userWallet.update({
       where: { id: wallet.id },
-      data: { balance: { increment: amount } },
+      data: { balance: { increment: amountBigInt } },
     });
 
     // 5. Ghi nhật ký biến động số dư loại TOPUP
     const txRecord = await tx.walletTransaction.create({
       data: {
         walletId: wallet.id,
-        amount,
+        amount: amountBigInt,
         type: 'TOPUP',
         orderId: topupCode,
         description:

@@ -1,19 +1,25 @@
-import { AuthOptions } from 'next-auth';
+import type { AuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import { prisma } from '../../database/prisma.ts';
-import { authorizeCredentialsLogin } from '../admin/admin-rbac.service.ts';
-import { getStaffPermissions } from '../admin/permission.service.ts';
-import type { StaffPermission } from '../../../shared/constants/permissions.ts';
+import { prisma } from '@server/database/prisma';
+import { authorizeCredentialsLogin } from '@server/modules/admin/admin-rbac.service';
+import { getStaffPermissions } from '@server/modules/admin/permission.service';
+import type { StaffPermission } from '@shared/constants/permissions';
+
+const createCredentialsProvider =
+  typeof CredentialsProvider === 'function'
+    ? CredentialsProvider
+    : (CredentialsProvider as unknown as { default: typeof CredentialsProvider })
+        ?.default;
 
 export const authOptions: AuthOptions = {
   providers: [
-    CredentialsProvider({
+    createCredentialsProvider({
       name: 'credentials',
       credentials: {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
       },
-      async authorize(credentials) {
+      async authorize(credentials: Record<string, string> | undefined) {
         return authorizeCredentialsLogin({
           credentials,
           prismaUser: prisma.user as unknown as Parameters<

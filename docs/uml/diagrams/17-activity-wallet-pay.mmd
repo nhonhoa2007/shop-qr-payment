@@ -11,5 +11,5 @@ flowchart TD
     G2 -- "Đủ" --> CAS["CAS updateMany:<br/>trừ totalAmount WHERE balance >= totalAmount"]
     CAS --> CNT{"count === 1?"}
     CNT -- "0 — số dư vừa bị đổi (race)" --> E4["❌ 'Số dư ví đã thay đổi, vui lòng thử lại'"]
-    CNT -- "1 — thắng" --> OK["WalletTransaction PURCHASE_PAYMENT âm<br/>Đơn PAID + CONFIRMED<br/>Transaction bankName SHOP_WALLET"]
+    CNT -- "1 — thắng" --> OK["WalletTransaction PURCHASE_PAYMENT âm<br/>Đơn PAID + CONFIRMED<br/>BankTransfer bankName SHOP_WALLET"]
     OK --> FX["Pusher payment-success + wallet-updated<br/>thông báo khách + analytics-updated cho admin"]

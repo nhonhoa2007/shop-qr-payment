@@ -8,20 +8,46 @@ export async function GET() {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const rooms = await prisma.chatRoom.findMany({
-      where: { participants: { some: { userId: session.user.id } } },
+    const hasParticipants = 'chatRoomParticipant' in prisma;
+    const rooms = await (prisma as any).chatRoom.findMany({
+      where: {
+        OR: [
+          { customerId: session.user.id },
+          { assignedStaffId: session.user.id },
+          ...(hasParticipants ? [{ participants: { some: { userId: session.user.id } } }] : []),
+        ],
+      },
       include: {
         order: { select: { orderCode: true } },
-        participants: {
-          where: { userId: { not: session.user.id } },
-          include: { user: { select: { id: true, name: true, avatar: true } } },
-        },
+        customer: { select: { id: true, name: true, avatar: true } },
+        assignedStaff: { select: { id: true, name: true, avatar: true } },
+        ...(hasParticipants
+          ? {
+              participants: {
+                where: { userId: { not: session.user.id } },
+                include: { user: { select: { id: true, name: true, avatar: true } } },
+              },
+            }
+          : {}),
         _count: { select: { messages: true } },
       },
       orderBy: { lastActiveAt: 'desc' },
     });
 
-    return NextResponse.json({ rooms });
+    const mappedRooms = rooms.map((room: any) => {
+      const otherUser = room.customerId === session.user.id ? room.assignedStaff : room.customer;
+      const participants =
+        room.participants && room.participants.length > 0
+          ? room.participants
+          : [otherUser ? { user: otherUser } : null].filter(Boolean);
+
+      return {
+        ...room,
+        participants,
+      };
+    });
+
+    return NextResponse.json({ rooms: mappedRooms });
   } catch (error) {
     console.error('Get chat rooms error:', error);
     return NextResponse.json({ error: 'Lỗi hệ thống' }, { status: 500 });

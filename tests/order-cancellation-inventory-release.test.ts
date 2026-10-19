@@ -328,8 +328,8 @@ describe('Order Cancellation - Wallet Refund & Double-Refund Protection (Pillar 
     const result = await refundOrderToWallet(mockTx, 'ord_paid_member', 'Khách hàng hủy đơn PENDING');
 
     assert.equal(result.success, true);
-    assert.equal(result.refundedAmount, 350000);
-    assert.equal(result.newBalance, 450000);
+    assert.equal(String(result.refundedAmount), '350000');
+    assert.equal(String(result.newBalance), '450000');
     assert.equal(walletCredited, 350000);
     // 1 item có biến thể (var_1) + đồng bộ stock gốc prod_1 + 1 item gốc prod_2
     assert.equal(variantReleased, 1);
@@ -345,6 +345,7 @@ describe('Order Cancellation - Wallet Refund & Double-Refund Protection (Pillar 
     assert.deepEqual(atomicWhereCaptured, {
       id: 'ord_paid_member',
       paymentStatus: 'PAID',
+      status: { not: 'CANCELLED' },
     });
   });
 
@@ -396,6 +397,7 @@ describe('Order Cancellation - Wallet Refund & Double-Refund Protection (Pillar 
         updateMany: async () => ({ count: 1 }),
       },
       product: { update: async () => ({}) },
+      refundCase: { upsert: async () => ({ id: 'refund_guest_1' }) },
       userWallet: {
         findUnique: async () => {
           walletTouched = true;
@@ -408,7 +410,7 @@ describe('Order Cancellation - Wallet Refund & Double-Refund Protection (Pillar 
 
     assert.equal(result.success, true);
     assert.equal(result.isGuest, true);
-    assert.equal(result.refundedAmount, 200000);
+    assert.equal(String(result.refundedAmount), '200000');
     assert.equal(walletTouched, false);
   });
 });

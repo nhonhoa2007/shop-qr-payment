@@ -2,6 +2,7 @@ import { prisma } from '@server/database/prisma';
 import { Role } from '@prisma/client';
 import { updateUserRbac } from './admin-rbac.service.ts';
 import { getCachedAnalytics, setCachedAnalytics } from '@server/infrastructure/redis';
+import { bigIntJsonReplacer } from '@server/modules/money/money-serialization';
 import {
   type AdminAnalyticsResponse,
   type AnalyticsRange,
@@ -80,7 +81,7 @@ export class AdminService {
 
     return users.map((u) => {
       const paidOrders = u.orders.filter((o) => o.paymentStatus === 'PAID');
-      const totalSpent = paidOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+      const totalSpent = paidOrders.reduce((sum, o) => sum + Number(o.totalAmount), 0);
 
       return {
         id: u.id,
@@ -99,6 +100,7 @@ export class AdminService {
         totalSpent,
         recentOrders: u.orders.slice(0, 3).map((o) => ({
           ...o,
+          totalAmount: Number(o.totalAmount),
           createdAt: o.createdAt.toISOString(),
         })),
       };
@@ -123,7 +125,8 @@ export class AdminService {
     const orders = await prisma.order.findMany({
       include: {
         items: { include: { product: true } },
-        transaction: true,
+        bankTransfers: true,
+        shipment: { select: { trackingCode: true } },
         user: { select: { id: true, name: true, email: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -131,6 +134,10 @@ export class AdminService {
 
     return orders.map((order) => ({
       ...order,
+      subtotal: Number(order.subtotal),
+      shippingFee: Number(order.shippingFee),
+      discountAmount: Number(order.discountAmount),
+      totalAmount: Number(order.totalAmount),
       customerEmail: order.customerEmail || undefined,
       note: order.note || undefined,
       createdAt: order.createdAt.toISOString(),
@@ -139,7 +146,7 @@ export class AdminService {
       items: order.items.map((item) => ({
         id: item.id,
         quantity: item.quantity,
-        price: item.price,
+        price: Number(item.price),
         product: {
           name: item.product.name,
           image: item.product.image || undefined,
@@ -182,7 +189,7 @@ export class AdminService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return JSON.parse(JSON.stringify(reviews));
+    return JSON.parse(JSON.stringify(reviews, bigIntJsonReplacer));
   }
 
   static async getAdminShipments() {
@@ -209,8 +216,8 @@ export class AdminService {
       orderId: s.orderId,
       carrier: s.carrier,
       trackingCode: s.trackingCode,
-      shippingFee: s.shippingFee,
-      codAmount: s.codAmount,
+      shippingFee: Number(s.shippingFee),
+      codAmount: Number(s.codAmount),
       status: s.status,
       estimatedArrival: s.estimatedArrival ? s.estimatedArrival.toISOString() : null,
       shippingLogs: (s.shippingLogs as unknown as Array<{
@@ -226,7 +233,7 @@ export class AdminService {
         customerName: s.order.customerName,
         customerPhone: s.order.customerPhone,
         customerAddress: s.order.customerAddress,
-        totalAmount: s.order.totalAmount,
+        totalAmount: Number(s.order.totalAmount),
         status: s.order.status,
         paymentStatus: s.order.paymentStatus,
       },
@@ -234,7 +241,10 @@ export class AdminService {
   }
 
   static async getAdminTransactions() {
-    const transactions = await prisma.transaction.findMany({
+    const bankTransfers = await prisma.bankTransfer.findMany({
+      where: {
+        status: { in: ['APPLIED_ORDER', 'PENDING_REVIEW'] },
+      },
       include: {
         order: {
           select: {
@@ -252,7 +262,21 @@ export class AdminService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return JSON.parse(JSON.stringify(transactions));
+    const mapped = bankTransfers.map((b) => ({
+      id: b.id,
+      orderId: b.orderId,
+      bankTransId: b.bankTransId,
+      amount: b.amount,
+      description: b.description,
+      bankName: b.bankName,
+      senderAccount: (b as any).senderAccount ?? null,
+      receivedAt: b.receivedAt,
+      verified: b.status === 'APPLIED_ORDER',
+      order: b.order,
+      createdAt: b.createdAt,
+    }));
+
+    return JSON.parse(JSON.stringify(mapped, bigIntJsonReplacer));
   }
 
   static async getAdminAnalytics(range: AnalyticsRange = '7days'): Promise<AdminAnalyticsResponse> {
@@ -364,17 +388,15 @@ export class AdminService {
       }),
       // 14. Total shipments
       prisma.shipment.count(),
-      // 15. Total transactions
-      prisma.transaction.count(),
-      // 16. Unmatched transactions (verified: false)
-      prisma.transaction.count({
-        where: { verified: false },
-      }),
+      // 15. Total transactions (from BankTransfer)
+      prisma.bankTransfer.count({ where: { status: 'APPLIED_ORDER' } }),
+      // 16. Unmatched transactions (PENDING_REVIEW)
+      prisma.bankTransfer.count({ where: { status: 'PENDING_REVIEW' } }),
       // 17. Paid orders for payment distribution (giới hạn 500 đơn gần nhất thay vì load toàn bộ DB)
       prisma.order.findMany({
         where: { paymentStatus: 'PAID' },
         select: {
-          transaction: { select: { bankName: true } },
+          bankTransfers: { select: { bankName: true }, take: 1 },
           shipment: { select: { codAmount: true } },
         },
         orderBy: { createdAt: 'desc' },
@@ -420,10 +442,10 @@ export class AdminService {
       }),
     ]);
 
-    const totalRevenue = paidOrdersAgg._sum.totalAmount || 0;
+    const totalRevenue = Number(paidOrdersAgg._sum.totalAmount || 0n);
     const totalPaidOrders = paidOrdersAgg._count.id || 0;
-    const todayRevenue = todayPaidAgg._sum.totalAmount || 0;
-    const yesterdayRevenue = yesterdayPaidAgg._sum.totalAmount || 0;
+    const todayRevenue = Number(todayPaidAgg._sum.totalAmount || 0n);
+    const yesterdayRevenue = Number(yesterdayPaidAgg._sum.totalAmount || 0n);
     const todayRevenueGrowth = calculateRevenueGrowth(todayRevenue, yesterdayRevenue);
 
     const matchedTransactions = totalTransactions - unmatchedTransactionsCount;
@@ -441,14 +463,23 @@ export class AdminService {
       ordersByStatus[item.status] = item._count.id;
     }
 
-    const revenueTrend = range === 'today'
-      ? buildHourlyRevenueTrend(startOfToday, recentPaidOrders)
-      : range === 'month'
-      ? buildMonthlyRevenueTrend(thirtyDaysAgo, recentPaidOrders)
-      : buildRevenueTrend(sevenDaysAgo, recentPaidOrders);
+    const recentPaidOrdersMapped = recentPaidOrders.map((o) => ({
+      ...o,
+      totalAmount: Number(o.totalAmount),
+    }));
 
-    const periodRevenue = recentPaidOrders.reduce((sum, o) => sum + o.totalAmount, 0);
-    const paymentMethodDistribution = calculatePaymentMethodDistribution(paidOrdersForDistribution);
+    const revenueTrend = range === 'today'
+      ? buildHourlyRevenueTrend(startOfToday, recentPaidOrdersMapped)
+      : range === 'month'
+      ? buildMonthlyRevenueTrend(thirtyDaysAgo, recentPaidOrdersMapped)
+      : buildRevenueTrend(sevenDaysAgo, recentPaidOrdersMapped);
+
+    const periodRevenue = recentPaidOrdersMapped.reduce((sum, o) => sum + o.totalAmount, 0);
+    const paidOrdersForDistributionMapped = paidOrdersForDistribution.map((o) => ({
+      bankTransfers: o.bankTransfers,
+      shipment: o.shipment ? { codAmount: Number(o.shipment.codAmount) } : null,
+    }));
+    const paymentMethodDistribution = calculatePaymentMethodDistribution(paidOrdersForDistributionMapped);
     const urgentActions = buildUrgentActions({
       unmatchedTransactionsCount,
       criticalStockCount,
@@ -461,7 +492,7 @@ export class AdminService {
       customerName: order.customerName,
       customerPhone: order.customerPhone,
       itemsSummary: formatItemsSummary(order.items),
-      totalAmount: order.totalAmount,
+      totalAmount: Number(order.totalAmount),
       paymentStatus: order.paymentStatus,
       status: order.status,
       createdAt: order.createdAt.toISOString(),
@@ -481,7 +512,7 @@ export class AdminService {
       return {
         productId: item.productId,
         name: info?.name || 'Sản phẩm',
-        price: info?.price || 0,
+        price: Number(info?.price || 0),
         image: info?.image || null,
         category: info?.category || null,
         totalSold: item._sum.quantity || 0,

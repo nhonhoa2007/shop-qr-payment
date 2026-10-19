@@ -144,7 +144,7 @@ export function generateVariantMatrix(options: MatrixOptions): ProductVariantInp
  * Tính toán tóm tắt thông số của danh sách biến thể (tổng kho, khoảng giá)
  */
 export function calculateVariantSummary(
-  variants: { price: number; stock?: number; isActive?: boolean }[]
+  variants: { price: number | bigint | string; stock?: number; isActive?: boolean }[]
 ): {
   totalStock: number;
   minPrice: number;

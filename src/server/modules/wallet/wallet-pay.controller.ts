@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@server/modules/auth/auth-options';
 import { prisma } from '@server/database/prisma';
-import { payOrderWithWallet } from '@server/modules/wallet/wallet.service';
+import { payOrderWithWallet, type WalletOperationResult } from '@server/modules/wallet/wallet.service';
 import { pusherServer } from '@server/infrastructure/pusher';
 import { createNotification } from '@server/modules/notifications/notifications.service';
 import { formatPaidOrderMessage, sendTelegramMessage } from '@server/infrastructure/telegram';
@@ -25,9 +25,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Thiếu mã định danh đơn hàng' }, { status: 400 });
     }
 
-    const result = await prisma.$transaction(async (tx) => {
-      return await payOrderWithWallet(tx, session.user.id, orderId);
-    });
+    let result: WalletOperationResult;
+    try {
+      result = await prisma.$transaction(async (tx) => {
+        return await payOrderWithWallet(tx, session.user.id, orderId);
+      });
+    } catch (txErr) {
+      return NextResponse.json(
+        { error: txErr instanceof Error ? txErr.message : 'Thanh toán thất bại' },
+        { status: 400 }
+      );
+    }
 
     if (!result.success) {
       return NextResponse.json({ error: result.error || 'Thanh toán thất bại' }, { status: 400 });
@@ -77,7 +85,7 @@ export async function POST(req: Request) {
           id: orderId,
           orderCode: order.orderCode,
           customerName: order.customerName,
-          totalAmount: result.paidAmount,
+          totalAmount: Number(result.paidAmount || order.totalAmount),
           paymentMethod: 'Ví Shop',
         });
         void sendTelegramMessage(paidTelegramPayload).catch((err) => {

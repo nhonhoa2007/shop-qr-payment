@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
-    "target": "ES2017",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "target": "ES2022",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -20,10 +24,18 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"],
-      "@client/*": ["./src/client/*"],
-      "@server/*": ["./src/server/*"],
-      "@shared/*": ["./src/shared/*"]
+      "@/*": [
+        "./src/*"
+      ],
+      "@client/*": [
+        "./src/client/*"
+      ],
+      "@server/*": [
+        "./src/server/*"
+      ],
+      "@shared/*": [
+        "./src/shared/*"
+      ]
     }
   },
   "include": [
@@ -32,7 +44,14 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
-    "**/*.mts"
+    "**/*.mts",
+    ".next-claude/types/**/*.ts",
+    ".next-claude/dev/types/**/*.ts",
+    "/tmp/shop-qr-payment-next-build/types/**/*.ts",
+    "/tmp/shop-qr-payment-next-build/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules", "tests"]
+  "exclude": [
+    "node_modules",
+    "tests"
+  ]
 }

@@ -3,6 +3,7 @@ import {
   isStaffPermission,
   type StaffPermission,
 } from '../../../shared/constants/permissions.ts';
+import { appendAdminAudit } from '@server/modules/admin/audit-log.service';
 
 export type { StaffPermission };
 
@@ -99,6 +100,18 @@ export async function setStaffPermissions(
           permission,
           grantedBy,
         })),
+      });
+    }
+
+    if ('adminAuditLog' in tx && typeof (tx as any).adminAuditLog?.create === 'function') {
+      await appendAdminAudit(tx, {
+        operationKey: `audit:permission:set:${userId}:${Date.now()}`,
+        actorId: grantedBy,
+        actorRole: 'ADMIN',
+        action: 'SET_STAFF_PERMISSIONS',
+        entityType: 'StaffPermission',
+        entityId: userId,
+        afterState: { permissions: validPerms },
       });
     }
 

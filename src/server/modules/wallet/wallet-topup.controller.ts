@@ -130,7 +130,7 @@ export async function HandleSimulateWalletTopup(req: Request) {
 
     const result = await processWalletTopup(prisma, {
       topupCode: topupSession.topupCode,
-      amount: topupSession.amount,
+      amount: Number(topupSession.amount),
       userId: topupSession.userId,
       bankTransId: `SANDBOX_${Date.now()}`,
       description: `Nạp tiền vào ví (${topupSession.topupCode}) [dev sandbox]`,

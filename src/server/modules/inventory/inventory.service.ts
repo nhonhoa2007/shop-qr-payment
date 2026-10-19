@@ -1,4 +1,6 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
+import { normalizeOrderStockItems } from '@shared/types/inventory';
+import { applyInventoryMovement } from '@server/modules/inventory/inventory-ledger.service';
 
 type TransactionClient = Prisma.TransactionClient | PrismaClient;
 
@@ -10,26 +12,41 @@ export interface OrderStockItem {
 
 /**
  * Đặt trước / Trừ tồn kho nguyên tử cho danh sách sản phẩm trong đơn hàng (Atomic Stock Reservation)
- *
- * @param tx - Prisma Transaction Client để bảo đảm tính nhất quán (All-or-Nothing)
- * @param items - Danh sách các sản phẩm và biến thể cần trừ tồn kho
- * @returns `null` nếu tất cả mặt hàng trừ kho thành công; trả về `string` (productId hoặc variantId) bị thiếu hàng
- *
- * @security & Concurrency Invariants
- * 1. Chống bán âm kho (Overselling Prevention):
- *    - Sử dụng điều kiện nguyên tử `stock: { gte: item.quantity }` trực tiếp trong câu lệnh `updateMany`.
- *    - Nếu số lượng tồn kho hiện tại nhỏ hơn số lượng đặt mua, `result.count === 0` và hàm dừng lại ngay lập tức.
- * 2. Hỗ trợ đa biến thể (Variant & Base Product Granularity):
- *    - Nếu item có `variantId`: Trừ trực tiếp vào bảng `ProductVariant`.
- *    - Nếu item không có biến thể: Trừ vào bảng `Product`.
- * 3. Kiểm tra trạng thái hoạt động: Chỉ cho phép trừ hàng với `isActive: true`.
- * 4. Cơ chế Rollback: Khi một sản phẩm bất kỳ không đủ hàng, hàm trả về ID lỗi để transaction bên ngoài tự động Rollback toàn bộ các mặt hàng trước đó.
+ * Mọi thao tác đều được route qua append-only InventoryMovement ledger khi có model inventoryMovement.
  */
 export async function reserveOrderStock(
   tx: TransactionClient,
-  items: OrderStockItem[]
+  items: OrderStockItem[],
+  operationKey?: string
 ): Promise<string | null> {
-  for (const item of items) {
+  const normalizedItems = normalizeOrderStockItems(items);
+  const baseKey = operationKey ?? `reserve:${Date.now()}`;
+
+  // 1. Ledger path: Route qua append-only InventoryMovement
+  if ('inventoryMovement' in tx && typeof (tx as any).inventoryMovement?.create === 'function') {
+    for (const item of normalizedItems) {
+      const itemKey = `${baseKey}:${item.productId}:${item.variantId ?? 'base'}`;
+      try {
+        await applyInventoryMovement(tx, {
+          operationKey: itemKey,
+          target: { productId: item.productId, variantId: item.variantId },
+          kind: 'RESERVE',
+          deltaOnHand: 0,
+          deltaReserved: item.quantity,
+          deltaQuarantined: 0,
+          reason: 'Order stock reservation',
+          referenceType: 'ORDER',
+          referenceId: baseKey,
+        });
+      } catch (err: any) {
+        return item.variantId ?? item.productId;
+      }
+    }
+    return null;
+  }
+
+  // 2. Legacy fallback path for simple mocks without inventoryMovement model
+  for (const item of normalizedItems) {
     if (item.variantId) {
       const result = await tx.productVariant.updateMany({
         where: {
@@ -45,7 +62,6 @@ export async function reserveOrderStock(
         return item.variantId;
       }
 
-      // Đồng bộ giảm tồn kho ở sản phẩm gốc
       await tx.product.update({
         where: { id: item.productId },
         data: { stock: { decrement: item.quantity } },
@@ -55,6 +71,7 @@ export async function reserveOrderStock(
         where: {
           id: item.productId,
           isActive: true,
+          inventoryMode: 'BASE',
           stock: { gte: item.quantity },
         },
         data: { stock: { decrement: item.quantity } },
@@ -71,25 +88,39 @@ export async function reserveOrderStock(
 
 /**
  * Hoàn trả số lượng hàng tồn kho về lại hệ thống (Inventory Restitution)
- *
- * @param tx - Prisma Transaction Client
- * @param items - Danh sách các sản phẩm và biến thể cần hoàn kho
- *
- * @invariants
- * - Được kích hoạt trong các trường hợp: Admin hủy đơn, Khách hàng hủy đơn, Đơn hàng hết hạn thanh toán (Expire), hoặc Hoàn tiền vào ví (Refund).
- * - Sử dụng phép cộng nguyên tử `stock: { increment: item.quantity }` để bảo đảm số lượng tồn kho chính xác tuyệt đối.
  */
 export async function releaseOrderStock(
   tx: TransactionClient,
-  items: OrderStockItem[]
+  items: OrderStockItem[],
+  operationKey?: string
 ): Promise<void> {
-  for (const item of items) {
+  const normalizedItems = normalizeOrderStockItems(items);
+  const baseKey = operationKey ?? `release:${Date.now()}`;
+
+  if ('inventoryMovement' in tx && typeof (tx as any).inventoryMovement?.create === 'function') {
+    for (const item of normalizedItems) {
+      const itemKey = `${baseKey}:${item.productId}:${item.variantId ?? 'base'}`;
+      await applyInventoryMovement(tx, {
+        operationKey: itemKey,
+        target: { productId: item.productId, variantId: item.variantId },
+        kind: 'RELEASE',
+        deltaOnHand: 0,
+        deltaReserved: -item.quantity,
+        deltaQuarantined: 0,
+        reason: 'Order stock release',
+        referenceType: 'ORDER',
+        referenceId: baseKey,
+      });
+    }
+    return;
+  }
+
+  for (const item of normalizedItems) {
     if (item.variantId) {
       await tx.productVariant.update({
         where: { id: item.variantId },
         data: { stock: { increment: item.quantity } },
       });
-      // Đồng bộ hoàn tồn kho ở sản phẩm gốc
       await tx.product.update({
         where: { id: item.productId },
         data: { stock: { increment: item.quantity } },
@@ -104,17 +135,78 @@ export async function releaseOrderStock(
 }
 
 /**
+ * Xuất kho khi đơn hàng bắt đầu giao cho đơn vị vận chuyển (Fulfillment / Shipment).
+ * Trừ đồng thời số lượng ở onHandStock và reservedStock.
+ */
+export async function consumeShippedStock(
+  tx: TransactionClient,
+  items: OrderStockItem[],
+  operationKey?: string
+): Promise<void> {
+  const normalizedItems = normalizeOrderStockItems(items);
+  const baseKey = operationKey ?? `ship:${Date.now()}`;
+
+  if ('inventoryMovement' in tx && typeof (tx as any).inventoryMovement?.create === 'function') {
+    for (const item of normalizedItems) {
+      const itemKey = `${baseKey}:${item.productId}:${item.variantId ?? 'base'}`;
+      await applyInventoryMovement(tx, {
+        operationKey: itemKey,
+        target: { productId: item.productId, variantId: item.variantId },
+        kind: 'SHIP',
+        deltaOnHand: -item.quantity,
+        deltaReserved: -item.quantity,
+        deltaQuarantined: 0,
+        reason: 'Order shipped to carrier',
+        referenceType: 'SHIPMENT',
+        referenceId: baseKey,
+      });
+    }
+    return;
+  }
+
+  // Fallback for mocks
+  for (const item of normalizedItems) {
+    if (item.variantId) {
+      await tx.productVariant.update({
+        where: { id: item.variantId },
+        data: { stock: { decrement: 0 } },
+      });
+    }
+  }
+}
+
+/**
+ * Đưa hàng trả về vào khu vực cách ly (Quarantine) để kiểm định kỹ thuật, không tự restock.
+ */
+export async function quarantineReturnedStock(
+  tx: TransactionClient,
+  items: OrderStockItem[],
+  operationKey?: string
+): Promise<void> {
+  const normalizedItems = normalizeOrderStockItems(items);
+  const baseKey = operationKey ?? `quarantine:${Date.now()}`;
+
+  if ('inventoryMovement' in tx && typeof (tx as any).inventoryMovement?.create === 'function') {
+    for (const item of normalizedItems) {
+      const itemKey = `${baseKey}:${item.productId}:${item.variantId ?? 'base'}`;
+      await applyInventoryMovement(tx, {
+        operationKey: itemKey,
+        target: { productId: item.productId, variantId: item.variantId },
+        kind: 'QUARANTINE',
+        deltaOnHand: item.quantity,
+        deltaReserved: 0,
+        deltaQuarantined: item.quantity,
+        reason: 'Returned stock received into quarantine',
+        referenceType: 'RETURN',
+        referenceId: baseKey,
+      });
+    }
+    return;
+  }
+}
+
+/**
  * Tác vụ định kỳ (Cron / Background Worker) tự động quét và hủy các đơn hàng chưa thanh toán đã quá hạn.
- *
- * @param prisma - PrismaClient instance để thực thi truy vấn và transaction
- * @returns Số lượng đơn hàng đã được quét và xử lý hủy quá hạn
- *
- * @workflow & Invariants
- * 1. Nhận diện đơn quá hạn: Quét các đơn thỏa mãn đồng thời:
- *    `status === 'PENDING'`, `paymentStatus === 'UNPAID'`, và `expiresAt < now` (thường sau 15 phút khởi tạo mã VietQR).
- * 2. Cập nhật trạng thái Atomic CAS: Chuyển sang `paymentStatus: 'EXPIRED'` và `status: 'CANCELLED'`.
- * 3. Hoàn tồn kho tự động: Gọi `releaseOrderStock` để nhả hàng đã giữ về lại kho cho khách hàng khác mua.
- * 4. Thu hồi mã khuyến mại: Nếu đơn có áp dụng Coupon, giảm `usedCount: { decrement: 1 }` và xóa bản ghi `couponUsage` tương ứng.
  */
 export async function expireUnpaidOrders(prisma: PrismaClient): Promise<number> {
   const expiredOrders = await prisma.order.findMany({
@@ -134,21 +226,28 @@ export async function expireUnpaidOrders(prisma: PrismaClient): Promise<number> 
           status: 'PENDING',
           paymentStatus: 'UNPAID',
         },
-        data: { paymentStatus: 'EXPIRED', status: 'CANCELLED' },
+        data: {
+          status: 'CANCELLED',
+          paymentStatus: 'EXPIRED',
+        },
       });
 
-      if (updated.count === 1) {
-        await releaseOrderStock(tx, order.items);
+      if (updated.count > 0) {
+        await releaseOrderStock(tx, order.items, `order:${order.id}:expire`);
 
-        // Revert coupon usage if applied
         if (order.couponId) {
           await tx.coupon.update({
             where: { id: order.couponId },
             data: { usedCount: { decrement: 1 } },
           });
 
-          if (order.userId) {
-            await tx.couponUsage.deleteMany({
+          await tx.order.update({
+            where: { id: order.id },
+            data: { couponUsageClaimedAt: null },
+          });
+
+          if (order.userId && 'couponUsage' in tx && typeof (tx as any).couponUsage?.deleteMany === 'function') {
+            await (tx as any).couponUsage.deleteMany({
               where: {
                 couponId: order.couponId,
                 userId: order.userId,

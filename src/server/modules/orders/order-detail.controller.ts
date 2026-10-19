@@ -6,7 +6,8 @@ import { authOptions } from '@server/modules/auth/auth-options';
 import { createNotification } from '@server/modules/notifications/notifications.service';
 import { pusherServer } from '@server/infrastructure/pusher';
 import { formatVND } from '@shared/utils';
-import { releaseOrderStock } from '@server/modules/inventory/inventory.service';
+import { releaseOrderStock, consumeShippedStock } from '@server/modules/inventory/inventory.service';
+import { markOrderUnitsSold } from '@server/modules/inventory/serialized-unit.service';
 import { approveAndFulfillOrder } from '@server/modules/orders/order-fulfillment.service';
 import { refundOrderToWallet } from '@server/modules/wallet/wallet.service';
 import {
@@ -17,6 +18,7 @@ import {
   validateOrderTransition,
 } from '@server/modules/orders/orders.fsm';
 import { resolveOperatorAccess } from '@server/modules/admin/guards';
+import { serializeOrderDto } from '@server/modules/money/money-serialization';
 
 interface UpdateOrderBody {
   status?: unknown;
@@ -39,7 +41,7 @@ export async function GET(
       where: { id },
       include: {
         items: { include: { product: true, variant: true } },
-        transaction: true,
+        bankTransfers: true,
         shipment: true,
         user: { select: { id: true, name: true, email: true, phone: true } },
       },
@@ -54,7 +56,7 @@ export async function GET(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    return NextResponse.json({ order });
+    return NextResponse.json({ order: serializeOrderDto(order) });
   } catch (error) {
     console.error('Get order error:', error);
     return NextResponse.json({ error: 'Lỗi hệ thống' }, { status: 500 });
@@ -96,6 +98,10 @@ export async function PATCH(
     const isAdmin = session.user.role === 'ADMIN';
     const isOperator = resolveOperatorAccess(session.user, 'orders');
 
+    if (paymentStatus !== undefined) {
+      return NextResponse.json({ error: 'Trạng thái thanh toán chỉ được đổi qua giao dịch ngân hàng, ví hoặc quy trình hoàn tiền' }, { status: 400 });
+    }
+
     if (!isOperator) {
       // 1. Phải là chủ nhân đơn hàng
       if (currentOrder.userId !== session.user.id) {
@@ -127,6 +133,18 @@ export async function PATCH(
 
     const nextStatus = status as OrderStatus | undefined;
     const nextPaymentStatus = paymentStatus as PaymentStatus | undefined;
+    if (nextStatus === 'CONFIRMED' && currentOrder.paymentStatus !== 'PAID') {
+      return NextResponse.json({ error: 'Chỉ xác nhận đơn sau khi thanh toán được ghi nhận qua ngân hàng hoặc ví' }, { status: 409 });
+    }
+    if ((nextStatus === 'SHIPPING' || nextStatus === 'COMPLETED') && !currentOrder.shipment) {
+      return NextResponse.json({ error: 'Đơn chưa có vận đơn GHN' }, { status: 409 });
+    }
+    if (nextStatus && ['PROCESSING', 'SHIPPING', 'COMPLETED'].includes(nextStatus) && (currentOrder.fulfillmentState === 'REVIEW' || currentOrder.fulfillmentState === 'REQUESTING')) {
+      return NextResponse.json({ error: 'Cần kiểm tra trạng thái tạo vận đơn trên GHN trước khi tiếp tục' }, { status: 409 });
+    }
+    if (nextStatus === 'CANCELLED' && (currentOrder.shipment || currentOrder.fulfillmentState !== 'NONE')) {
+      return NextResponse.json({ error: 'Đơn đã gửi yêu cầu vận đơn GHN; kiểm tra hoặc hủy vận đơn trên GHN trước khi hoàn hàng' }, { status: 409 });
+    }
     const transitionError = validateOrderTransition({
       currentStatus: currentOrder.status,
       currentPaymentStatus: currentOrder.paymentStatus,
@@ -135,6 +153,13 @@ export async function PATCH(
     });
     if (transitionError) {
       return NextResponse.json({ error: transitionError }, { status: 400 });
+    }
+
+    if (nextStatus === 'PROCESSING' && !currentOrder.shipment) {
+      const fulfillment = await approveAndFulfillOrder(currentOrder.id);
+      if (!fulfillment.success) return NextResponse.json({ error: fulfillment.error }, { status: 502 });
+      const order = await prisma.order.findUnique({ where: { id }, include: { items: { include: { product: true, variant: true } } } });
+      return NextResponse.json({ order: order ? serializeOrderDto(order) : null });
     }
 
     const shouldRefundPaidOrder =
@@ -148,17 +173,27 @@ export async function PATCH(
       currentOrder.paymentStatus !== 'PAID';
 
     const updatedOrder = await prisma.$transaction(async (tx) => {
-      const order = await tx.order.update({
-        where: { id },
-        data: {
-          ...(nextStatus && { status: nextStatus }),
-          ...(!shouldRefundPaidOrder && nextPaymentStatus && { paymentStatus: nextPaymentStatus }),
-        },
-        include: { items: { include: { product: true, variant: true } } },
-      });
+      if (!shouldRefundPaidOrder && nextStatus) {
+        const updateData: { status: OrderStatus; completedAt?: Date } = { status: nextStatus };
+        if (nextStatus === 'COMPLETED') {
+          updateData.completedAt = new Date();
+        }
+        const claimed = await tx.order.updateMany({
+          where: { id, status: currentOrder.status, paymentStatus: currentOrder.paymentStatus },
+          data: updateData,
+        });
+        if (claimed.count !== 1) throw new Error('Trạng thái đơn đã thay đổi; vui lòng tải lại');
+
+        if (nextStatus === 'SHIPPING' && currentOrder.status !== 'SHIPPING') {
+          await consumeShippedStock(tx, currentOrder.items, `order:${currentOrder.id}:ship`);
+          if ('serializedUnit' in tx && typeof (tx as any).serializedUnit?.updateMany === 'function') {
+            await markOrderUnitsSold(tx, currentOrder.id);
+          }
+        }
+      }
 
       if (shouldRefundPaidOrder) {
-        await refundOrderToWallet(
+        const refund = await refundOrderToWallet(
           tx,
           currentOrder.id,
           isAdmin
@@ -167,8 +202,9 @@ export async function PATCH(
             ? 'Hủy đơn hàng bởi Nhân viên vận hành'
             : 'Hủy đơn hàng bởi khách hàng'
         );
+        if (!refund.success) throw new Error(refund.error || 'Không thể xử lý hoàn tiền');
       } else if (shouldReleaseStock) {
-        await releaseOrderStock(tx, currentOrder.items);
+        await releaseOrderStock(tx, currentOrder.items, `order:${currentOrder.id}:release`);
 
         // Revert coupon usage if cancelled unpaid
         if (currentOrder.couponId) {
@@ -177,8 +213,13 @@ export async function PATCH(
             data: { usedCount: { decrement: 1 } },
           });
 
-          if (currentOrder.userId) {
-            await tx.couponUsage.deleteMany({
+          await tx.order.update({
+            where: { id: currentOrder.id },
+            data: { couponUsageClaimedAt: null },
+          });
+
+          if (currentOrder.userId && 'couponUsage' in tx && typeof (tx as any).couponUsage?.deleteMany === 'function') {
+            await (tx as any).couponUsage.deleteMany({
               where: {
                 couponId: currentOrder.couponId,
                 userId: currentOrder.userId,
@@ -189,13 +230,8 @@ export async function PATCH(
         }
       }
 
-      return order;
+      return tx.order.findUniqueOrThrow({ where: { id }, include: { items: { include: { product: true, variant: true } } } });
     });
-
-    // Tự động khởi tạo vận đơn GHN khi đơn hàng chuyển sang PROCESSING (thực thi ngoài DB Transaction để giải phóng Connection Pool)
-    if (nextStatus === 'PROCESSING' && !currentOrder.shipment) {
-      await approveAndFulfillOrder(currentOrder.id);
-    }
 
     if (currentOrder.userId) {
       if (nextPaymentStatus === 'PAID' && currentOrder.paymentStatus !== 'PAID') {
@@ -292,7 +328,7 @@ export async function PATCH(
       console.error('[Order Detail] Pusher admin trigger error:', pusherErr);
     }
 
-    return NextResponse.json({ order: updatedOrder });
+    return NextResponse.json({ order: serializeOrderDto(updatedOrder) });
   } catch (error) {
     console.error('Update order error:', error);
     return NextResponse.json({ error: 'Lỗi cập nhật đơn hàng' }, { status: 500 });

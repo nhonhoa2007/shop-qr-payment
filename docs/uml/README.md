@@ -3,7 +3,7 @@
 > **Tài liệu đặc tả kiến trúc kỹ thuật chuẩn UML 2.5**
 > **Hệ thống:** Website Thương mại điện tử Bán lẻ Tích hợp Thanh toán VietQR Tự động & Quản trị SaaS Bento Grid
 > **Chỉ huy kiến trúc:** Tech Lead & System Architect
-> **Ngày cập nhật:** 6/10/2026
+> **Ngày cập nhật:** 18/10/2026
 
 ---
 
@@ -128,8 +128,8 @@ flowchart LR
 ### UML 02: Sơ đồ Lớp Thực thể & Miền Nghiệp vụ (Class & Domain Model)
 
 * **Phân loại UML:** `Class Diagram` (`Structural`)
-* **Mục đích:** Cấu trúc các thực thể dữ liệu Prisma, quan hệ thực thể (ERD) và các dịch vụ nghiệp vụ chính (Domain Services).
-* **Cơ chế & Bất biến:** Mô hình hóa toàn diện các thực thể quan hệ chặt chẽ: User, Order, Product, ProductVariant, Shipment, UserWallet, ChatRoom, Message, Review, Wishlist cùng các Domain Services chịu trách nhiệm thực thi các bất biến logic.
+* **Mục đích:** Cấu trúc 34 thực thể dữ liệu Prisma, quan hệ thực thể (ERD) và các dịch vụ nghiệp vụ chính (Domain Services).
+* **Cơ chế & Bất biến:** Mô hình hóa toàn diện 34 thực thể chuẩn compact-schema: 18 Core Commerce, 8 Catalog & Intelligence, 8 Operations & Aftersales cùng các Domain Services thực thi bất biến logic.
 * **Đường dẫn mã nguồn Mermaid:** `docs/uml/diagrams/02-class-domain.mmd`
 
 #### Mã nguồn Mermaid:
@@ -137,6 +137,7 @@ flowchart LR
 classDiagram
     direction TB
 
+    %% ─── Bounded Context 1: Core Commerce & Identity (18 Models) ───
     class User {
         +String id
         +String email
@@ -147,6 +148,13 @@ classDiagram
         +Boolean isVerified
         +Boolean isBlocked
         +DateTime createdAt
+    }
+
+    class StaffPermission {
+        +String id
+        +String userId
+        +String permission
+        +DateTime grantedAt
     }
 
     class OtpCode {
@@ -162,12 +170,16 @@ classDiagram
     class Product {
         +String id
         +String name
+        +String slug
         +String description
-        +Int price
-        +String category
+        +BigInt price
         +Int stock
+        +ProductKind kind
+        +ProductSegment segment
+        +Json specs
+        +Json images
+        +Json warrantyConfig
         +Boolean isActive
-        +DateTime createdAt
     }
 
     class ProductVariant {
@@ -175,23 +187,22 @@ classDiagram
         +String productId
         +String sku
         +String title
-        +String color
-        +String size
-        +Int price
+        +BigInt price
         +Int stock
+        +String optionHash
+        +Json optionValues
+        +Json specOverrides
+        +Boolean serializationRequired
         +Boolean isActive
     }
 
     class Order {
         +String id
         +String orderCode
-        +String customerName
-        +String customerPhone
-        +String customerAddress
-        +Int totalAmount
-        +Int subtotal
-        +Int discountAmount
-        +Int shippingFee
+        +BigInt totalAmount
+        +BigInt subtotal
+        +BigInt discountAmount
+        +BigInt shippingFee
         +OrderStatus status
         +PaymentStatus paymentStatus
         +String qrContent
@@ -205,82 +216,44 @@ classDiagram
         +String variantId
         +String variantTitle
         +Int quantity
-        +Int price
+        +Int returnedQuantity
+        +BigInt price
+    }
+
+    class BankTransfer {
+        +String id
+        +String orderId
+        +String bankTransId
+        +String fingerprint
+        +BigInt amount
+        +BankTransferStatus status
+        +DateTime receivedAt
+    }
+
+    class RefundCase {
+        +String id
+        +String sourceKey
+        +String orderId
+        +String returnRequestId
+        +BigInt amount
+        +RefundCaseStatus status
     }
 
     class Coupon {
         +String code
         +DiscountType discountType
         +Int discountValue
-        +Int minOrderAmount
+        +BigInt minOrderAmount
         +Int usageLimit
         +Int usedCount
         +Boolean isActive
-    }
-
-    class CouponUsage {
-        +String id
-        +String couponId
-        +String userId
-        +String orderId
-    }
-
-    class Transaction {
-        +String id
-        +String orderId
-        +String bankTransId
-        +Int amount
-        +String description
-        +Boolean verified
-        +DateTime receivedAt
-    }
-
-    class Shipment {
-        +String id
-        +String orderId
-        +CarrierName carrier
-        +String trackingCode
-        +Int shippingFee
-        +ShipmentStatus status
-    }
-
-    class UserWallet {
-        +String id
-        +String userId
-        +Int balance
-        +DateTime updatedAt
-    }
-
-    class WalletTransaction {
-        +String id
-        +String walletId
-        +Int amount
-        +WalletTxType type
-        +String description
-        +DateTime createdAt
-    }
-
-    class ChatRoom {
-        +String id
-        +String orderId
-        +String lastMessage
-        +DateTime lastActiveAt
-    }
-
-    class Message {
-        +String id
-        +String roomId
-        +String senderId
-        +String content
-        +MessageType type
-        +Boolean isRead
-        +DateTime createdAt
     }
 
     class Review {
         +String id
         +String productId
         +String userId
+        +String orderId
         +Int rating
         +String comment
         +String reply
@@ -294,75 +267,285 @@ classDiagram
         +DateTime createdAt
     }
 
-    %% Domain Service Layer
+    class ChatRoom {
+        +String id
+        +String orderId
+        +String customerId
+        +String assignedStaffId
+        +DateTime customerReadAt
+        +DateTime staffReadAt
+    }
+
+    class Message {
+        +String id
+        +String roomId
+        +String senderId
+        +String content
+        +MessageType type
+        +Boolean isRead
+        +DateTime createdAt
+    }
+
+    class Notification {
+        +String id
+        +String userId
+        +String title
+        +String message
+        +Boolean isRead
+        +DateTime createdAt
+    }
+
+    class Shipment {
+        +String id
+        +String orderId
+        +CarrierName carrier
+        +String trackingCode
+        +BigInt shippingFee
+        +ShipmentStatus status
+        +Json shippingLogs
+    }
+
+    class UserWallet {
+        +String id
+        +String userId
+        +BigInt balance
+        +DateTime updatedAt
+    }
+
+    class WalletTransaction {
+        +String id
+        +String walletId
+        +BigInt amount
+        +WalletTxType type
+        +String description
+        +DateTime createdAt
+    }
+
+    %% ─── Bounded Context 2: Catalog & Intelligence (8 Models) ───
+    class Brand {
+        +String id
+        +String name
+        +String slug
+        +String country
+        +String websiteUrl
+        +Boolean isActive
+    }
+
+    class Category {
+        +String id
+        +String name
+        +String slug
+        +ProductKind kind
+        +Int specSchemaVersion
+        +Json specSchema
+        +Json scoringConfig
+        +Json warrantyConfig
+        +Boolean isActive
+    }
+
+    class DataSource {
+        +String id
+        +String name
+        +SourceType sourceType
+        +SourceStatus status
+        +String publisher
+        +String url
+        +String license
+        +String checksum
+        +Boolean isSynthetic
+        +Json payload
+    }
+
+    class BenchmarkMeasurement {
+        +String id
+        +String sourceId
+        +String productId
+        +String variantId
+        +String metricName
+        +Float value
+        +String unit
+        +MeasurementConfidence confidence
+    }
+
+    class ProductScoreSnapshot {
+        +String id
+        +String productId
+        +String useCase
+        +Int scoreVersion
+        +Int finalScore
+        +Int priceEfficiencyScore
+        +Float confidence
+        +Json rubricWeights
+        +Json subScores
+        +Json evidenceSnapshot
+    }
+
+    class AssistantConversation {
+        +String id
+        +String userId
+        +String anonymousSessionId
+        +String title
+        +DateTime lastActiveAt
+        +DateTime expiresAt
+    }
+
+    class AssistantMessage {
+        +String id
+        +String conversationId
+        +MessageRole role
+        +String content
+        +Json citations
+        +Json numericClaims
+        +Json usage
+    }
+
+    class CompatibilityRule {
+        +String id
+        +String ruleCode
+        +RuleScope scope
+        +RuleDirection direction
+        +Int version
+        +Json conditions
+        +Json warnings
+        +RuleLifecycle lifecycle
+    }
+
+    %% ─── Bounded Context 3: Operations & Aftersales (8 Models) ───
+    class InventoryMovement {
+        +String id
+        +String operationKey
+        +String variantId
+        +InventoryMovementKind kind
+        +Int delta
+        +Int balanceAfter
+        +String batchRef
+        +DateTime createdAt
+    }
+
+    class Supplier {
+        +String id
+        +String code
+        +String name
+        +String contactName
+        +String email
+        +String phone
+        +Boolean isActive
+    }
+
+    class PurchaseOrder {
+        +String id
+        +String poNumber
+        +String supplierId
+        +PurchaseOrderStatus status
+        +BigInt totalCost
+        +DateTime orderedAt
+        +DateTime expectedAt
+    }
+
+    class PurchaseOrderItem {
+        +String id
+        +String purchaseOrderId
+        +String variantId
+        +Int orderedQuantity
+        +Int receivedQuantity
+        +BigInt unitCost
+    }
+
+    class SerializedUnit {
+        +String id
+        +String variantId
+        +String serialNumber
+        +String imei1
+        +String imei2
+        +SerializedUnitStatus status
+        +String orderItemId
+        +Boolean isQuarantined
+    }
+
+    class AdminAuditLog {
+        +String id
+        +String actorId
+        +String action
+        +String targetType
+        +String targetId
+        +Json beforeState
+        +Json afterState
+        +String correlationId
+        +DateTime createdAt
+    }
+
+    class WarrantyClaim {
+        +String id
+        +String claimCode
+        +String orderId
+        +String orderItemId
+        +String serializedUnitId
+        +String userId
+        +WarrantyClaimStatus status
+        +String reason
+        +Json timeline
+        +Json evidenceRefs
+    }
+
+    class ReturnRequest {
+        +String id
+        +String requestCode
+        +String orderId
+        +String userId
+        +ReturnRequestStatus status
+        +ReturnDisposition disposition
+        +Json items
+        +Json timeline
+    }
+
+    %% ─── Key Domain Service Layer ───
     class WalletService {
         +getOrCreateWallet(userId)
         +payOrderWithWallet(userId, orderId)
         +refundOrderToWallet(orderId)
     }
 
-    class WalletTopupService {
-        +createTopupPaymentLink(userId, amount)
-        +processTopupWebhook(payload)
-    }
-
     class InventoryService {
         +reserveOrderStock(tx, items)
         +releaseOrderStock(tx, items)
-        +expireUnpaidOrders(prisma)
+        +recordMovement(tx, movement)
     }
 
-    class OrderFSM {
-        +validateOrderTransition(order, nextStatus)
-        +canCancel(order)
-        +canShip(order)
+    class CommerceIntelligenceService {
+        +evaluateScore(productId, useCase)
+        +verifyCompatibility(productA, productB)
+        +groundAssistantAnswer(query, evidence)
     }
 
-    class CassoWebhookService {
-        +verifySecureToken(token)
-        +processPaymentWebhook(payload)
-    }
-
-    class GHNService {
-        +calculateFee(data)
-        +createShipment(order)
-    }
-
-    class ChatService {
-        +getOrCreateRoom(userId, orderId)
-        +sendMessage(roomId, senderId, content)
-        +markAsRead(roomId, userId)
-    }
-
-    %% Relationships
+    %% ─── Entity Relationships ───
     User "1" --> "*" Order : places
     User "1" --> "1" UserWallet : owns
     User "1" --> "*" Review : writes
     User "1" --> "*" Wishlist : saves
     User "1" --> "*" OtpCode : requests
+    User "1" --> "*" StaffPermission : holds
     UserWallet "1" --> "*" WalletTransaction : logs
-    Order "1" --> "*" OrderItem : contains
+    Category "1" --> "*" Product : classifies
+    Brand "1" --> "*" Product : manufactures
     Product "1" --> "*" ProductVariant : owns
     Product "1" --> "*" OrderItem : references
+    Product "1" --> "*" BenchmarkMeasurement : benchmarks
+    Product "1" --> "*" ProductScoreSnapshot : scores
     ProductVariant "1" --> "*" OrderItem : fulfills
-    Order "1" --> "0..1" Transaction : paid_by
+    ProductVariant "1" --> "*" InventoryMovement : moves
+    ProductVariant "1" --> "*" SerializedUnit : tracks
+    Order "1" --> "*" OrderItem : contains
+    Order "1" --> "*" BankTransfer : paid_by
+    Order "1" --> "*" RefundCase : refunds
     Order "1" --> "0..1" Shipment : shipped_via
     Order "1" --> "0..1" ChatRoom : links
-    Coupon "1" --> "*" Order : applies
-    Coupon "1" --> "*" CouponUsage : records
+    Order "1" --> "*" WarrantyClaim : guarantees
+    Order "1" --> "*" ReturnRequest : returns
     ChatRoom "1" --> "*" Message : contains
-    Product "1" --> "*" Review : receives
-    Product "1" --> "*" Wishlist : favorited_in
-
-    %% Service Associations
-    WalletService ..> UserWallet : mutates_cas
-    WalletTopupService ..> UserWallet : credits_cas
-    InventoryService ..> Product : locks_and_updates
-    InventoryService ..> ProductVariant : locks_and_updates
-    OrderFSM ..> Order : guards_transitions
-    CassoWebhookService ..> Transaction : reconciles
-    GHNService ..> Shipment : syncs_status
-    ChatService ..> ChatRoom : orchestrates
+    Supplier "1" --> "*" PurchaseOrder : supplies
+    PurchaseOrder "1" --> "*" PurchaseOrderItem : contains
+    AssistantConversation "1" --> "*" AssistantMessage : contains
+    SerializedUnit "1" --> "*" WarrantyClaim : claims
 ```
 
 ---
@@ -409,7 +592,7 @@ sequenceDiagram
     Webhook->>Webhook: So khớp secure-token (timing-safe)
     Webhook->>DB: Kiểm tra Idempotency (bankTransId đã xử lý chưa?)
     Webhook->>DB: Atomic Update Order (status: CONFIRMED, paymentStatus: PAID)
-    Webhook->>DB: Lưu Transaction (bankTransId, amount, verified: true)
+    Webhook->>DB: Lưu BankTransfer (bankTransId, amount, status: APPLIED_ORDER)
     Webhook->>GHN: createGHNShipment (Tự động sinh vận đơn giao hàng)
     GHN-->>Webhook: Trả về trackingCode GHN
     Webhook->>DB: Lưu Shipment (trackingCode, status: READY_TO_PICK)
@@ -667,7 +850,7 @@ flowchart TD
     %% Nhánh 1: Nạp tiền Ví
     CheckType -- Khớp NAPxxxxx --> QueryTopup[Truy vấn Phiên Nạp tiền Ví]
     QueryTopup --> CheckTopupExists{Tìm thấy phiên nạp ví?}
-    CheckTopupExists -- Không --> LogUnmatched[Lưu Transaction: verified=false, UNMATCHED] --> Resp200[Trả về 200 OK để Ngân hàng không retry]
+    CheckTopupExists -- Không --> LogUnmatched[Lưu BankTransfer: status=PENDING, UNMATCHED] --> Resp200[Trả về 200 OK để Ngân hàng không retry]
 
     CheckTopupExists -- Có --> CheckTopupIdempotency{bankTransId đã xử lý trước đó?}
     CheckTopupIdempotency -- Đã xử lý (Replay) --> SkipDupTopup[Bỏ qua nạp trùng: Trả về thành công Idempotent] --> Resp200
@@ -686,7 +869,7 @@ flowchart TD
     CheckOrderStatus -- Đã PAID / CANCELLED / EXPIRED --> LogLateTx[Ghi nhận giao dịch kèm cảnh báo Admin xử lý thủ công] --> Resp200
 
     CheckOrderStatus -- PENDING (Chờ tiền) --> CompareAmount{Số tiền nhận >= Tổng tiền đơn?}
-    CompareAmount -- Thiếu tiền --> UnderpaidAlert[Lưu Transaction: Cảnh báo Khách chuyển thiếu tiền] --> Resp200
+    CompareAmount -- Thiếu tiền --> UnderpaidAlert[Lưu BankTransfer: Cảnh báo Khách chuyển thiếu tiền] --> Resp200
 
     CompareAmount -- Đủ hoặc Thừa tiền --> AtomicUpdateOrder[Cập nhật Order: status=CONFIRMED, paymentStatus=PAID]
     AtomicUpdateOrder --> PushGHN[Tự động gọi GHN OpenAPI sinh Vận đơn Giao hàng]
@@ -1079,13 +1262,13 @@ sequenceDiagram
     API->>DB: BEGIN TRANSACTION
     API->>DB: reserveOrderStock (CAS stock >= qty, trừ variant + đồng bộ gốc)
     API->>DB: Tạo Order (DHyyMMddxxx, expiresAt +15 phút, qrContent)
-    API->>DB: coupon.usedCount++ + couponUsage (nếu đăng nhập)
+    API->>DB: coupon.usedCount++ (nếu đăng nhập)
     API->>DB: COMMIT — lỗi 1 bước là ROLLBACK toàn bộ
     API-->>KH: QR VietQR + mã đơn + hạn 15 phút
     KH->>BANK: Quét QR chuyển khoản đúng số tiền
     BANK->>API: POST /api/webhooks/payment (secure-token)
     API->>API: 8 cổng chặn parser (dup/sai tiền/trả thiếu/hết hạn...)
-    API->>DB: PAID + CONFIRMED + Transaction(verified) — idempotent
+    API->>DB: PAID + CONFIRMED + BankTransfer(APPLIED_ORDER) — idempotent
     API-->>KH: Pusher payment-success → màn hình Đã thanh toán ngay
     API-->>AD: Thông báo + analytics-updated
     AD->>API: PATCH → PROCESSING
@@ -1125,7 +1308,7 @@ flowchart TD
     G6 -- "Có" --> S6["SKIP · ORDER_EXPIRED / ORDER_CANCELLED"]
     G6 -- "Không" --> G7{"amount nhỏ hơn totalAmount?"}
     G7 -- "Có" --> S7["SKIP · UNDERPAID — không chấp nhận trả thiếu"]
-    G7 -- "Đủ tiền" --> OK["✅ PROCESS trong 1 transaction:<br/>PAID + CONFIRMED + Transaction verified"]
+    G7 -- "Đủ tiền" --> OK["✅ PROCESS trong 1 transaction:<br/>PAID + CONFIRMED + BankTransfer APPLIED_ORDER"]
     OK --> FX["Pusher payment-success cho khách<br/>thông báo khách + mọi admin<br/>tin SYSTEM vào chat đơn · analytics-updated"]
     OK -. "webhook trùng gửi lại → lỗi P2002 được nuốt" .-> S1
 ```
@@ -1161,7 +1344,7 @@ sequenceDiagram
         Note over DB: Guest chưa đăng nhập → isGuest true,<br/>xử lý hoàn ngoài hệ thống
     else Chưa PAID
         API->>DB: releaseOrderStock (hoàn variant + gốc)
-        API->>DB: coupon.usedCount giảm + xóa couponUsage của đơn
+        API->>DB: coupon.usedCount giảm
     end
     API-->>U: Thông báo hủy + hoàn tiền · Pusher order-status-changed / wallet-updated
 ```
@@ -1190,7 +1373,7 @@ flowchart TD
     G2 -- "Đủ" --> CAS["CAS updateMany:<br/>trừ totalAmount WHERE balance >= totalAmount"]
     CAS --> CNT{"count === 1?"}
     CNT -- "0 — số dư vừa bị đổi (race)" --> E4["❌ 'Số dư ví đã thay đổi, vui lòng thử lại'"]
-    CNT -- "1 — thắng" --> OK["WalletTransaction PURCHASE_PAYMENT âm<br/>Đơn PAID + CONFIRMED<br/>Transaction bankName SHOP_WALLET"]
+    CNT -- "1 — thắng" --> OK["WalletTransaction PURCHASE_PAYMENT âm<br/>Đơn PAID + CONFIRMED<br/>BankTransfer bankName SHOP_WALLET"]
     OK --> FX["Pusher payment-success + wallet-updated<br/>thông báo khách + analytics-updated cho admin"]
 ```
 

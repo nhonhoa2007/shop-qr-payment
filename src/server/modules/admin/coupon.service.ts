@@ -8,8 +8,11 @@ export interface CouponValidationResult {
     code: string;
     discountType: string;
     discountValue: number;
-    maxDiscount: number | null;
-    minOrderAmount: number;
+    fixedDiscountAmount?: bigint | null;
+    percentageRate?: number | null;
+    maxDiscount: number | bigint | null;
+    minOrderAmount: number | bigint;
+    perUserLimit: number;
   };
 }
 
@@ -19,11 +22,10 @@ export interface CouponValidationResult {
 export async function validateCoupon(
   code: string,
   userId: string | null,
-  subtotal: number
+  subtotal: number | bigint
 ): Promise<CouponValidationResult> {
   const coupon = await prisma.coupon.findUnique({
     where: { code: code.trim().toUpperCase() },
-    include: { _count: { select: { userUsages: true } } },
   });
 
   if (!coupon || !coupon.isActive) {
@@ -35,17 +37,17 @@ export async function validateCoupon(
     return { valid: false, error: 'Mã giảm giá chưa hoặc đã hết hạn sử dụng' };
   }
 
-  if (coupon._count.userUsages >= coupon.usageLimit) {
+  if (coupon.usedCount >= coupon.usageLimit) {
     return { valid: false, error: 'Mã giảm giá đã hết lượt sử dụng' };
   }
 
-  if (subtotal < coupon.minOrderAmount) {
-    return { valid: false, error: `Đơn hàng tối thiểu để áp dụng mã này là ${coupon.minOrderAmount.toLocaleString('vi-VN')}đ` };
+  if (BigInt(subtotal) < coupon.minOrderAmount) {
+    return { valid: false, error: `Đơn hàng tối thiểu để áp dụng mã này là ${Number(coupon.minOrderAmount).toLocaleString('vi-VN')}đ` };
   }
 
   if (userId) {
-    const usageCount = await prisma.couponUsage.count({
-      where: { couponId: coupon.id, userId },
+    const usageCount = await prisma.order.count({
+      where: { couponId: coupon.id, userId, couponUsageClaimedAt: { not: null } },
     });
     if (usageCount >= coupon.perUserLimit) {
       return { valid: false, error: 'Bạn đã sử dụng hết lượt mã giảm giá này' };
@@ -59,8 +61,11 @@ export async function validateCoupon(
       code: coupon.code,
       discountType: coupon.discountType,
       discountValue: coupon.discountValue,
+      fixedDiscountAmount: coupon.fixedDiscountAmount,
+      percentageRate: coupon.percentageRate,
       maxDiscount: coupon.maxDiscount,
       minOrderAmount: coupon.minOrderAmount,
+      perUserLimit: coupon.perUserLimit,
     },
   };
 }

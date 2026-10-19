@@ -1,4 +1,15 @@
-import type { Prisma, PrismaClient } from '@prisma/client';
+import type { Prisma, PrismaClient, ProductKind, ProductSegment } from '@prisma/client';
+import {
+  adaptLegacyColorSizeToOptionValues,
+  upsertElectronicsProduct,
+  type UpsertElectronicsProductInput,
+} from '../catalog/catalog-write.service.ts';
+
+export {
+  adaptLegacyColorSizeToOptionValues,
+  upsertElectronicsProduct,
+  type UpsertElectronicsProductInput,
+};
 
 export type TransactionClient = Prisma.TransactionClient | PrismaClient;
 
@@ -12,6 +23,12 @@ export interface ValidatedVariantInput {
   size?: string | null;
   image?: string | null;
   isActive: boolean;
+  optionValues?: unknown;
+  optionHash?: string | null;
+  specOverrides?: unknown;
+  images?: unknown;
+  warrantyConfig?: unknown;
+  serializationRequired?: boolean;
 }
 
 export interface CreateProductInput {
@@ -23,6 +40,17 @@ export interface CreateProductInput {
   stock?: number;
   isActive?: boolean;
   variants?: ValidatedVariantInput[];
+  brandId?: string | null;
+  categoryId?: string | null;
+  kind?: string | null;
+  segment?: string | null;
+  specs?: unknown;
+  images?: unknown;
+  warrantyConfig?: unknown;
+  weightGrams?: number | null;
+  lengthCm?: number | null;
+  widthCm?: number | null;
+  heightCm?: number | null;
 }
 
 export interface UpdateProductInput {
@@ -35,6 +63,17 @@ export interface UpdateProductInput {
   stock?: number;
   isActive?: boolean;
   variants?: ValidatedVariantInput[];
+  brandId?: string | null;
+  categoryId?: string | null;
+  kind?: string | null;
+  segment?: string | null;
+  specs?: unknown;
+  images?: unknown;
+  warrantyConfig?: unknown;
+  weightGrams?: number | null;
+  lengthCm?: number | null;
+  widthCm?: number | null;
+  heightCm?: number | null;
 }
 
 /**
@@ -100,6 +139,21 @@ export function validateVariantInput(raw: unknown): {
   const image = normalizeText(v.image);
   const isActive = typeof v.isActive === 'boolean' ? v.isActive : true;
 
+  let optionValues = v.optionValues ?? null;
+  let optionHash = typeof v.optionHash === 'string' ? v.optionHash : null;
+
+  if (!optionValues && (color || size)) {
+    const adapted = adaptLegacyColorSizeToOptionValues({ color, size });
+    optionValues = adapted.optionValues;
+    optionHash = adapted.optionHash;
+  }
+
+  const specOverrides = v.specOverrides ?? null;
+  const images = v.images ?? null;
+  const warrantyConfig = v.warrantyConfig ?? null;
+  const serializationRequired =
+    typeof v.serializationRequired === 'boolean' ? v.serializationRequired : false;
+
   return {
     valid: true,
     variant: {
@@ -112,6 +166,12 @@ export function validateVariantInput(raw: unknown): {
       size,
       image,
       isActive,
+      optionValues,
+      optionHash,
+      specOverrides,
+      images,
+      warrantyConfig,
+      serializationRequired,
     },
   };
 }
@@ -196,6 +256,18 @@ export async function createProductWithVariants(
       category: input.category ?? null,
       stock: computedStock,
       isActive: input.isActive !== false,
+      inventoryMode: hasVariants ? 'VARIANT' : 'BASE',
+      ...(input.brandId !== undefined ? { brandId: input.brandId } : {}),
+      ...(input.categoryId !== undefined ? { categoryId: input.categoryId } : {}),
+      ...(input.kind ? { kind: input.kind as ProductKind } : {}),
+      ...(input.segment ? { segment: input.segment as ProductSegment } : {}),
+      ...(input.specs !== undefined ? { specs: input.specs as Prisma.InputJsonValue } : {}),
+      ...(input.images !== undefined ? { images: input.images as Prisma.InputJsonValue } : {}),
+      ...(input.warrantyConfig !== undefined ? { warrantyConfig: input.warrantyConfig as Prisma.InputJsonValue } : {}),
+      ...(input.weightGrams !== undefined ? { weightGrams: input.weightGrams } : {}),
+      ...(input.lengthCm !== undefined ? { lengthCm: input.lengthCm } : {}),
+      ...(input.widthCm !== undefined ? { widthCm: input.widthCm } : {}),
+      ...(input.heightCm !== undefined ? { heightCm: input.heightCm } : {}),
       ...(hasVariants
         ? {
             variants: {
@@ -208,6 +280,12 @@ export async function createProductWithVariants(
                 size: v.size ?? null,
                 image: v.image ?? null,
                 isActive: v.isActive,
+                ...(v.optionValues !== undefined ? { optionValues: v.optionValues as Prisma.InputJsonValue } : {}),
+                ...(v.optionHash !== undefined ? { optionHash: v.optionHash } : {}),
+                ...(v.specOverrides !== undefined ? { specOverrides: v.specOverrides as Prisma.InputJsonValue } : {}),
+                ...(v.images !== undefined ? { images: v.images as Prisma.InputJsonValue } : {}),
+                ...(v.warrantyConfig !== undefined ? { warrantyConfig: v.warrantyConfig as Prisma.InputJsonValue } : {}),
+                ...(v.serializationRequired !== undefined ? { serializationRequired: v.serializationRequired } : {}),
               })),
             },
           }
@@ -252,32 +330,36 @@ export async function updateProductWithVariants(
 
     // 1. Cập nhật biến thể cũ hoặc tạo biến thể mới
     for (const v of incomingList) {
+      const variantData = {
+        sku: v.sku,
+        title: v.title,
+        price: v.price,
+        color: v.color ?? null,
+        size: v.size ?? null,
+        image: v.image ?? null,
+        isActive: v.isActive,
+        ...(v.optionValues !== undefined ? { optionValues: v.optionValues as Prisma.InputJsonValue } : {}),
+        ...(v.optionHash !== undefined ? { optionHash: v.optionHash } : {}),
+        ...(v.specOverrides !== undefined ? { specOverrides: v.specOverrides as Prisma.InputJsonValue } : {}),
+        ...(v.images !== undefined ? { images: v.images as Prisma.InputJsonValue } : {}),
+        ...(v.warrantyConfig !== undefined ? { warrantyConfig: v.warrantyConfig as Prisma.InputJsonValue } : {}),
+        ...(v.serializationRequired !== undefined ? { serializationRequired: v.serializationRequired } : {}),
+      };
+
       if (v.id && existingVariantMap.has(v.id)) {
         await tx.productVariant.update({
           where: { id: v.id },
           data: {
-            sku: v.sku,
-            title: v.title,
-            price: v.price,
-            stock: v.stock,
-            color: v.color ?? null,
-            size: v.size ?? null,
-            image: v.image ?? null,
-            isActive: v.isActive,
+            ...variantData,
+            stock: existingVariantMap.get(v.id)!.stock,
           },
         });
       } else {
         await tx.productVariant.create({
           data: {
             productId: input.id,
-            sku: v.sku,
-            title: v.title,
-            price: v.price,
+            ...variantData,
             stock: v.stock,
-            color: v.color ?? null,
-            size: v.size ?? null,
-            image: v.image ?? null,
-            isActive: v.isActive,
           },
         });
       }
@@ -317,6 +399,17 @@ export async function updateProductWithVariants(
         ...(input.price !== undefined ? { price: input.price } : {}),
         ...(input.image !== undefined ? { image: input.image } : {}),
         ...(input.category !== undefined ? { category: input.category } : {}),
+        ...(input.brandId !== undefined ? { brandId: input.brandId } : {}),
+        ...(input.categoryId !== undefined ? { categoryId: input.categoryId } : {}),
+        ...(input.kind ? { kind: input.kind as ProductKind } : {}),
+        ...(input.segment ? { segment: input.segment as ProductSegment } : {}),
+        ...(input.specs !== undefined ? { specs: input.specs as Prisma.InputJsonValue } : {}),
+        ...(input.images !== undefined ? { images: input.images as Prisma.InputJsonValue } : {}),
+        ...(input.warrantyConfig !== undefined ? { warrantyConfig: input.warrantyConfig as Prisma.InputJsonValue } : {}),
+        ...(input.weightGrams !== undefined ? { weightGrams: input.weightGrams } : {}),
+        ...(input.lengthCm !== undefined ? { lengthCm: input.lengthCm } : {}),
+        ...(input.widthCm !== undefined ? { widthCm: input.widthCm } : {}),
+        ...(input.heightCm !== undefined ? { heightCm: input.heightCm } : {}),
         stock: totalStock,
         ...(typeof input.isActive === 'boolean' ? { isActive: input.isActive } : {}),
       },
@@ -331,6 +424,7 @@ export async function updateProductWithVariants(
   }
 
   // Trường hợp cập nhật không truyền variants (chỉ update thông tin chung của sản phẩm)
+  // Lưu ý: tồn kho không được ghi đè trực tiếp; việc điều chỉnh tồn kho phải qua adjustStock
   const updatedProduct = await tx.product.update({
     where: { id: input.id },
     data: {
@@ -339,7 +433,17 @@ export async function updateProductWithVariants(
       ...(input.price !== undefined ? { price: input.price } : {}),
       ...(input.image !== undefined ? { image: input.image } : {}),
       ...(input.category !== undefined ? { category: input.category } : {}),
-      ...(input.stock !== undefined ? { stock: input.stock } : {}),
+      ...(input.brandId !== undefined ? { brandId: input.brandId } : {}),
+      ...(input.categoryId !== undefined ? { categoryId: input.categoryId } : {}),
+      ...(input.kind ? { kind: input.kind as ProductKind } : {}),
+      ...(input.segment ? { segment: input.segment as ProductSegment } : {}),
+      ...(input.specs !== undefined ? { specs: input.specs as Prisma.InputJsonValue } : {}),
+      ...(input.images !== undefined ? { images: input.images as Prisma.InputJsonValue } : {}),
+      ...(input.warrantyConfig !== undefined ? { warrantyConfig: input.warrantyConfig as Prisma.InputJsonValue } : {}),
+      ...(input.weightGrams !== undefined ? { weightGrams: input.weightGrams } : {}),
+      ...(input.lengthCm !== undefined ? { lengthCm: input.lengthCm } : {}),
+      ...(input.widthCm !== undefined ? { widthCm: input.widthCm } : {}),
+      ...(input.heightCm !== undefined ? { heightCm: input.heightCm } : {}),
       ...(typeof input.isActive === 'boolean' ? { isActive: input.isActive } : {}),
     },
     include: {

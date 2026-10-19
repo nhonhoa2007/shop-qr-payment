@@ -1,7 +1,8 @@
 import { prisma } from '@server/database/prisma';
-import { createGHNShipment } from '@server/modules/shipping/ghn.service';
+import { createGHNShipment, GHNShipmentError } from '@server/modules/shipping/ghn.service';
 import { pusherServer } from '@server/infrastructure/pusher';
 import { createNotification } from '@server/modules/notifications/notifications.service';
+import { assertOrderSerializationReady } from '@server/modules/inventory/serialized-unit.service';
 
 export interface ApproveAndFulfillResult {
   success: boolean;
@@ -19,8 +20,8 @@ export interface ApproveAndFulfillResult {
  * Duyệt đơn hàng và tự động tạo vận đơn GHN (Fulfillment Engine)
  * Đảm bảo tính Idempotent: gọi nhiều lần cho cùng một đơn chỉ sinh 1 vận đơn duy nhất
  */
-export async function approveAndFulfillOrder(orderId: string): Promise<ApproveAndFulfillResult> {
-  const order = await prisma.order.findUnique({
+export async function approveAndFulfillOrder(orderId: string, db: typeof prisma = prisma): Promise<ApproveAndFulfillResult> {
+  const order = await db.order.findUnique({
     where: { id: orderId },
     include: {
       shipment: true,
@@ -44,7 +45,7 @@ export async function approveAndFulfillOrder(orderId: string): Promise<ApproveAn
       orderId: order.id,
       orderCode: order.orderCode,
       trackingCode: order.shipment.trackingCode,
-      shippingFee: order.shipment.shippingFee,
+      shippingFee: Number(order.shipment.shippingFee),
       carrier: order.shipment.carrier,
       expectedDeliveryTime: order.shipment.estimatedArrival,
       isAlreadyProcessed: true,
@@ -70,41 +71,82 @@ export async function approveAndFulfillOrder(orderId: string): Promise<ApproveAn
     };
   }
 
-  // 3. Cập nhật trạng thái đơn sang PROCESSING nếu đang ở CONFIRMED hoặc PENDING
-  if (order.status !== 'PROCESSING') {
-    await prisma.order.update({
-      where: { id: order.id },
-      data: { status: 'PROCESSING' },
+  if (!order.toDistrictId || !order.toWardCode) {
+    return { success: false, orderId, orderCode: order.orderCode, error: 'Đơn hàng thiếu địa bàn nhận hàng GHN' };
+  }
+
+  // 3. Serialization check: thiết bị chính phải gán đủ Serial/IMEI trước khi giao
+  if ('serializedUnit' in db && typeof (db as any).serializedUnit?.findMany === 'function') {
+    const serializationCheck = await assertOrderSerializationReady(db, order.id);
+    if (!serializationCheck.ready) {
+      return {
+        success: false,
+        orderId: order.id,
+        orderCode: order.orderCode,
+        error: `Đơn hàng chưa gán đủ số Serial/IMEI trước khi giao (thiếu ${serializationCheck.missingCount} unit)`,
+      };
+    }
+  }
+
+  // Đơn hàng giá trị cao (> 5.000.000đ) vượt hạn mức bảo hiểm mặc định GHN -> Chuyển sang REVIEW trực tiếp
+  if (BigInt(order.totalAmount) > 5_000_000n) {
+    await db.order.updateMany({
+      where: { id: order.id, fulfillmentState: 'NONE' },
+      data: { fulfillmentState: 'REVIEW' },
     });
+    return {
+      success: false,
+      orderId: order.id,
+      orderCode: order.orderCode,
+      error: 'Đơn hàng giá trị cao (>5.000.000đ) vượt hạn mức bảo hiểm tự động của GHN; đã chuyển sang kiểm tra thủ công.',
+    };
+  }
+
+  const claimed = await db.order.updateMany({
+    where: { id: order.id, fulfillmentState: 'NONE', paymentStatus: 'PAID', status: { in: ['CONFIRMED', 'PROCESSING'] } },
+    data: { fulfillmentState: 'REQUESTING' },
+  });
+  if (claimed.count !== 1) {
+    return { success: false, orderId, orderCode: order.orderCode, error: 'Vận đơn đang xử lý hoặc cần kiểm tra trên GHN trước khi gửi lại' };
   }
 
   // 4. Khởi tạo vận đơn GHN
   try {
-    const toDistrictId = Number(process.env.DEFAULT_TO_DISTRICT_ID) || 1442;
-    const toWardCode = process.env.DEFAULT_TO_WARD_CODE || '20101';
+    const packing = order.packingSnapshot as {
+      totalWeightGrams?: number;
+      lengthCm?: number;
+      widthCm?: number;
+      heightCm?: number;
+    } | null;
+
     const shipmentResult = await createGHNShipment({
       orderId: order.id,
       orderCode: order.orderCode,
       customerName: order.customerName,
       customerPhone: order.customerPhone,
       customerAddress: order.customerAddress,
-      toDistrictId,
-      toWardCode,
+      toDistrictId: order.toDistrictId,
+      toWardCode: order.toWardCode,
+      weight: packing?.totalWeightGrams,
+      length: packing?.lengthCm,
+      width: packing?.widthCm,
+      height: packing?.heightCm,
       items: order.items.map((i) => ({
         name: i.product?.name || 'Sản phẩm',
         quantity: i.quantity,
-        price: i.price,
+        price: Number(i.price),
       })),
-      codAmount: order.paymentStatus === 'PAID' ? 0 : order.totalAmount,
+      codAmount: order.paymentStatus === 'PAID' ? 0 : Number(order.totalAmount),
     });
 
-    const shipment = await prisma.shipment.create({
+    const shipment = await db.shipment.create({
       data: {
         orderId: order.id,
         carrier: shipmentResult.carrier,
         trackingCode: shipmentResult.trackingCode,
-        shippingFee: shipmentResult.shippingFee,
-        codAmount: order.paymentStatus === 'PAID' ? 0 : order.totalAmount,
+        shippingFee: BigInt(shipmentResult.shippingFee),
+        codAmount: order.paymentStatus === 'PAID' ? 0n : BigInt(order.totalAmount),
+        weightGrams: packing?.totalWeightGrams ?? null,
         status: 'READY_TO_PICK',
         estimatedArrival: shipmentResult.expectedDeliveryTime,
         shippingLogs: [
@@ -116,6 +158,7 @@ export async function approveAndFulfillOrder(orderId: string): Promise<ApproveAn
         ],
       },
     });
+    await db.order.update({ where: { id: order.id }, data: { status: 'PROCESSING', fulfillmentState: 'CREATED' } });
 
     // 5. Gửi thông báo và kích hoạt realtime event
     if (order.userId) {
@@ -157,12 +200,16 @@ export async function approveAndFulfillOrder(orderId: string): Promise<ApproveAn
       orderId: order.id,
       orderCode: order.orderCode,
       trackingCode: shipment.trackingCode,
-      shippingFee: shipment.shippingFee,
+      shippingFee: Number(shipment.shippingFee),
       carrier: shipment.carrier,
       expectedDeliveryTime: shipment.estimatedArrival,
       isAlreadyProcessed: false,
     };
   } catch (err) {
+    await db.order.update({
+      where: { id: order.id },
+      data: { fulfillmentState: err instanceof GHNShipmentError && !err.mayHaveCreated ? 'NONE' : 'REVIEW' },
+    });
     console.error('[Fulfillment] Error creating GHN shipment:', err);
     return {
       success: false,

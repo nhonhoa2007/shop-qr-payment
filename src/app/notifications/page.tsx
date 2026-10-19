@@ -1,5 +1,5 @@
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@server/modules/auth/auth-options';
 import { redirect } from 'next/navigation';
 import { NotificationsService } from '@/server/modules/notifications/notifications.service';
 import { NotificationsView } from '@client/views/NotificationsView';

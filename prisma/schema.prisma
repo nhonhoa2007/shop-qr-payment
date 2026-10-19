@@ -20,14 +20,21 @@ model User {
   isBlocked     Boolean               @default(false)
   orders        Order[]
   sentMessages  Message[]             @relation("sender")
-  chatRooms     ChatRoomParticipant[]
+  customerChatRooms ChatRoom[]         @relation("CustomerChatRooms")
+  staffChatRooms    ChatRoom[]         @relation("StaffChatRooms")
   notifications Notification[]
   reviews       Review[]
   wishlists     Wishlist[]
-  couponUsages  CouponUsage[]
   wallet        UserWallet?
   staffPermissions   StaffPermission[]     @relation("UserPermissions")
   grantedPermissions StaffPermission[]     @relation("GrantedPermissions")
+  reviewedDataSources DataSource[]
+  assistantConversations AssistantConversation[]
+  createdRules CompatibilityRule[] @relation("CreatedCompatibilityRules")
+  approvedRules CompatibilityRule[] @relation("ApprovedCompatibilityRules")
+  createdPurchaseOrders PurchaseOrder[] @relation("PoCreatedBy")
+  warrantyClaims WarrantyClaim[]
+  returnRequests ReturnRequest[]
   createdAt     DateTime              @default(now())
   updatedAt     DateTime              @updatedAt
 }
@@ -71,42 +78,333 @@ enum OtpType {
 }
 
 model Product {
-  id          String           @id @default(cuid())
-  name        String
-  description String?
-  price       Int
-  image       String?
-  category    String?
-  stock       Int              @default(0)
-  isActive    Boolean          @default(true)
-  orderItems  OrderItem[]
-  variants    ProductVariant[]
-  reviews     Review[]
-  wishlists   Wishlist[]
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  id              String           @id @default(cuid())
+  name            String
+  description     String?
+  price           BigInt
+  image           String?
+  category        String?
+  brandId         String?
+  brand           Brand?           @relation(fields: [brandId], references: [id])
+  categoryId      String?
+  categoryRef     Category?        @relation(fields: [categoryId], references: [id])
+  kind            ProductKind      @default(LEGACY)
+  segment         ProductSegment?
+  isLegacy        Boolean          @default(false)
+  specs           Json?
+  images          Json?
+  editorialTags   Json?
+  warrantyConfig  Json?
+  catalogVersion  Int              @default(1)
+  stock           Int              @default(0)
+  onHandStock     Int              @default(0)
+  reservedStock   Int              @default(0)
+  quarantinedStock Int             @default(0)
+  stockVersion    Int              @default(0)
+  weightGrams     Int?
+  lengthCm        Int?
+  widthCm         Int?
+  heightCm        Int?
+  isActive        Boolean          @default(true)
+  inventoryMode   InventoryMode    @default(BASE)
+  orderItems      OrderItem[]
+  variants        ProductVariant[]
+  inventoryMovements InventoryMovement[]
+  purchaseOrderItems PurchaseOrderItem[]
+  serializedUnits SerializedUnit[]
+  reviews         Review[]
+  wishlists       Wishlist[]
+  benchmarks      BenchmarkMeasurement[]
+  scoreSnapshots  ProductScoreSnapshot[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   @@index([isActive, category])
+  @@index([categoryId, isActive])
+  @@index([brandId, isActive])
+  @@index([kind, segment, isActive])
   @@index([createdAt])
 }
 
-model ProductVariant {
-  id         String      @id @default(cuid())
-  productId  String
-  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
-  sku        String      @unique
-  title      String
-  color      String?
-  size       String?
-  price      Int
-  stock      Int         @default(0)
-  image      String?
-  isActive   Boolean     @default(true)
-  orderItems OrderItem[]
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+enum InventoryMode {
+  BASE
+  VARIANT
+}
 
+model ProductVariant {
+  id                    String      @id @default(cuid())
+  productId             String
+  product               Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sku                   String      @unique
+  title                 String
+  color                 String?
+  size                  String?
+  price                 BigInt
+  stock                 Int         @default(0)
+  onHandStock           Int         @default(0)
+  reservedStock         Int         @default(0)
+  quarantinedStock      Int         @default(0)
+  stockVersion          Int         @default(0)
+  weightGrams           Int?
+  lengthCm              Int?
+  widthCm               Int?
+  heightCm              Int?
+  image                 String?
+  optionValues          Json?
+  optionHash            String?
+  specOverrides         Json?
+  images                Json?
+  warrantyConfig        Json?
+  serializationRequired Boolean     @default(false)
+  isActive              Boolean     @default(true)
+  orderItems            OrderItem[]
+  inventoryMovements    InventoryMovement[]
+  purchaseOrderItems    PurchaseOrderItem[]
+  serializedUnits       SerializedUnit[]
+  benchmarks            BenchmarkMeasurement[]
+  scoreSnapshots        ProductScoreSnapshot[]
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  @@unique([productId, optionHash])
   @@index([productId])
+  @@index([productId, isActive])
+}
+
+model Brand {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  logoUrl     String?
+  country     String?
+  websiteUrl  String?
+  isActive    Boolean   @default(true)
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([isActive])
+}
+
+model Category {
+  id                String      @id @default(cuid())
+  name              String
+  slug              String      @unique
+  kind              ProductKind @default(LEGACY)
+  parentId          String?
+  parent            Category?   @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children          Category[]  @relation("CategoryHierarchy")
+  specSchema        Json
+  specSchemaVersion Int         @default(1)
+  scoringConfig     Json?
+  warrantyConfig    Json?
+  isActive          Boolean     @default(true)
+  products          Product[]
+  sourceRules       CompatibilityRule[] @relation("SourceCategoryRules")
+  targetRules       CompatibilityRule[] @relation("TargetCategoryRules")
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@index([parentId])
+  @@index([kind, isActive])
+}
+
+model DataSource {
+  id              String         @id @default(cuid())
+  name            String
+  sourceType      DataSourceType
+  status          SourceStatus   @default(DISCOVERED)
+  publisher       String
+  url             String?
+  license         String?
+  market          String?
+  version         String?
+  checksum        String?
+  isSynthetic     Boolean        @default(false)
+  reviewerId      String?
+  reviewer        User?          @relation(fields: [reviewerId], references: [id])
+  reviewedAt      DateTime?
+  rejectionReason String?
+  payload         Json?
+  benchmarks      BenchmarkMeasurement[]
+  compatibilityRules CompatibilityRule[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([sourceType, status])
+  @@index([status])
+}
+
+model BenchmarkMeasurement {
+  id          String          @id @default(cuid())
+  sourceId    String
+  source      DataSource      @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId   String?
+  variant     ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  metric      String
+  value       Float
+  unit        String
+  methodology String?
+  measuredAt  DateTime?
+  version     Int             @default(1)
+  sampleSize  Int             @default(1)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@unique([sourceId, productId, variantId, metric, version])
+  @@index([productId, metric])
+  @@index([sourceId])
+}
+
+model ProductScoreSnapshot {
+  id              String          @id @default(cuid())
+  productId       String
+  product         Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId       String?
+  variant         ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  useCase         String
+  finalScore      Float
+  priceEfficiency Float
+  experience      Float
+  support         Float
+  coverage        Float
+  status          String          @default("ACTIVE")
+  isGoodValue     Boolean         @default(false)
+  rubricVersion   Int             @default(1)
+  rubricSnapshot  Json
+  breakdown       Json
+  sourceRefs      Json
+  missingEvidence Json?
+  sourceSetHash   String
+  priceSnapshot   String
+  revisionKey     String          @unique
+  publishedAt     DateTime        @default(now())
+  createdAt       DateTime        @default(now())
+
+  @@index([productId, useCase, status])
+  @@index([isGoodValue, status])
+  @@index([publishedAt])
+}
+
+model AssistantConversation {
+  id                 String             @id @default(cuid())
+  userId             String?
+  user               User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anonymousTokenHash String?
+  title              String             @default("Tư vấn sản phẩm")
+  status             String             @default("ACTIVE")
+  metadata           Json?
+  expiresAt          DateTime
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  messages           AssistantMessage[]
+
+  @@index([userId, status])
+  @@index([anonymousTokenHash, status])
+  @@index([expiresAt])
+}
+
+model AssistantMessage {
+  id               String                @id @default(cuid())
+  conversationId   String
+  conversation     AssistantConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role             String
+  content          String
+  followUpQuestion String?
+  citations        Json?
+  claims           Json?
+  usage            Json?
+  isGrounded       Boolean               @default(true)
+  fallbackReason   String?
+  createdAt        DateTime              @default(now())
+
+  @@index([conversationId, createdAt])
+}
+
+enum ProductKind {
+  LAPTOP
+  PHONE
+  ACCESSORY
+  LEGACY
+}
+
+enum ProductSegment {
+  BUDGET
+  MID_RANGE
+  PREMIUM
+  FLAGSHIP
+}
+
+enum SourceStatus {
+  DISCOVERED
+  LICENSE_REVIEW
+  MAPPING_REVIEW
+  APPROVED
+  ACTIVE
+  REJECTED
+  REVOKED
+}
+
+enum DataSourceType {
+  CATALOG
+  REVIEW_AGGREGATE
+  BENCHMARK
+  COMPATIBILITY
+  MANUFACTURER
+}
+
+// ==========================================
+// M4: DETERMINISTIC COMPATIBILITY RULE ENGINE
+// ==========================================
+
+model CompatibilityRule {
+  id               String                  @id @default(cuid())
+  ruleCode         String
+  name             String
+  description      String?
+  direction        CompatibilityDirection  @default(HOST_TO_ACCESSORY)
+  sourceCategoryId String?
+  sourceCategory   Category?               @relation("SourceCategoryRules", fields: [sourceCategoryId], references: [id])
+  targetCategoryId String?
+  targetCategory   Category?               @relation("TargetCategoryRules", fields: [targetCategoryId], references: [id])
+  categoryScope    Json?
+  conditions       Json
+  warnings         Json?
+  market           String?                 @default("VN")
+  version          Int                     @default(1)
+  status           CompatibilityRuleStatus @default(DRAFT)
+  sourceId         String?
+  source           DataSource?             @relation(fields: [sourceId], references: [id])
+  createdById      String?
+  createdBy        User?                   @relation("CreatedCompatibilityRules", fields: [createdById], references: [id])
+  approvedById     String?
+  approvedBy       User?                   @relation("ApprovedCompatibilityRules", fields: [approvedById], references: [id])
+  approvedAt       DateTime?
+  rejectionReason  String?
+  revokedAt        DateTime?
+  revocationReason String?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  @@unique([ruleCode, version])
+  @@index([status, sourceCategoryId, targetCategoryId])
+  @@index([ruleCode, status])
+  @@index([sourceId])
+}
+
+enum CompatibilityDirection {
+  HOST_TO_ACCESSORY
+  ACCESSORY_TO_HOST
+  BIDIRECTIONAL
+}
+
+enum CompatibilityRuleStatus {
+  DRAFT
+  ACTIVE
+  REVOKED
+  ARCHIVED
 }
 
 model Order {
@@ -118,27 +416,41 @@ model Order {
   customerPhone   String
   customerEmail   String?
   customerAddress String
+  toDistrictId    Int?
+  toWardCode      String?
   items           OrderItem[]
-  totalAmount     Int
-  subtotal        Int           @default(0)
-  discountAmount  Int           @default(0)
-  shippingFee     Int           @default(0)
+  totalAmount     BigInt
+  subtotal        BigInt        @default(0)
+  discountAmount  BigInt        @default(0)
+  shippingFee     BigInt        @default(0)
   couponId        String?
   couponCode      String?
   coupon          Coupon?       @relation(fields: [couponId], references: [id])
+  couponUsageClaimedAt DateTime?
   status          OrderStatus   @default(PENDING)
   paymentStatus   PaymentStatus @default(UNPAID)
-  transaction     Transaction?
   chatRoom        ChatRoom?
   shipment        Shipment?
-  qrContent       String?
+  bankTransfers   BankTransfer[]
+  refundCases     RefundCase[]
+  serializedUnits SerializedUnit[]
+  warrantyClaims  WarrantyClaim[]
+  returnRequests  ReturnRequest[]
+  fulfillmentState         FulfillmentState @default(NONE)
+  manualFulfillmentOutcome String?
+  customerConsentRef       String?
+  packingSnapshot          Json?
+  packingRevision          String?
+  qrContent                String?
   note            String?
   expiresAt       DateTime
+  completedAt     DateTime?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
   @@index([userId, createdAt])
   @@index([status, paymentStatus, expiresAt])
+  @@index([status, completedAt])
   @@index([createdAt])
 }
 
@@ -158,17 +470,94 @@ enum PaymentStatus {
   REFUNDED
 }
 
+enum FulfillmentState {
+  NONE
+  REQUESTING
+  REVIEW
+  CREATED
+}
+
+enum BankTransferStatus {
+  PENDING_REVIEW
+  APPLIED_ORDER
+  APPLIED_TOPUP
+  REFUNDED
+}
+
+model BankTransfer {
+  id              String             @id @default(cuid())
+  fingerprint     String             @unique
+  bankTransId     String?            @unique
+  amount          BigInt
+  description     String
+  bankName        String?
+  senderAccount   String?
+  receivedAt      DateTime?
+  rawWebhookData  Json?
+  orderId         String?
+  order           Order?             @relation(fields: [orderId], references: [id])
+  topupCode       String?
+  status          BankTransferStatus @default(PENDING_REVIEW)
+  reviewReason    String?
+  reviewedById    String?
+  reviewedAt      DateTime?
+  resolutionNote  String?
+  refundCase      RefundCase?
+  createdAt       DateTime           @default(now())
+
+  @@index([status, createdAt])
+  @@index([orderId])
+}
+
+enum RefundCaseStatus {
+  OPEN
+  COMPLETED
+}
+
+model RefundCase {
+  id               String           @id @default(cuid())
+  sourceKey        String           @unique
+  orderId          String?
+  order            Order?           @relation(fields: [orderId], references: [id])
+  bankTransferId   String?          @unique
+  bankTransfer     BankTransfer?    @relation(fields: [bankTransferId], references: [id])
+  amount           BigInt
+  reason           String
+  status           RefundCaseStatus @default(OPEN)
+  resolvedById     String?
+  resolutionNote   String?
+  resolvedAt       DateTime?
+  warrantyClaim    WarrantyClaim?
+  returnRequest    ReturnRequest?
+  entitlementSnapshot Json?
+  allocationSnapshot  Json?
+  createdAt        DateTime         @default(now())
+
+  @@index([status, createdAt])
+}
+
 model OrderItem {
-  id           String          @id @default(cuid())
-  orderId      String
-  order        Order           @relation(fields: [orderId], references: [id])
-  productId    String
-  product      Product         @relation(fields: [productId], references: [id])
-  variantId    String?
-  variantTitle String?
-  variant      ProductVariant? @relation(fields: [variantId], references: [id])
-  quantity     Int
-  price        Int
+  id                  String          @id @default(cuid())
+  orderId             String
+  order               Order           @relation(fields: [orderId], references: [id])
+  productId           String
+  product             Product         @relation(fields: [productId], references: [id])
+  variantId           String?
+  variantTitle        String?
+  variant             ProductVariant? @relation(fields: [variantId], references: [id])
+  quantity            Int
+  price               BigInt
+  productName         String?
+  sku                 String?
+  variantOptions      Json?
+  unitPrice           BigInt?
+  warrantySnapshot    Json?
+  packingLineSnapshot Json?
+  schemaRevision      Int?
+  sourceRevision      String?
+  returnedQuantity    Int             @default(0)
+  serializedUnits     SerializedUnit[]
+  warrantyClaims      WarrantyClaim[]
 
   @@index([orderId])
   @@index([productId])
@@ -178,10 +567,12 @@ model Coupon {
   id             String        @id @default(cuid())
   code           String        @unique
   description    String?
-  discountType   DiscountType
-  discountValue  Int
-  maxDiscount    Int?
-  minOrderAmount Int           @default(0)
+  discountType        DiscountType
+  discountValue       Int
+  fixedDiscountAmount BigInt?
+  percentageRate      Int?
+  maxDiscount         BigInt?
+  minOrderAmount BigInt        @default(0)
   usageLimit     Int           @default(100)
   usedCount      Int           @default(0)
   perUserLimit   Int           @default(1)
@@ -189,7 +580,6 @@ model Coupon {
   endDate        DateTime
   isActive       Boolean       @default(true)
   orders         Order[]
-  userUsages     CouponUsage[]
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 }
@@ -198,18 +588,6 @@ enum DiscountType {
   FIXED
   PERCENTAGE
   FREE_SHIPPING
-}
-
-model CouponUsage {
-  id        String   @id @default(cuid())
-  couponId  String
-  coupon    Coupon   @relation(fields: [couponId], references: [id])
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  orderId   String
-  createdAt DateTime @default(now())
-
-  @@unique([couponId, userId, orderId])
 }
 
 model Review {
@@ -241,44 +619,24 @@ model Wishlist {
   @@unique([userId, productId])
 }
 
-model Transaction {
-  id             String    @id @default(cuid())
-  orderId        String    @unique
-  order          Order     @relation(fields: [orderId], references: [id])
-  bankTransId    String?   @unique
-  amount         Int
-  description    String
-  bankName       String?
-  senderAccount  String?
-  receivedAt     DateTime?
-  verified       Boolean   @default(false)
-  rawWebhookData Json?
-  createdAt      DateTime  @default(now())
-}
-
 model ChatRoom {
-  id           String                @id @default(cuid())
-  orderId      String?               @unique
-  order        Order?                @relation(fields: [orderId], references: [id])
-  participants ChatRoomParticipant[]
-  messages     Message[]
-  lastMessage  String?
-  lastActiveAt DateTime              @default(now())
-  createdAt    DateTime              @default(now())
+  id              String                @id @default(cuid())
+  orderId         String?               @unique
+  order           Order?                @relation(fields: [orderId], references: [id])
+  customerId      String?
+  customer        User?                 @relation("CustomerChatRooms", fields: [customerId], references: [id], onDelete: SetNull)
+  assignedStaffId String?
+  assignedStaff   User?                 @relation("StaffChatRooms", fields: [assignedStaffId], references: [id], onDelete: SetNull)
+  customerReadAt  DateTime?
+  staffReadAt     DateTime?
+  messages        Message[]
+  lastMessage     String?
+  lastActiveAt    DateTime              @default(now())
+  createdAt       DateTime              @default(now())
 
+  @@index([customerId])
+  @@index([assignedStaffId])
   @@index([lastActiveAt])
-}
-
-model ChatRoomParticipant {
-  id         String   @id @default(cuid())
-  roomId     String
-  room       ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  userId     String
-  user       User     @relation(fields: [userId], references: [id])
-  lastReadAt DateTime @default(now())
-  createdAt  DateTime @default(now())
-
-  @@unique([roomId, userId])
 }
 
 model Message {
@@ -324,6 +682,9 @@ enum NotificationType {
   ORDER_COMPLETED
   NEW_MESSAGE
   OTP_SENT
+  WARRANTY_UPDATED
+  RETURN_UPDATED
+  REFUND_COMPLETED
 }
 
 // ==========================================
@@ -336,8 +697,9 @@ model Shipment {
   order            Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
   carrier          CarrierName    @default(GHN)
   trackingCode     String         @unique
-  shippingFee      Int
-  codAmount        Int            @default(0)
+  shippingFee      BigInt
+  codAmount        BigInt         @default(0)
+  weightGrams      Int?
   status           ShipmentStatus @default(READY_TO_PICK)
   estimatedArrival DateTime?
   shippingLogs     Json?
@@ -368,7 +730,7 @@ model UserWallet {
   id           String              @id @default(cuid())
   userId       String              @unique
   user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  balance      Int                 @default(0)
+  balance      BigInt              @default(0)
   transactions WalletTransaction[]
   createdAt    DateTime            @default(now())
   updatedAt    DateTime            @updatedAt
@@ -378,7 +740,7 @@ model WalletTransaction {
   id          String       @id @default(cuid())
   walletId    String
   wallet      UserWallet   @relation(fields: [walletId], references: [id], onDelete: Cascade)
-  amount      Int
+  amount      BigInt
   type        WalletTxType
   orderId     String?
   description String
@@ -392,4 +754,287 @@ enum WalletTxType {
   PURCHASE_PAYMENT
   TOPUP
 }
+
+enum MovementKind {
+  OPENING_LEGACY
+  RESERVE
+  RELEASE
+  SHIP
+  RECEIVE
+  QUARANTINE
+  RESTOCK
+  ADJUST
+}
+
+model InventoryMovement {
+  id                  String          @id @default(cuid())
+  operationKey        String          @unique
+  payloadFingerprint  String?
+  productId           String
+  product             Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId           String?
+  variant             ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  kind                MovementKind
+  deltaOnHand         Int
+  deltaReserved       Int
+  deltaQuarantined    Int
+  beforeOnHand        Int
+  afterOnHand         Int
+  beforeReserved      Int
+  afterReserved       Int
+  beforeQuarantined   Int
+  afterQuarantined    Int
+  beforeAvailable     Int
+  afterAvailable      Int
+  beforeVersion       Int
+  afterVersion        Int
+  reason              String
+  actorId             String?
+  referenceType       String
+  referenceId         String
+  purchaseOrderItemId String?
+  purchaseOrderItem   PurchaseOrderItem? @relation(fields: [purchaseOrderItemId], references: [id], onDelete: SetNull)
+  createdAt           DateTime        @default(now())
+
+  @@index([productId, variantId])
+  @@index([referenceType, referenceId])
+  @@index([kind, createdAt])
+  @@index([purchaseOrderItemId])
+  @@index([createdAt])
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  ORDERED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+model Supplier {
+  id             String          @id @default(cuid())
+  code           String          @unique
+  name           String
+  contactName    String?
+  email          String?
+  phone          String?
+  address        String?
+  taxId          String?
+  isActive       Boolean         @default(true)
+  notes          String?
+  purchaseOrders PurchaseOrder[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([isActive])
+  @@index([code])
+}
+
+model PurchaseOrder {
+  id                 String              @id @default(cuid())
+  poNumber           String              @unique
+  supplierId         String
+  supplier           Supplier            @relation(fields: [supplierId], references: [id])
+  status             PurchaseOrderStatus @default(DRAFT)
+  totalAmount        BigInt              @default(0)
+  currency           String              @default("VND")
+  orderedAt          DateTime?
+  expectedDeliveryAt DateTime?
+  notes              String?
+  createdById        String?
+  createdBy          User?               @relation("PoCreatedBy", fields: [createdById], references: [id])
+  items              PurchaseOrderItem[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@index([supplierId, status])
+  @@index([status, createdAt])
+  @@index([poNumber])
+}
+
+model PurchaseOrderItem {
+  id                 String              @id @default(cuid())
+  purchaseOrderId    String
+  purchaseOrder      PurchaseOrder       @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  productId          String
+  product            Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId          String?
+  variant            ProductVariant?     @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  orderedQuantity    Int
+  receivedQuantity   Int                 @default(0)
+  unitCost           BigInt
+  inventoryMovements InventoryMovement[]
+  serializedUnits    SerializedUnit[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@unique([purchaseOrderId, productId, variantId])
+  @@index([purchaseOrderId])
+  @@index([productId, variantId])
+}
+
+enum SerializedUnitStatus {
+  AVAILABLE
+  ASSIGNED
+  SOLD
+  QUARANTINED
+  DEFECTIVE
+}
+
+model SerializedUnit {
+  id                  String               @id @default(cuid())
+  productId           String
+  product             Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId           String?
+  variant             ProductVariant?      @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  serialNumber        String?              @unique
+  imei1               String?              @unique
+  imei2               String?              @unique
+  status              SerializedUnitStatus @default(AVAILABLE)
+  orderId             String?
+  order               Order?               @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  orderItemId         String?
+  orderItem           OrderItem?           @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
+  purchaseOrderItemId String?
+  purchaseOrderItem   PurchaseOrderItem?   @relation(fields: [purchaseOrderItemId], references: [id], onDelete: SetNull)
+  supplierId          String?
+  assignedAt          DateTime?
+  soldAt              DateTime?
+  quarantinedAt       DateTime?
+  notes               String?
+  warrantyClaims      WarrantyClaim[]      @relation("ClaimedUnit")
+  replacementForClaims WarrantyClaim[]     @relation("ReplacementUnit")
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  @@index([productId, variantId, status])
+  @@index([orderId, status])
+  @@index([orderItemId])
+  @@index([purchaseOrderItemId])
+  @@index([status])
+}
+
+model AdminAuditLog {
+  id           String   @id @default(cuid())
+  operationKey String   @unique
+  actorId      String
+  actorEmail   String?
+  actorRole    String
+  action       String
+  entityType   String
+  entityId     String
+  beforeState  Json?
+  afterState   Json?
+  reason       String?
+  metadata     Json?
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorId, createdAt])
+  @@index([action, createdAt])
+  @@index([createdAt])
+}
+
+enum WarrantyClaimStatus {
+  SUBMITTED
+  RECEIVED
+  INSPECTING
+  WAITING_PARTS
+  RESOLVED
+  REJECTED
+  CANCELLED
+}
+
+enum WarrantyResolutionOutcome {
+  REPAIRED
+  REPLACED
+  REFUND_RECOMMENDED
+  REJECTED
+}
+
+model WarrantyClaim {
+  id                    String                     @id @default(cuid())
+  claimNumber           String                     @unique
+  customerId            String
+  customer              User                       @relation(fields: [customerId], references: [id])
+  orderId               String
+  order                 Order                      @relation(fields: [orderId], references: [id])
+  orderItemId           String
+  orderItem             OrderItem                  @relation(fields: [orderItemId], references: [id])
+  serializedUnitId      String?
+  serializedUnit        SerializedUnit?            @relation("ClaimedUnit", fields: [serializedUnitId], references: [id])
+  status                WarrantyClaimStatus        @default(SUBMITTED)
+  issueDescription      String
+  timeline              Json
+  evidenceRefs          Json
+  resolution            Json?
+  resolutionOutcome     WarrantyResolutionOutcome?
+  replacementUnitId     String?
+  replacementUnit       SerializedUnit?            @relation("ReplacementUnit", fields: [replacementUnitId], references: [id])
+  refundCaseId          String?                    @unique
+  refundCase            RefundCase?                @relation(fields: [refundCaseId], references: [id])
+  version               Int                        @default(1)
+  lastOperationKey      String?
+  warrantyTermsSnapshot Json
+  resolvedAt            DateTime?
+  createdAt             DateTime                   @default(now())
+  updatedAt             DateTime                   @updatedAt
+
+  @@index([customerId, status])
+  @@index([orderId])
+  @@index([orderItemId, status])
+  @@index([serializedUnitId])
+  @@index([status, createdAt])
+}
+
+enum ReturnRequestStatus {
+  REQUESTED
+  APPROVED
+  ITEM_RECEIVED
+  INSPECTED
+  RESOLVED
+  REJECTED
+  CANCELLED
+}
+
+enum ReturnDisposition {
+  RESTOCKABLE
+  REFURBISH
+  DEFECTIVE
+  RETURN_TO_SUPPLIER
+  DISPOSED
+}
+
+model ReturnRequest {
+  id               String              @id @default(cuid())
+  returnNumber     String              @unique
+  customerId       String
+  customer         User                @relation(fields: [customerId], references: [id])
+  orderId          String
+  order            Order               @relation(fields: [orderId], references: [id])
+  status           ReturnRequestStatus @default(REQUESTED)
+  reason           String
+  items            Json
+  timeline         Json
+  evidenceRefs     Json
+  disposition      ReturnDisposition?
+  dispositionNotes String?
+  refundCaseId     String?             @unique
+  refundCase       RefundCase?         @relation(fields: [refundCaseId], references: [id])
+  version          Int                 @default(1)
+  lastOperationKey String?
+  resolvedAt       DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  @@index([customerId, status])
+  @@index([orderId])
+  @@index([status, createdAt])
+}
+
+
+
+
 

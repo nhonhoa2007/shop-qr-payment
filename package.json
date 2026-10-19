@@ -3,18 +3,27 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "verify": "npm run test && npm run test:integration && npm run lint && npm run arch:check && npm run build",
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "node ./node_modules/eslint/bin/eslint.js .",
     "arch:check": "depcruise src --config .dependency-cruiser.cjs",
     "test": "node --experimental-strip-types --import ./tests/register-alias.mjs --test tests/*.test.ts",
+    "test:integration": "node --experimental-strip-types --import ./tests/register-alias.mjs --test tests/integration/*.test.ts",
     "seed": "node --experimental-strip-types prisma/seed.ts",
     "docs:uml": "node scripts/generate-uml.js",
     "db:backup": "node scripts/db-backup.js",
     "db:restore": "node scripts/db-restore.js",
     "ghn:import": "node scripts/fetch-ghn-locations.js",
-    "seed:demo": "node --experimental-strip-types --env-file=.env prisma/seed-demo-data.ts"
+    "schema:budget": "node scripts/check-prisma-model-budget.mjs",
+    "eval:assistant": "node --experimental-strip-types --import ./tests/register-alias.mjs scripts/eval-assistant.ts",
+    "eval:assistant:online": "node --experimental-strip-types --import ./tests/register-alias.mjs scripts/eval-assistant.ts --online",
+    "eval:commerce": "node --experimental-strip-types --import ./tests/register-alias.mjs scripts/eval-commerce-intelligence.ts",
+    "eval:commerce:online": "node --experimental-strip-types --import ./tests/register-alias.mjs scripts/eval-commerce-intelligence.ts --online",
+    "seed:demo": "node --experimental-strip-types --env-file=.env prisma/seed-demo-data.ts",
+    "seed:demo:electronics": "node --experimental-strip-types --env-file=.env prisma/seed-electronics-demo.ts",
+    "seed:electronics": "node --experimental-strip-types --env-file=.env prisma/seed-electronics-catalog.ts"
   },
   "prisma": {
     "seed": "node --experimental-strip-types prisma/seed.ts"

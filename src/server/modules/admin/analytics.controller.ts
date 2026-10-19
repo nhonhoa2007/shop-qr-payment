@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@server/modules/auth/auth-options';
 import { AdminService } from './admin.service.ts';
 import type { AdminAnalyticsResponse, AnalyticsRange } from '@shared/types';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request?: Request) {
+export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user || session.user.role !== 'ADMIN') {

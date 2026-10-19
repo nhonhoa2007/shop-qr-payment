@@ -61,7 +61,7 @@ export class CustomerOrderService {
       where: { id: orderId },
       include: {
         items: { include: { product: true } },
-        transaction: true,
+        bankTransfers: true,
       },
     });
   }

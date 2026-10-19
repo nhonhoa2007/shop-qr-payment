@@ -31,7 +31,7 @@ sequenceDiagram
     Webhook->>Webhook: So khớp secure-token (timing-safe)
     Webhook->>DB: Kiểm tra Idempotency (bankTransId đã xử lý chưa?)
     Webhook->>DB: Atomic Update Order (status: CONFIRMED, paymentStatus: PAID)
-    Webhook->>DB: Lưu Transaction (bankTransId, amount, verified: true)
+    Webhook->>DB: Lưu BankTransfer (bankTransId, amount, status: APPLIED_ORDER)
     Webhook->>GHN: createGHNShipment (Tự động sinh vận đơn giao hàng)
     GHN-->>Webhook: Trả về trackingCode GHN
     Webhook->>DB: Lưu Shipment (trackingCode, status: READY_TO_PICK)

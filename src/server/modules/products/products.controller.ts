@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
+import type { ProductKind, ProductSegment } from '@prisma/client';
 import { prisma } from '@server/database/prisma';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@server/modules/auth/auth-options';
 import {
   buildProductCacheKey,
   getCachedProductList,
@@ -15,8 +16,11 @@ import {
   createProductWithVariants,
   updateProductWithVariants,
   deleteProductOrVariant,
+  upsertElectronicsProduct,
+  type UpsertElectronicsProductInput,
 } from './product.service.ts';
-import { resolveOperatorAccess } from '@server/modules/admin/guards';
+import { resolveOperatorAccess, type GuardUser } from '@server/modules/admin/guards';
+import { serializeProductDto } from '@server/modules/money/money-serialization';
 
 interface ProductBody {
   id?: unknown;
@@ -28,6 +32,19 @@ interface ProductBody {
   stock?: unknown;
   isActive?: unknown;
   variants?: unknown;
+  brandId?: unknown;
+  categoryId?: unknown;
+  kind?: unknown;
+  segment?: unknown;
+  specs?: unknown;
+  images?: unknown;
+  warrantyConfig?: unknown;
+  weight?: unknown;
+  length?: unknown;
+  width?: unknown;
+  height?: unknown;
+  sources?: unknown;
+  expectedVersion?: unknown;
 }
 
 export async function GET(req: Request) {
@@ -61,7 +78,7 @@ export async function GET(req: Request) {
         return NextResponse.json({ error: 'Không tìm thấy sản phẩm' }, { status: 404 });
       }
 
-      return NextResponse.json({ product });
+      return NextResponse.json({ product: serializeProductDto(product) });
     }
 
     // Query Cache: Chỉ cache danh mục sản phẩm công khai cho khách mua
@@ -107,7 +124,8 @@ export async function GET(req: Request) {
       await setCachedProductList(cacheKey, products, 60);
     }
 
-    return NextResponse.json({ products }, { headers: { 'X-Cache': 'MISS' } });
+    const serializedProducts = products.map(serializeProductDto);
+    return NextResponse.json({ products: serializedProducts }, { headers: { 'X-Cache': 'MISS' } });
   } catch (error) {
     console.error('Get products error:', error);
     return NextResponse.json({ error: 'Lỗi hệ thống' }, { status: 500 });
@@ -128,6 +146,48 @@ export async function POST(req: Request) {
 
     if (!name || price === null || stock === null) {
       return NextResponse.json({ error: 'Dữ liệu không hợp lệ' }, { status: 400 });
+    }
+
+    // Nếu có categoryId hoặc specs -> Xử lý theo quy trình ghi sản phẩm điện tử nguyên tử (M1)
+    if (body.specs !== undefined || body.categoryId !== undefined) {
+      if (!body.categoryId) {
+        return NextResponse.json({ error: 'Sản phẩm điện tử yêu cầu categoryId hợp lệ' }, { status: 400 });
+      }
+
+      const product = await upsertElectronicsProduct(
+        {
+          product: {
+            id: normalizeText(body.id) || undefined,
+            name: name!,
+            description: normalizeText(body.description),
+            price,
+            image: normalizeText(body.image),
+            brandId: normalizeText(body.brandId),
+            categoryId: String(body.categoryId),
+            kind: body.kind ? (body.kind as ProductKind) : undefined,
+            segment: body.segment ? (body.segment as ProductSegment) : undefined,
+            weight: Number(body.weight) || 0,
+            length: Number(body.length) || 0,
+            width: Number(body.width) || 0,
+            height: Number(body.height) || 0,
+            isActive: body.isActive !== false,
+          },
+          specs: body.specs,
+          images: body.images || (body.image ? [{ url: body.image, alt: name!, sortOrder: 0 }] : []),
+          warrantyConfig: body.warrantyConfig,
+          variants: Array.isArray(body.variants)
+            ? (body.variants as UpsertElectronicsProductInput['variants'])
+            : [],
+          sources: Array.isArray(body.sources)
+            ? (body.sources as NonNullable<UpsertElectronicsProductInput['sources']>)
+            : [],
+          expectedVersion: typeof body.expectedVersion === 'number' ? body.expectedVersion : undefined,
+        },
+        session.user as GuardUser
+      );
+
+      await invalidateProductCache();
+      return NextResponse.json({ product }, { status: 201 });
     }
 
     let parsedVariants: ReturnType<typeof validateVariantsArray>['variants'];
@@ -156,9 +216,30 @@ export async function POST(req: Request) {
     // Invalidate product cache
     await invalidateProductCache();
 
-    return NextResponse.json({ product }, { status: 201 });
+    return NextResponse.json({ product: serializeProductDto(product) }, { status: 201 });
   } catch (error: unknown) {
     console.error('Create product error:', error);
+    if (error instanceof Error) {
+      if (error.message.includes('version conflict')) {
+        return NextResponse.json({ error: error.message }, { status: 409 });
+      }
+      if (error.message.startsWith('Unauthorized:')) {
+        return NextResponse.json({ error: error.message }, { status: 403 });
+      }
+      if (error.message.includes('not ready for publication')) {
+        return NextResponse.json({ error: error.message }, { status: 422 });
+      }
+      if (
+        error.message.includes('Category not found') ||
+        error.message.includes('violates') ||
+        error.message.includes('Duplicate') ||
+        error.message.includes('Invalid') ||
+        error.message.includes('required') ||
+        error.message.includes('missing')
+      ) {
+        return NextResponse.json({ error: error.message }, { status: 400 });
+      }
+    }
     const errObj = error as { code?: string; message?: string };
     if (errObj.code === 'P2002') {
       return NextResponse.json(
@@ -194,6 +275,48 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: 'Tên sản phẩm không hợp lệ' }, { status: 400 });
     }
 
+    // Nếu có categoryId hoặc specs -> Xử lý theo quy trình ghi sản phẩm điện tử nguyên tử (M1)
+    if (body.specs !== undefined || body.categoryId !== undefined) {
+      if (!body.categoryId) {
+        return NextResponse.json({ error: 'Sản phẩm điện tử yêu cầu categoryId hợp lệ' }, { status: 400 });
+      }
+
+      const product = await upsertElectronicsProduct(
+        {
+          product: {
+            id,
+            name: name || '',
+            description: body.description !== undefined ? normalizeText(body.description) : undefined,
+            price: price ?? 0,
+            image: body.image !== undefined ? normalizeText(body.image) : undefined,
+            brandId: normalizeText(body.brandId),
+            categoryId: String(body.categoryId),
+            kind: body.kind ? (body.kind as ProductKind) : undefined,
+            segment: body.segment ? (body.segment as ProductSegment) : undefined,
+            weight: Number(body.weight) || 0,
+            length: Number(body.length) || 0,
+            width: Number(body.width) || 0,
+            height: Number(body.height) || 0,
+            isActive: body.isActive !== false,
+          },
+          specs: body.specs,
+          images: body.images,
+          warrantyConfig: body.warrantyConfig,
+          variants: Array.isArray(body.variants)
+            ? (body.variants as UpsertElectronicsProductInput['variants'])
+            : [],
+          sources: Array.isArray(body.sources)
+            ? (body.sources as NonNullable<UpsertElectronicsProductInput['sources']>)
+            : [],
+          expectedVersion: typeof body.expectedVersion === 'number' ? body.expectedVersion : undefined,
+        },
+        session.user as GuardUser
+      );
+
+      await invalidateProductCache();
+      return NextResponse.json({ product });
+    }
+
     let parsedVariants: ReturnType<typeof validateVariantsArray>['variants'];
     if (body.variants !== undefined) {
       const vValidation = validateVariantsArray(body.variants);
@@ -221,11 +344,32 @@ export async function PUT(req: Request) {
     // Invalidate product cache
     await invalidateProductCache();
 
-    return NextResponse.json({ product });
+    return NextResponse.json({ product: serializeProductDto(product) });
   } catch (error: unknown) {
     console.error('Update product error:', error);
-    if (error instanceof Error && error.message === 'NOT_FOUND') {
-      return NextResponse.json({ error: 'Không tìm thấy sản phẩm' }, { status: 404 });
+    if (error instanceof Error) {
+      if (error.message === 'NOT_FOUND') {
+        return NextResponse.json({ error: 'Không tìm thấy sản phẩm' }, { status: 404 });
+      }
+      if (error.message.includes('version conflict')) {
+        return NextResponse.json({ error: error.message }, { status: 409 });
+      }
+      if (error.message.startsWith('Unauthorized:')) {
+        return NextResponse.json({ error: error.message }, { status: 403 });
+      }
+      if (error.message.includes('not ready for publication')) {
+        return NextResponse.json({ error: error.message }, { status: 422 });
+      }
+      if (
+        error.message.includes('Category not found') ||
+        error.message.includes('violates') ||
+        error.message.includes('Duplicate') ||
+        error.message.includes('Invalid') ||
+        error.message.includes('required') ||
+        error.message.includes('missing')
+      ) {
+        return NextResponse.json({ error: error.message }, { status: 400 });
+      }
     }
     const errObj = error as { code?: string; message?: string };
     if (errObj.code === 'P2002') {
