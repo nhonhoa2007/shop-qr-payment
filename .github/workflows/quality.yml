@@ -19,6 +19,8 @@ jobs:
   static-and-unit-gates:
     name: Unit, Lint, Architecture & Schema Budget
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://validation:validation@localhost:5432/schema_validation?schema=public
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
