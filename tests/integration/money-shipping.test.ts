@@ -95,7 +95,6 @@ test('Casso records underpay, overpay, negative, missing ID, and late money for 
     const ledger = await db.bankTransfer.findMany({ where: { orderId: order.id } });
     assert.equal(ledger.length, 5);
     assert.ok(ledger.every((entry) => entry.status === 'PENDING_REVIEW' && entry.reviewReason));
-    assert.equal(await db.transaction.count({ where: { orderId: order.id } }), 0);
     assert.equal((await db.order.findUniqueOrThrow({ where: { id: order.id } })).paymentStatus, 'UNPAID');
   } finally {
     if (priorSecret === undefined) delete process.env.CASSO_WEBHOOK_SECRET;
@@ -118,9 +117,11 @@ test('last coupon use can be claimed only once under concurrency', async (t) => 
 
 test('guest cancellation creates one refund case and releases stock once', async (t) => {
   if (!(await checkDbConnection(t))) return;
-  const product = await db.product.create({ data: { name: `refund-${tag}`, price: 100_000, stock: 0 } });
+  const product = await db.product.create({ data: { name: `refund-${tag}`, price: 100_000, stock: 1, onHandStock: 1 } });
   const order = await db.order.create({ data: { orderCode: `DH${Date.now()}${tag.toUpperCase()}`, customerName: 'Guest', customerPhone: '0900000000', customerAddress: 'Test', subtotal: 100_000, totalAmount: 100_000, status: 'PROCESSING', paymentStatus: 'PAID', expiresAt: new Date(Date.now() + 86_400_000), items: { create: { productId: product.id, quantity: 1, price: 100_000 } } } });
   try {
+    const { reserveOrderStock } = await import('@server/modules/inventory/inventory.service');
+    assert.equal(await db.$transaction((tx) => reserveOrderStock(tx, [{ productId: product.id, quantity: 1 }], `order:${order.id}:reserve`)), null);
     const first = await db.$transaction((tx) => refundOrderToWallet(tx, order.id));
     const second = await db.$transaction((tx) => refundOrderToWallet(tx, order.id));
     assert.equal(first.success, true);
@@ -131,13 +132,14 @@ test('guest cancellation creates one refund case and releases stock once', async
     assert.equal(await db.refundCase.count({ where: { orderId: order.id } }), 1);
   } finally {
     await db.refundCase.deleteMany({ where: { orderId: order.id } });
+    await db.inventoryMovement.deleteMany({ where: { productId: product.id } });
     await db.orderItem.deleteMany({ where: { orderId: order.id } });
     await db.order.delete({ where: { id: order.id } });
     await db.product.delete({ where: { id: product.id } });
   }
 });
 
-test('GHN return, replay, and late delivery release stock and open one refund case', async (t) => {
+test('GHN return, replay, and late delivery quarantine stock and open one refund case', async (t) => {
   if (!(await checkDbConnection(t))) return;
   const product = await db.product.create({ data: { name: `ghn-return-${tag}`, price: 100_000, stock: 0 } });
   const order = await db.order.create({ data: { orderCode: `GHN${Date.now()}${tag.toUpperCase()}`, customerName: 'Guest', customerPhone: '0900000000', customerAddress: 'Test', subtotal: 100_000, totalAmount: 100_000, status: 'SHIPPING', paymentStatus: 'PAID', expiresAt: new Date(Date.now() + 86_400_000), items: { create: { productId: product.id, quantity: 1, price: 100_000 } } } });
@@ -150,13 +152,16 @@ test('GHN return, replay, and late delivery release stock and open one refund ca
     assert.equal((await send('returned')).status, 200);
     assert.equal((await send('returned')).status, 200);
     assert.equal((await send('delivering')).status, 200);
-    assert.equal((await db.product.findUniqueOrThrow({ where: { id: product.id } })).stock, 1);
+    const returnedProduct = await db.product.findUniqueOrThrow({ where: { id: product.id } });
+    assert.equal(returnedProduct.stock, 0);
+    assert.equal(returnedProduct.quarantinedStock, 1);
     assert.equal(await db.refundCase.count({ where: { orderId: order.id } }), 1);
     assert.equal((await db.shipment.findUniqueOrThrow({ where: { id: shipment.id } })).status, 'RETURNED');
   } finally {
     if (priorToken === undefined) delete process.env.GHN_WEBHOOK_TOKEN;
     else process.env.GHN_WEBHOOK_TOKEN = priorToken;
     await db.refundCase.deleteMany({ where: { orderId: order.id } });
+    await db.inventoryMovement.deleteMany({ where: { productId: product.id } });
     await db.orderItem.deleteMany({ where: { orderId: order.id } });
     await db.order.delete({ where: { id: order.id } });
     await db.product.delete({ where: { id: product.id } });
@@ -275,7 +280,6 @@ test('concurrent wallet payments on same order debit once and result in exactly 
     assert.equal(txRecords.length, 1);
   } finally {
     await db.walletTransaction.deleteMany({ where: { walletId: wallet.id } }).catch(() => {});
-    await db.transaction.deleteMany({ where: { orderId: order.id } }).catch(() => {});
     await db.userWallet.delete({ where: { id: wallet.id } }).catch(() => {});
     await db.order.delete({ where: { id: order.id } }).catch(() => {});
     await db.user.delete({ where: { id: user.id } }).catch(() => {});
@@ -290,6 +294,7 @@ test('reservation and versioned stock adjustment preserve exact balance without 
       name: `stock-adjust-${tag}`,
       price: 100_000n,
       stock: initialStock,
+      onHandStock: initialStock,
       stockVersion: 0,
       inventoryMode: 'BASE',
       isActive: true,
@@ -312,7 +317,7 @@ test('reservation and versioned stock adjustment preserve exact balance without 
           productId: product.id,
           variantId: null,
           delta: 5,
-          expectedVersion: 0,
+          expectedVersion: 1,
           reason: 'Nhập kho bổ sung',
           operationKey: `op_adj_test_${tag}`,
         },
@@ -325,8 +330,10 @@ test('reservation and versioned stock adjustment preserve exact balance without 
 
     const finalProduct = await db.product.findUniqueOrThrow({ where: { id: product.id } });
     assert.equal(finalProduct.stock, 12);
+    assert.equal(finalProduct.onHandStock, 15);
+    assert.equal(finalProduct.reservedStock, 3);
   } finally {
-    await db.stockAdjustment.deleteMany({ where: { productId: product.id } }).catch(() => {});
+    await db.inventoryMovement.deleteMany({ where: { productId: product.id } }).catch(() => {});
     await db.product.delete({ where: { id: product.id } }).catch(() => {});
   }
 });

@@ -160,6 +160,7 @@ export async function adjustStock(
       },
       data: {
         stock: { increment: delta },
+        onHandStock: { increment: delta },
         stockVersion: { increment: 1 },
       },
     });
@@ -179,7 +180,7 @@ export async function adjustStock(
     // Đồng bộ tồn kho cha Product
     await tx.product.update({
       where: { id: productId },
-      data: { stock: { increment: delta } },
+      data: { stock: { increment: delta }, onHandStock: { increment: delta } },
     });
 
     const previousStock = variant.stock;
@@ -196,12 +197,12 @@ export async function adjustStock(
           deltaOnHand: delta,
           deltaReserved: 0,
           deltaQuarantined: 0,
-          beforeOnHand: previousStock,
-          afterOnHand: newStock,
-          beforeReserved: 0,
-          afterReserved: 0,
-          beforeQuarantined: 0,
-          afterQuarantined: 0,
+          beforeOnHand: variant.onHandStock,
+          afterOnHand: variant.onHandStock + delta,
+          beforeReserved: variant.reservedStock,
+          afterReserved: variant.reservedStock,
+          beforeQuarantined: variant.quarantinedStock,
+          afterQuarantined: variant.quarantinedStock,
           beforeAvailable: previousStock,
           afterAvailable: newStock,
           beforeVersion: expectedVersion,
@@ -294,6 +295,7 @@ export async function adjustStock(
     },
     data: {
       stock: { increment: delta },
+      onHandStock: { increment: delta },
       stockVersion: { increment: 1 },
     },
   });
@@ -324,12 +326,12 @@ export async function adjustStock(
         deltaOnHand: delta,
         deltaReserved: 0,
         deltaQuarantined: 0,
-        beforeOnHand: previousStock,
-        afterOnHand: newStock,
-        beforeReserved: 0,
-        afterReserved: 0,
-        beforeQuarantined: 0,
-        afterQuarantined: 0,
+        beforeOnHand: product.onHandStock,
+        afterOnHand: product.onHandStock + delta,
+        beforeReserved: product.reservedStock,
+        afterReserved: product.reservedStock,
+        beforeQuarantined: product.quarantinedStock,
+        afterQuarantined: product.quarantinedStock,
         beforeAvailable: previousStock,
         afterAvailable: newStock,
         beforeVersion: expectedVersion,

@@ -21,6 +21,7 @@ test('Commerce Intelligence Integration: Net Sales DB aggregation and completed 
       name: `Laptop-Sales-${tag}`,
       slug: `laptop-sales-${tag}`,
       kind: 'LAPTOP',
+      specSchema: {},
     },
   });
 
@@ -50,14 +51,14 @@ test('Commerce Intelligence Integration: Net Sales DB aggregation and completed 
   const completedOrder = await db.order.create({
     data: {
       orderCode: `DH_SALES_1_${tag}`,
+      customerName: 'Sales Buyer',
+      customerPhone: '0900000000',
+      customerAddress: '123 Tech Street',
       totalAmount: BigInt(60_000_000),
       shippingFee: BigInt(0),
       discountAmount: BigInt(0),
-      finalAmount: BigInt(60_000_000),
       status: 'COMPLETED',
       paymentStatus: 'PAID',
-      paymentMethod: 'VIETQR',
-      shippingAddress: '123 Tech Street',
       expiresAt: new Date(now.getTime() + 15 * 60 * 1000),
       completedAt: past5Days,
       items: {
@@ -76,14 +77,14 @@ test('Commerce Intelligence Integration: Net Sales DB aggregation and completed 
   const oldOrder = await db.order.create({
     data: {
       orderCode: `DH_SALES_OLD_${tag}`,
+      customerName: 'Sales Buyer',
+      customerPhone: '0900000000',
+      customerAddress: '123 Tech Street',
       totalAmount: BigInt(30_000_000),
       shippingFee: BigInt(0),
       discountAmount: BigInt(0),
-      finalAmount: BigInt(30_000_000),
       status: 'COMPLETED',
       paymentStatus: 'PAID',
-      paymentMethod: 'VIETQR',
-      shippingAddress: '123 Tech Street',
       expiresAt: new Date(now.getTime() + 15 * 60 * 1000),
       completedAt: past20Days,
       items: {
@@ -102,14 +103,14 @@ test('Commerce Intelligence Integration: Net Sales DB aggregation and completed 
   const pendingOrder = await db.order.create({
     data: {
       orderCode: `DH_SALES_PEND_${tag}`,
+      customerName: 'Sales Buyer',
+      customerPhone: '0900000000',
+      customerAddress: '123 Tech Street',
       totalAmount: BigInt(30_000_000),
       shippingFee: BigInt(0),
       discountAmount: BigInt(0),
-      finalAmount: BigInt(30_000_000),
       status: 'PROCESSING',
       paymentStatus: 'PAID',
-      paymentMethod: 'VIETQR',
-      shippingAddress: '123 Tech Street',
       expiresAt: new Date(now.getTime() + 15 * 60 * 1000),
       items: {
         create: [

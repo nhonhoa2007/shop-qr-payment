@@ -109,8 +109,9 @@ export async function refundOrderToWallet(
     return { success: false, error: 'Đơn hàng đã được xử lý hoàn tiền hoặc không ở trạng thái hợp lệ' };
   }
 
-  // Release order stock
-  if (order.items && order.items.length > 0) {
+  // Shipped stock has already consumed its reservation. A carrier return is
+  // received into quarantine by the webhook, never released as available stock.
+  if (order.items && order.items.length > 0 && order.status !== 'SHIPPING' && order.status !== 'COMPLETED') {
     await releaseOrderStock(tx, order.items, `order:${order.id}:refund:release`);
   }
   if (order.couponId) {

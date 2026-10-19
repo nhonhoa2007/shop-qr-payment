@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@server/database/prisma';
 import { mapGHNStatusToShipmentStatus, verifyGHNWebhookAuth } from '@server/modules/shipping/ghn.service';
-import { releaseOrderStock, consumeShippedStock } from '@server/modules/inventory/inventory.service';
+import { releaseOrderStock, consumeShippedStock, quarantineReturnedStock } from '@server/modules/inventory/inventory.service';
 import { refundOrderToWallet } from '@server/modules/wallet/wallet.service';
 import { createNotification } from '@server/modules/notifications/notifications.service';
 import { pusherServer } from '@server/infrastructure/pusher';
@@ -95,6 +95,9 @@ export async function POST(req: Request) {
         if (fresh.order.paymentStatus === 'PAID') {
           const refund = await refundOrderToWallet(tx, fresh.orderId, `GHN báo ${mapping.shipmentStatus}`);
           if (!refund.success) throw new Error(refund.error || 'Không thể hoàn tiền');
+          if (mapping.shipmentStatus === 'RETURNED' && ['SHIPPING', 'COMPLETED'].includes(fresh.order.status)) {
+            await quarantineReturnedStock(tx, fresh.order.items, `ghn:${fresh.orderId}:return`);
+          }
         } else {
           const cancelled = await tx.order.updateMany({ where: { id: fresh.orderId, status: { not: 'CANCELLED' }, paymentStatus: fresh.order.paymentStatus }, data: { status: 'CANCELLED' } });
           if (cancelled.count !== 1) throw new Error('Trạng thái thanh toán đã đổi; cần xử lý lại webhook');

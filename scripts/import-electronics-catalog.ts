@@ -406,7 +406,7 @@ export async function importElectronicsCatalog(
           brandId: product.brandId,
           categoryId: product.categoryId,
           kind: product.kind,
-          segment: (product.segment as any) ?? 'MID',
+          segment: product.segment === 'MID' ? 'MID_RANGE' : (product.segment ?? 'MID_RANGE') as any,
           weightGrams: Math.round(product.weight * 1000),
           lengthCm: Math.round(product.length),
           widthCm: Math.round(product.width),
