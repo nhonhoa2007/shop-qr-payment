@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import crypto from 'node:crypto';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@server/modules/auth/auth-options.ts';
-import { FakeAiProvider } from '@server/infrastructure/ai/fake-provider.ts';
-import type { AiProvider } from '@server/infrastructure/ai/provider.ts';
+import { authOptions } from '@server/modules/auth/auth-options';
+import { FakeAiProvider } from '@server/infrastructure/ai/fake-provider';
+import { CustomHttpAiProvider } from '@server/infrastructure/ai/custom-http-provider';
+import type { AiProvider } from '@server/infrastructure/ai/provider';
 import {
   createConversation,
   listUserConversations,
@@ -11,8 +12,8 @@ import {
   answerQuestion,
   deleteConversation,
   purgeExpiredConversations,
-} from './assistant.service.ts';
-import type { Principal } from '../../../shared/types/assistant.ts';
+} from './assistant.service';
+import type { Principal } from '@shared/types/assistant';
 
 function resolvePrincipal(req: Request, session: any): Principal {
   const forwarded = req.headers.get('x-forwarded-for');
@@ -38,14 +39,29 @@ function resolvePrincipal(req: Request, session: any): Principal {
   };
 }
 
-let activeProvider: AiProvider = new FakeAiProvider();
+export function resolveDefaultAiProvider(): AiProvider {
+  if (process.env.AI_API_BASE_URL || process.env.AI_API_KEY) {
+    return new CustomHttpAiProvider({
+      baseUrl: process.env.AI_API_BASE_URL,
+      apiKey: process.env.AI_API_KEY,
+      model: process.env.AI_MODEL_NAME,
+      timeoutMs: process.env.AI_TIMEOUT_MS ? Number(process.env.AI_TIMEOUT_MS) : undefined,
+    });
+  }
+  return new FakeAiProvider();
+}
 
-export function setAssistantProvider(provider: AiProvider): void {
+let activeProvider: AiProvider | null = null;
+
+export function setAssistantProvider(provider: AiProvider | null): void {
   activeProvider = provider;
 }
 
 export function getAssistantProvider(): AiProvider {
-  return activeProvider;
+  if (activeProvider) {
+    return activeProvider;
+  }
+  return resolveDefaultAiProvider();
 }
 
 /**
