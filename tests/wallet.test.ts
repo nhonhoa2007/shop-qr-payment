@@ -289,6 +289,7 @@ describe('Shop Wallet - payOrderWithWallet', () => {
     const fakeOrder = {
       id: 'o_pay_ok',
       orderCode: 'DH200',
+      customerName: 'Wallet Customer',
       userId: 'user_1',
       totalAmount: 180_000,
       paymentStatus: 'UNPAID',
@@ -305,6 +306,7 @@ describe('Shop Wallet - payOrderWithWallet', () => {
     let walletDeductedArgs: unknown = null;
     let orderUpdatedData: unknown = null;
     let txCreatedArgs: unknown = null;
+    let telegramOutboxData: Record<string, unknown> | null = null;
 
     const fakeTx = {
       order: {
@@ -329,6 +331,13 @@ describe('Shop Wallet - payOrderWithWallet', () => {
       },
       transaction: {
         create: async () => ({}),
+      },
+      adminAuditLog: {
+        findUnique: async () => null,
+        create: async ({ data }: { data: Record<string, unknown> }) => {
+          telegramOutboxData = data;
+          return { id: 'outbox_wallet', ...data };
+        },
       },
     } as unknown as TxClient;
 
@@ -363,6 +372,10 @@ describe('Shop Wallet - payOrderWithWallet', () => {
         description: 'Thanh toán thành công đơn hàng DH200',
       },
     });
+    assert.equal(
+      (telegramOutboxData as Record<string, unknown>).operationKey,
+      'telegram:payment-received:o_pay_ok'
+    );
   });
 
   it('should reject payment if order CAS claim fails (count: 0) to prevent double-payment', async () => {

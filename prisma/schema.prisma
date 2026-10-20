@@ -685,6 +685,7 @@ enum NotificationType {
   WARRANTY_UPDATED
   RETURN_UPDATED
   REFUND_COMPLETED
+  SYSTEM_ALERT
 }
 
 // ==========================================

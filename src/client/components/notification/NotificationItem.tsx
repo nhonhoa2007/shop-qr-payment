@@ -8,6 +8,7 @@ import {
   MessageSquare,
   KeyRound,
   Bell,
+  TriangleAlert,
 } from 'lucide-react';
 import type { Notification } from '@shared/types';
 
@@ -55,6 +56,12 @@ function renderNotificationIcon(type: string) {
       return (
         <div className="w-8 h-8 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center flex-shrink-0">
           <KeyRound {...iconProps} />
+        </div>
+      );
+    case 'SYSTEM_ALERT':
+      return (
+        <div className="w-8 h-8 rounded-full bg-red-50 text-red-600 flex items-center justify-center flex-shrink-0">
+          <TriangleAlert {...iconProps} />
         </div>
       );
     default:

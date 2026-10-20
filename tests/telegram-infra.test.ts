@@ -201,10 +201,82 @@ describe('Telegram Infrastructure - API Communication', () => {
 
     assert.equal(res.ok, true);
     assert.equal(res.messageId, 42);
+    assert.equal(res.httpStatus, 200);
     assert.equal(calledUrl, 'https://api.telegram.org/botmock_bot_token/sendMessage');
     assert.equal(calledBody.chat_id, 'mock_chat_id');
     assert.equal(calledBody.text, 'Test message');
     assert.equal(calledBody.parse_mode, 'HTML');
+  });
+
+  it('should expose Telegram retry_after metadata for rate limits', async () => {
+    process.env.TELEGRAM_BOT_TOKEN = 'mock_bot_token';
+    process.env.TELEGRAM_CHAT_ID = 'mock_chat_id';
+    globalThis.fetch = async () =>
+      new Response(
+        JSON.stringify({
+          ok: false,
+          error_code: 429,
+          description: 'Too Many Requests: retry after 17',
+          parameters: { retry_after: 17 },
+        }),
+        { status: 429, headers: { 'Content-Type': 'application/json' } }
+      );
+
+    const res = await sendTelegramMessage({ text: 'Hello' });
+
+    assert.equal(res.ok, false);
+    assert.equal(res.failureKind, 'RATE_LIMIT');
+    assert.equal(res.httpStatus, 429);
+    assert.equal(res.retryAfterSeconds, 17);
+  });
+
+  it('should return a structured invalid-response failure for non-JSON responses', async () => {
+    process.env.TELEGRAM_BOT_TOKEN = 'mock_bot_token';
+    process.env.TELEGRAM_CHAT_ID = 'mock_chat_id';
+    globalThis.fetch = async () =>
+      new Response('<html>Bad gateway</html>', {
+        status: 502,
+        headers: { 'Content-Type': 'text/html' },
+      });
+
+    const res = await sendTelegramMessage({ text: 'Hello' });
+
+    assert.equal(res.ok, false);
+    assert.equal(res.failureKind, 'INVALID_RESPONSE');
+    assert.equal(res.httpStatus, 502);
+    assert.match(res.description || '', /non-json/i);
+  });
+
+  it('should distinguish timeout failures from other network failures', async () => {
+    process.env.TELEGRAM_BOT_TOKEN = 'mock_bot_token';
+    process.env.TELEGRAM_CHAT_ID = 'mock_chat_id';
+    let receivedSignal = false;
+    globalThis.fetch = async (_input, init) => {
+      receivedSignal = init?.signal instanceof AbortSignal;
+      throw new DOMException('The operation timed out', 'TimeoutError');
+    };
+
+    const res = await sendTelegramMessage({ text: 'Hello' }, { timeoutMs: 5 });
+
+    assert.equal(res.ok, false);
+    assert.equal(receivedSignal, true);
+    assert.equal(res.failureKind, 'TIMEOUT');
+    assert.match(res.description || '', /timed out/i);
+  });
+
+  it('should redact the bot token from network failure descriptions', async () => {
+    process.env.TELEGRAM_BOT_TOKEN = 'secret_bot_token';
+    process.env.TELEGRAM_CHAT_ID = 'mock_chat_id';
+    globalThis.fetch = async () => {
+      throw new Error('request to botsecret_bot_token failed');
+    };
+
+    const res = await sendTelegramMessage({ text: 'Hello' });
+
+    assert.equal(res.ok, false);
+    assert.equal(res.failureKind, 'NETWORK');
+    assert.doesNotMatch(res.description || '', /secret_bot_token/);
+    assert.match(res.description || '', /\[REDACTED\]/);
   });
 
   it('should edit message on Telegram API correctly', async () => {

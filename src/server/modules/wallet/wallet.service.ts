@@ -4,6 +4,10 @@ import { releaseOrderStock } from '../inventory/inventory.service.ts';
 import { serializeMoneyVnd } from '@shared/utils/money';
 import { serializeWalletDto } from '@server/modules/money/money-serialization';
 import type { MoneyVnd } from '@shared/types/money';
+import {
+  enqueuePaymentReceivedTelegram,
+  type TelegramOutboxEnqueueClient,
+} from '@server/modules/telegram/telegram-outbox.service';
 
 type TransactionClient = Prisma.TransactionClient | PrismaClient;
 
@@ -328,6 +332,17 @@ export async function payOrderWithWallet(
       },
     });
   }
+
+  await enqueuePaymentReceivedTelegram(
+    tx as unknown as TelegramOutboxEnqueueClient,
+    {
+      id: order.id,
+      orderCode: order.orderCode,
+      customerName: order.customerName,
+      totalAmount: orderAmountBigInt,
+      paymentMethod: 'Ví Shop',
+    }
+  );
 
   const remainingBalance = BigInt(wallet.balance) - orderAmountBigInt;
   return {

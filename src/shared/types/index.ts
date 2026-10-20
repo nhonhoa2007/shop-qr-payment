@@ -79,7 +79,8 @@ export type NotificationType =
   | 'OTP_SENT'
   | 'WARRANTY_UPDATED'
   | 'RETURN_UPDATED'
-  | 'REFUND_COMPLETED';
+  | 'REFUND_COMPLETED'
+  | 'SYSTEM_ALERT';
 export type MessageType = 'TEXT' | 'IMAGE' | 'SYSTEM';
 
 export interface Order {

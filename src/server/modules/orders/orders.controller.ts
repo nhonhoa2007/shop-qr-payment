@@ -13,7 +13,11 @@ import { calculateDiscountBigInt } from '@shared/utils/checkout';
 import { checkDistributedRateLimit, getClientIp } from '@server/infrastructure/rate-limit';
 import { pusherServer } from '@server/infrastructure/pusher';
 import { resolveOperatorAccess } from '@server/modules/admin/guards';
-import { formatNewOrderMessage, sendTelegramMessage } from '@server/infrastructure/telegram';
+import {
+  enqueueOrderCreatedTelegram,
+  type TelegramOutboxEnqueueClient,
+} from '@server/modules/telegram/telegram-outbox.service';
+import { scheduleTelegramOutboxFastPath } from '@server/modules/telegram/telegram-outbox.fast-path';
 import { quoteShipping, QuoteError } from '@server/modules/shipping/shipping-quote.service';
 import { buildOrderItemSnapshot } from '@server/modules/orders/order-item-snapshot.service';
 import {
@@ -255,8 +259,31 @@ export async function POST(req: Request) {
         }
       }
 
+      await enqueueOrderCreatedTelegram(
+        tx as unknown as TelegramOutboxEnqueueClient,
+        {
+          id: createdOrder.id,
+          orderCode: createdOrder.orderCode,
+          customerName: createdOrder.customerName,
+          customerPhone: createdOrder.customerPhone,
+          customerAddress: createdOrder.customerAddress,
+          subtotal: createdOrder.subtotal,
+          shippingFee: createdOrder.shippingFee,
+          discountAmount: createdOrder.discountAmount,
+          couponCode: createdOrder.couponCode,
+          totalAmount: createdOrder.totalAmount,
+          items: createdOrder.items.map((item) => ({
+            productName: item.productName,
+            variantTitle: item.variantTitle,
+            quantity: item.quantity,
+            price: item.price,
+          })),
+        }
+      );
+
       return createdOrder;
     });
+    scheduleTelegramOutboxFastPath();
 
     const admins = await prisma.user.findMany({ where: { role: 'ADMIN' } });
 
@@ -313,32 +340,6 @@ export async function POST(req: Request) {
       });
     } catch (pusherErr) {
       console.error('[Orders] Pusher admin trigger error:', pusherErr);
-    }
-
-    // Bắn thông báo Telegram cho Admin (non-blocking)
-    try {
-      const telegramPayload = formatNewOrderMessage({
-        orderCode,
-        customerName,
-        customerPhone,
-        customerAddress,
-        subtotal: Number(validatedSubtotalBigInt),
-        shippingFee: Number(validatedShippingFeeBigInt),
-        discountAmount: Number(discountAmountBigInt),
-        couponCode: couponRecord?.code || null,
-        totalAmount: Number(finalTotalAmount),
-        items: validated.orderItems!.map((item) => ({
-          name: item.variantTitle || 'Sản phẩm',
-          quantity: item.quantity,
-          price: Number(item.price),
-          variantTitle: item.variantTitle ?? undefined,
-        })),
-      });
-      void sendTelegramMessage(telegramPayload).catch((err) => {
-        console.error('[Orders] Telegram notification error:', err);
-      });
-    } catch (telegramErr) {
-      console.error('[Orders] Telegram format error:', telegramErr);
     }
 
     return NextResponse.json({

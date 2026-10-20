@@ -14,7 +14,8 @@ import {
   evaluateWebhookDecision,
 } from '@server/modules/payment/vietqr-parser.service';
 import { processWalletTopup, getWalletTopupSession } from '@server/modules/wallet/wallet-topup.service';
-import { formatPaidOrderMessage, sendTelegramMessage } from '@server/infrastructure/telegram';
+import { applyCassoOrderPayment } from '@server/modules/payment/casso-order-payment.service';
+import { scheduleTelegramOutboxFastPath } from '@server/modules/telegram/telegram-outbox.fast-path';
 
 interface CassoWebhookBody {
   data?: BankTransactionPayload[];
@@ -29,6 +30,7 @@ function safeCompare(a: string, b: string): boolean {
 
 export async function POST(req: Request) {
   try {
+    let telegramOutboxEnqueued = false;
     const signature = req.headers.get('secure-token');
     const expectedSecret = process.env.CASSO_WEBHOOK_SECRET;
     if (!expectedSecret || !signature || !safeCompare(signature, expectedSecret)) {
@@ -148,37 +150,16 @@ export async function POST(req: Request) {
       let createdTransaction;
       try {
         createdTransaction = await prisma.$transaction(async (tx) => {
-          const changed = await tx.order.updateMany({
-            where: { id: order.id, status: 'PENDING', paymentStatus: 'UNPAID', expiresAt: { gt: new Date() } },
-            data: { paymentStatus: 'PAID', status: 'CONFIRMED' },
+          return applyCassoOrderPayment(tx as never, {
+            order,
+            ledgerId: ledger.id,
+            transactionId,
+            storedAmount,
+            description: txn.description || '',
+            bankName: txn.bankSubAccId || null,
+            receivedAt: txn.when ? new Date(txn.when) : new Date(),
+            rawWebhookData: txn,
           });
-          if (changed.count !== 1) return null;
-
-          let payment: any = null;
-          if ('transaction' in tx && typeof (tx as any).transaction?.create === 'function') {
-            payment = await (tx as any).transaction.create({
-              data: {
-                orderId: order.id,
-                bankTransId: transactionId,
-                amount: storedAmount,
-                description: txn.description || '',
-                bankName: txn.bankSubAccId || null,
-                receivedAt: txn.when ? new Date(txn.when) : new Date(),
-                verified: true,
-                rawWebhookData: txn as unknown as Prisma.InputJsonValue,
-              },
-            });
-          }
-          const appliedTransfer = await tx.bankTransfer.update({
-            where: { id: ledger.id },
-            data: {
-              status: 'APPLIED_ORDER',
-              reviewReason: null,
-              orderId: order.id,
-              rawWebhookData: txn as unknown as Prisma.InputJsonValue,
-            },
-          });
-          return payment ?? appliedTransfer;
         });
       } catch (err) {
         if (
@@ -197,6 +178,7 @@ export async function POST(req: Request) {
         await prisma.bankTransfer.update({ where: { id: ledger.id }, data: { reviewReason: 'Trạng thái đơn đã thay đổi; cần đối soát' } });
         continue;
       }
+      telegramOutboxEnqueued = true;
 
       if (order.userId) {
         await createNotification({
@@ -255,22 +237,9 @@ export async function POST(req: Request) {
         console.error('[Casso Webhook] Pusher admin trigger error:', pusherErr);
       }
 
-      // Bắn thông báo Telegram cho Admin khi đơn hàng được thanh toán VietQR (non-blocking)
-      try {
-        const paidTelegramPayload = formatPaidOrderMessage({
-          id: order.id,
-          orderCode: order.orderCode,
-          customerName: order.customerName,
-          totalAmount: Number(order.totalAmount),
-          paymentMethod: 'Chuyển khoản VietQR',
-        });
-        void sendTelegramMessage(paidTelegramPayload).catch((err) => {
-          console.error('[Casso Webhook] Telegram notification error:', err);
-        });
-      } catch (telegramErr) {
-        console.error('[Casso Webhook] Telegram format error:', telegramErr);
-      }
     }
+
+    if (telegramOutboxEnqueued) scheduleTelegramOutboxFastPath();
 
     return NextResponse.json({ success: true });
   } catch (error) {

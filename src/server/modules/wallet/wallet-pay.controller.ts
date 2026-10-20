@@ -5,7 +5,7 @@ import { prisma } from '@server/database/prisma';
 import { payOrderWithWallet, type WalletOperationResult } from '@server/modules/wallet/wallet.service';
 import { pusherServer } from '@server/infrastructure/pusher';
 import { createNotification } from '@server/modules/notifications/notifications.service';
-import { formatPaidOrderMessage, sendTelegramMessage } from '@server/infrastructure/telegram';
+import { scheduleTelegramOutboxFastPath } from '@server/modules/telegram/telegram-outbox.fast-path';
 
 interface PayWithWalletBody {
   orderId?: unknown;
@@ -40,6 +40,7 @@ export async function POST(req: Request) {
     if (!result.success) {
       return NextResponse.json({ error: result.error || 'Thanh toán thất bại' }, { status: 400 });
     }
+    scheduleTelegramOutboxFastPath();
 
     const order = await prisma.order.findUnique({
       where: { id: orderId },
@@ -76,24 +77,6 @@ export async function POST(req: Request) {
       });
     } catch (pusherErr) {
       console.error('[Wallet Pay] Pusher admin trigger error:', pusherErr);
-    }
-
-    // Bắn thông báo Telegram cho Admin khi đơn hàng được thanh toán bằng ví (non-blocking)
-    if (order) {
-      try {
-        const paidTelegramPayload = formatPaidOrderMessage({
-          id: orderId,
-          orderCode: order.orderCode,
-          customerName: order.customerName,
-          totalAmount: Number(result.paidAmount || order.totalAmount),
-          paymentMethod: 'Ví Shop',
-        });
-        void sendTelegramMessage(paidTelegramPayload).catch((err) => {
-          console.error('[Wallet Pay] Telegram notification error:', err);
-        });
-      } catch (telegramErr) {
-        console.error('[Wallet Pay] Telegram format error:', telegramErr);
-      }
     }
 
     return NextResponse.json({

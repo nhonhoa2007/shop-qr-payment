@@ -61,6 +61,26 @@ export interface TelegramApiResponse {
   ok: boolean;
   messageId?: number;
   description?: string;
+  httpStatus?: number;
+  retryAfterSeconds?: number;
+  failureKind?:
+    | 'CONFIGURATION'
+    | 'TIMEOUT'
+    | 'NETWORK'
+    | 'INVALID_RESPONSE'
+    | 'RATE_LIMIT'
+    | 'HTTP'
+    | 'TELEGRAM_API';
+}
+
+export interface SendTelegramMessageOptions {
+  timeoutMs?: number;
+}
+
+function redactTelegramError(value: unknown, token: string | undefined): string {
+  const raw = value instanceof Error ? value.message : String(value || 'Unknown Telegram error');
+  const redacted = token ? raw.replaceAll(token, '[REDACTED]') : raw;
+  return redacted.slice(0, 500);
 }
 
 /**
@@ -231,13 +251,18 @@ export function formatApprovedOrderMessage(order: ApprovedOrderMessageParams): {
  * Gửi tin nhắn mới tới Telegram Chat ID
  */
 export async function sendTelegramMessage(
-  params: SendTelegramMessageParams
+  params: SendTelegramMessageParams,
+  options: SendTelegramMessageOptions = {}
 ): Promise<TelegramApiResponse> {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = params.chatId || process.env.TELEGRAM_CHAT_ID;
 
   if (!token || !chatId) {
-    return { ok: false, description: 'Telegram credentials missing' };
+    return {
+      ok: false,
+      description: 'Telegram credentials missing',
+      failureKind: 'CONFIGURATION',
+    };
   }
 
   try {
@@ -254,19 +279,71 @@ export async function sendTelegramMessage(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(bodyPayload),
+      signal: AbortSignal.timeout(options.timeoutMs ?? 8_000),
     });
 
-    const data = await response.json();
-    if (data.ok) {
-      return { ok: true, messageId: data.result?.message_id };
+    const rawBody = await response.text();
+    let data: {
+      ok?: boolean;
+      description?: string;
+      result?: { message_id?: number };
+      parameters?: { retry_after?: number };
+    };
+    try {
+      data = JSON.parse(rawBody) as typeof data;
+    } catch {
+      const description = `Telegram returned a non-JSON response (HTTP ${response.status})`;
+      console.error('[Telegram API] sendMessage invalid response:', {
+        httpStatus: response.status,
+      });
+      return {
+        ok: false,
+        description,
+        httpStatus: response.status,
+        failureKind: 'INVALID_RESPONSE',
+      };
     }
-    console.error('[Telegram API] sendMessage error:', data);
-    return { ok: false, description: data.description || 'Telegram API error' };
-  } catch (error) {
-    console.error('[Telegram API] sendMessage fetch failed:', error);
+
+    if (data.ok) {
+      return { ok: true, messageId: data.result?.message_id, httpStatus: response.status };
+    }
+
+    const retryAfterSeconds = data.parameters?.retry_after;
+    const description = redactTelegramError(data.description || 'Telegram API error', token);
+    const failureKind = response.status === 429
+      ? 'RATE_LIMIT'
+      : response.ok
+        ? 'TELEGRAM_API'
+        : 'HTTP';
+    console.error('[Telegram API] sendMessage error:', {
+      httpStatus: response.status,
+      failureKind,
+      retryAfterSeconds,
+      description,
+    });
     return {
       ok: false,
-      description: error instanceof Error ? error.message : 'Network error',
+      description,
+      httpStatus: response.status,
+      retryAfterSeconds,
+      failureKind,
+    };
+  } catch (error) {
+    const timedOut =
+      error instanceof DOMException &&
+      (error.name === 'TimeoutError' || error.name === 'AbortError');
+    const description = timedOut
+      ? 'Telegram request timed out'
+      : redactTelegramError(error, token);
+    const failureKind = timedOut ? 'TIMEOUT' : 'NETWORK';
+    console.error('[Telegram API] sendMessage fetch failed:', {
+      failureKind,
+      description,
+    });
+    return {
+      ok: false,
+      description,
+      failureKind,
     };
   }
 }
