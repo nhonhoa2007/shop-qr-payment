@@ -446,4 +446,55 @@ describe('Commerce Intelligence: Assistant Evidence Bundle & Grounding Validator
       'categoryRef is the relation field and should be included'
     );
   });
+
+  it('orders productScoreSnapshot by publishedAt instead of non-existent snapshotVersion', async () => {
+    let capturedOrderBy: any = null;
+    const testDb = {
+      product: {
+        findMany: async () => [
+          {
+            id: 'p_1',
+            name: 'Laptop Dell XPS 13',
+            brand: { name: 'Dell' },
+            price: BigInt(30000000),
+            stock: 8,
+            specValues: {},
+          },
+        ],
+      },
+      dataSource: {
+        findMany: async () => [],
+      },
+      productScoreSnapshot: {
+        findMany: async (args: any) => {
+          capturedOrderBy = args?.orderBy;
+          return [
+            {
+              useCase: 'office_study',
+              finalScore: 90,
+              priceEfficiency: 85,
+              coverage: 0.95,
+              rubricVersion: 2,
+            },
+          ];
+        },
+      },
+    };
+
+    const bundle = await buildEvidenceBundle({ query: 'Dell XPS 13' }, testDb as any);
+    assert.ok(capturedOrderBy, 'Must have called productScoreSnapshot.findMany with orderBy');
+    assert.equal(
+      capturedOrderBy.snapshotVersion,
+      undefined,
+      'snapshotVersion does not exist on ProductScoreSnapshot'
+    );
+    assert.equal(
+      capturedOrderBy.publishedAt,
+      'desc',
+      'publishedAt is indexed and should be used to find the latest snapshot'
+    );
+    assert.equal(bundle.products[0].scoreSnapshot?.finalScore, 90);
+    assert.equal(bundle.products[0].scoreSnapshot?.priceEfficiencyScore, 85);
+    assert.equal(bundle.products[0].scoreSnapshot?.version, 2);
+  });
 });

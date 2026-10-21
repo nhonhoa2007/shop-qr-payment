@@ -166,7 +166,7 @@ export async function buildEvidenceBundle(
     if (db.productScoreSnapshot) {
       const snapshots = await db.productScoreSnapshot.findMany({
         where: { productId: p.id },
-        orderBy: { snapshotVersion: 'desc' },
+        orderBy: { publishedAt: 'desc' },
         take: 1,
       });
       if (snapshots && snapshots.length > 0) {
@@ -174,9 +174,9 @@ export async function buildEvidenceBundle(
         scoreSnapshotDto = {
           useCase: s.useCase || 'default',
           finalScore: s.finalScore || 0,
-          priceEfficiencyScore: s.priceEfficiencyScore || 0,
-          confidence: s.confidence || 0,
-          version: s.snapshotVersion || 1,
+          priceEfficiencyScore: s.priceEfficiency ?? s.priceEfficiencyScore ?? 0,
+          confidence: s.confidence ?? s.coverage ?? 0.9,
+          version: s.rubricVersion ?? s.snapshotVersion ?? 1,
         };
       }
     }
