@@ -50,6 +50,7 @@ export interface GroundedProductEvidence {
     sampleSize: number;
     averageRating: number;
   } | null;
+  reviews?: Array<{ rating: number; comment?: string | null }>;
   evidenceIds: string[];
 }
 

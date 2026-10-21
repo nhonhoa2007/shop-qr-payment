@@ -240,6 +240,11 @@ export async function buildEvidenceBundle(
         variants: {
           where: { isActive: true },
         },
+        reviews: {
+          where: { isApproved: true },
+          select: { rating: true, comment: true },
+          take: 5,
+        },
       },
       take: 5,
     });
@@ -259,6 +264,13 @@ export async function buildEvidenceBundle(
         specsMap[k] = { value: v as any };
       }
     }
+
+    const reviewsDto = Array.isArray(p.reviews)
+      ? p.reviews.map((r: any) => ({
+          rating: typeof r.rating === 'number' ? r.rating : 5,
+          comment: typeof r.comment === 'string' ? r.comment : null,
+        }))
+      : undefined;
 
     // Default official product citation
     const prodCitId = `src_product_${p.id}`;
@@ -321,6 +333,7 @@ export async function buildEvidenceBundle(
       specs: specsMap,
       scoreSnapshot: scoreSnapshotDto,
       benchmarks: benchmarksDto.length > 0 ? benchmarksDto : undefined,
+      reviews: reviewsDto,
       evidenceIds: [prodCitId, ...benchmarksDto.map((b) => b.sourceId)],
     });
   }

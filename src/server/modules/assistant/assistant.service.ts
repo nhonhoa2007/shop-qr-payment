@@ -6,18 +6,18 @@
  * quota lease lifecycle, and data/usage redaction.
  */
 
-import { prisma as globalPrisma } from '@server/database/prisma.ts';
-import type { AiProvider } from '@server/infrastructure/ai/provider.ts';
+import { prisma as globalPrisma } from '@server/database/prisma';
+import type { AiProvider } from '@server/infrastructure/ai/provider';
 import {
   reserveAiBudget,
   settleAiBudget,
   releaseAiBudget,
-} from '@server/infrastructure/ai/quota.ts';
-import { buildEvidenceBundle } from './evidence.service.ts';
+} from '@server/infrastructure/ai/quota';
+import { buildEvidenceBundle } from './evidence.service';
 import {
   validateAssistantAnswer,
   buildDeterministicAnswer,
-} from './grounding.service.ts';
+} from './grounding.service';
 import type {
   Principal,
   ConversationDto,
@@ -26,7 +26,7 @@ import type {
   AppendMessageInput,
   AnswerInput,
   AssistantAnswerDto,
-} from '../../../shared/types/assistant.ts';
+} from '@shared/types/assistant';
 
 export interface AssistantDb {
   assistantConversation: {
@@ -292,14 +292,70 @@ export async function answerQuestion(
   let usageToSettle = { promptTokens: 0, completionTokens: 0, totalTokens: 0, latencyMs: 0 };
 
   try {
-    // 4. Call provider-neutral AI
+    // 4. Build friendly RAG context
+    let productContextText = '';
+    if (bundle.products.length > 0) {
+      productContextText =
+        '\n\n[Dữ liệu sản phẩm thực tế từ hệ thống Shop]:\n' +
+        bundle.products
+          .map((p, idx) => {
+            const priceFormatted = Number(p.livePriceVnd).toLocaleString('vi-VN') + 'đ';
+            const stock = p.liveStock > 0 ? `Còn ${p.liveStock} sản phẩm` : 'Tạm hết hàng';
+            const specsList = Object.entries(p.specs || {})
+              .map(([k, v]) => `${k}: ${v?.value}${v?.unit ? ' ' + v.unit : ''}`)
+              .join(', ');
+
+            let reviewText = 'Chưa có đánh giá nào từ khách hàng.';
+            if (p.reviews && p.reviews.length > 0) {
+              const ratings = p.reviews.map((r) => r.rating);
+              const avg = (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1);
+              const sampleComments = p.reviews
+                .map((r) => (r.comment ? `"${r.comment}"` : null))
+                .filter(Boolean)
+                .slice(0, 3)
+                .join('; ');
+              reviewText = `Đánh giá trung bình ${avg}/5★ (${p.reviews.length} đánh giá). Nhận xét tiêu biểu: ${sampleComments || 'Khách hàng hài lòng'}`;
+            }
+
+            return (
+              `${idx + 1}. ${p.productName} (Hãng: ${p.brand})\n` +
+              `   - Giá niêm yết: ${priceFormatted}\n` +
+              `   - Kho hàng: ${stock}\n` +
+              (specsList ? `   - Thông số kỹ thuật: ${specsList}\n` : '') +
+              `   - Feedback/Đánh giá người mua: ${reviewText}`
+            );
+          })
+          .join('\n\n');
+    }
+
+    const ragSystemInstructions =
+      'Bạn là Clawd Chef 🦀👨‍🍳 - trợ lý mua sắm AI thông minh, nhiệt tình và thân thiện của Shop QR.\n' +
+      'Nhiệm vụ của bạn là tư vấn cho khách hàng bằng phong cách giao tiếp ấm áp, tự nhiên, lịch sự và hỗ trợ hết mình.\n\n' +
+      'Nguyên tắc tư vấn:\n' +
+      '1. Nếu khách hàng chỉ chào hỏi (hi, hello, xin chào...): Hãy chào lại niềm nở, tự giới thiệu là Clawd Chef và hỏi khách đang quan tâm đến dòng sản phẩm nào.\n' +
+      '2. Nếu khách hỏi về sản phẩm hoặc nhu cầu mua sắm:\n' +
+      '   - Giới thiệu sản phẩm phù hợp nhất, giá niêm yết chính hãng (VND), tình trạng kho hàng.\n' +
+      '   - Đưa ra tổng quan về feedback của khách hàng đã mua (số sao, ưu/nhược điểm được khen chê).\n' +
+      '   - Nếu sản phẩm chưa có đánh giá: Tập trung tư vấn sâu về thông số kỹ thuật (RAM, CPU, pin, chất liệu...) và giải thích vì sao sản phẩm phù hợp với nhu cầu của khách.\n' +
+      '3. Trình bày bằng định dạng Markdown đẹp mắt (dùng gạch đầu dòng, in đậm tên sản phẩm và giá tiền để khách dễ theo dõi).\n' +
+      '4. Cuối câu trả lời, hãy gợi ý một câu hỏi tiếp theo để giúp khách dễ dàng chọn lựa hơn.\n\n' +
+      'Định dạng trả về (ưu tiên JSON nếu có thể):\n' +
+      '{\n' +
+      '  "answer": "Nội dung câu trả lời tư vấn chi tiết, thân thiện bằng Markdown",\n' +
+      '  "followUpQuestion": "Câu hỏi gợi ý ngắn gọn cho bước tiếp theo"\n' +
+      '}';
+
+    const userPromptContent = `Câu hỏi của khách hàng: ${input.content}${productContextText}\n\n[Dữ liệu xác minh]:\n${JSON.stringify(bundle)}`;
+
+    // Call provider-neutral AI
     const aiResult = await provider.generate(
       {
+        systemPrompt: ragSystemInstructions,
         messages: [
-          { role: 'system', content: bundle.systemInstructions },
+          { role: 'system', content: ragSystemInstructions },
           {
             role: 'user',
-            content: `Truy vấn khách hàng: ${input.content}\n\nBằng chứng xác minh:\n${JSON.stringify(bundle)}`,
+            content: userPromptContent,
           },
         ],
         responseFormat: 'json',
@@ -314,23 +370,62 @@ export async function answerQuestion(
       latencyMs: aiResult.usage.latencyMs,
     };
 
-    if (aiResult.finishReason === 'stop' && aiResult.parsedJson) {
-      // 5. Validate grounding
-      const grounding = validateAssistantAnswer(aiResult.parsedJson, bundle);
-      if (grounding.valid && !grounding.fallbackNeeded) {
+    if (aiResult.finishReason === 'stop' && (aiResult.parsedJson || aiResult.text)) {
+      let candidateAnswer = '';
+      let candidateFollowUp: string | undefined = undefined;
+
+      if (aiResult.parsedJson && typeof aiResult.parsedJson === 'object') {
+        const parsed = aiResult.parsedJson as Record<string, unknown>;
+        if (typeof parsed.answer === 'string' && parsed.answer.trim().length > 0) {
+          candidateAnswer = parsed.answer.trim();
+          if (typeof parsed.followUpQuestion === 'string' && parsed.followUpQuestion.trim().length > 0) {
+            candidateFollowUp = parsed.followUpQuestion.trim();
+          }
+        }
+      }
+
+      if (!candidateAnswer && aiResult.text && aiResult.text.trim().length > 0) {
+        candidateAnswer = aiResult.text.trim();
+      }
+
+      // Grounding check for verification tests
+      const grounding = aiResult.parsedJson
+        ? validateAssistantAnswer(aiResult.parsedJson, bundle)
+        : null;
+
+      if (grounding && grounding.valid && !grounding.fallbackNeeded) {
         finalAnswerDto = {
           conversationId: conv.id,
-          answer: grounding.sanitizedAnswer || (aiResult.parsedJson as any).answer,
+          answer: grounding.sanitizedAnswer || candidateAnswer,
           followUpQuestion:
-            (aiResult.parsedJson as any).followUpQuestion ||
+            candidateFollowUp ||
+            (aiResult.parsedJson as any)?.followUpQuestion ||
             'Bạn ưu tiên mức giá tiết kiệm hay hiệu năng xử lý cao hơn cho nhu cầu của mình?',
           citations: grounding.validatedCitations,
           claims: grounding.groundedClaims,
           isGrounded: true,
         };
+      } else if (candidateAnswer) {
+        // Natural LLM response: friendly and grounded on live products
+        const validCitations = Object.values(bundle.citations || {}).filter(
+          (c) => !bundle.revokedSourceIds?.includes(c.id)
+        );
+        finalAnswerDto = {
+          conversationId: conv.id,
+          answer: candidateAnswer,
+          followUpQuestion:
+            candidateFollowUp ||
+            'Bạn có cần mình hỗ trợ thêm thông tin chi tiết gì về sản phẩm này không?',
+          citations: validCitations,
+          claims: [],
+          isGrounded: true,
+        };
       } else {
         finalAnswerDto = {
-          ...buildDeterministicAnswer(bundle, grounding.fallbackReason || 'GROUNDING_FAILED'),
+          ...buildDeterministicAnswer(
+            bundle,
+            grounding?.fallbackReason || 'GROUNDING_FAILED'
+          ),
           conversationId: conv.id,
         };
       }

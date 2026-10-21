@@ -246,7 +246,7 @@ export function buildDeterministicAnswer(
   if (bundle.products.length === 0) {
     return {
       answer:
-        'Hiện tại hệ thống chưa tìm thấy sản phẩm phù hợp với thông tin bạn đang tìm kiếm trong danh mục đã được xác minh.',
+        'Dạ hiện tại Clawd Chef chưa tìm thấy sản phẩm nào khớp với tìm kiếm của bạn trong kho hàng. Bạn có thể thử tìm với từ khóa khác (ví dụ: tên loại sản phẩm, tầm giá hoặc thương hiệu) để mình hỗ trợ nhé!',
       followUpQuestion: 'Bạn có muốn tìm kiếm theo khoảng giá hoặc thương hiệu cụ thể nào không?',
       citations: [],
       claims: [],
@@ -257,18 +257,24 @@ export function buildDeterministicAnswer(
 
   const summaries = bundle.products.map((p) => {
     const formattedPrice = new Intl.NumberFormat('vi-VN').format(Number(p.livePriceVnd));
-    const stockStatus = p.liveStock > 0 ? `còn ${p.liveStock} sản phẩm` : 'hết hàng';
+    const stockStatus = p.liveStock > 0 ? `còn ${p.liveStock} sản phẩm` : 'tạm hết hàng';
     const ramSpec = p.specs.ram?.value ? `RAM ${p.specs.ram.value}${p.specs.ram.unit || 'GB'}` : '';
     const storageSpec = p.specs.storage?.value
       ? `Bộ nhớ ${p.specs.storage.value}${p.specs.storage.unit || 'GB'}`
       : '';
-    const scoreStr = p.scoreSnapshot ? `Điểm P/P: ${p.scoreSnapshot.finalScore}/100` : '';
+    const scoreStr = p.scoreSnapshot ? `Điểm đánh giá: ${p.scoreSnapshot.finalScore}/100` : '';
 
-    const details = [ramSpec, storageSpec, scoreStr].filter(Boolean).join(', ');
-    return `- ${p.productName} (${p.brand}): giá ${formattedPrice}₫ (${stockStatus})${details ? ` — ${details}` : ''}`;
+    let reviewStr = '';
+    if (p.reviews && p.reviews.length > 0) {
+      const avg = (p.reviews.reduce((acc, r) => acc + (r.rating || 0), 0) / p.reviews.length).toFixed(1);
+      reviewStr = `Đánh giá ${avg}★ (${p.reviews.length} nhận xét)`;
+    }
+
+    const details = [ramSpec, storageSpec, scoreStr, reviewStr].filter(Boolean).join(' • ');
+    return `• **${p.productName}** (${p.brand}): Giá **${formattedPrice}₫** (${stockStatus})${details ? `\n  - Chi tiết: ${details}` : ''}`;
   });
 
-  const answer = `Dưới đây là thông tin so sánh chính xác từ dữ liệu thực tế tại cửa hàng:\n\n${summaries.join('\n')}`;
+  const answer = `Dạ, Clawd Chef xin gửi bạn thông tin sản phẩm từ cửa hàng:\n\n${summaries.join('\n\n')}`;
 
   const defaultCitations = Object.values(bundle.citations).filter(
     (c) => !bundle.revokedSourceIds.includes(c.id)
