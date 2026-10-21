@@ -31,39 +31,41 @@ export function DraggablePetWidget() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
-    let initialPos: Coordinates;
+    const frameId = requestAnimationFrame(() => {
+      const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+      let initialPos: Coordinates;
 
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (typeof parsed.x === 'number' && typeof parsed.y === 'number') {
-          initialPos = parsed;
-        } else {
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (typeof parsed.x === 'number' && typeof parsed.y === 'number') {
+            initialPos = parsed;
+          } else {
+            initialPos = {
+              x: window.innerWidth - WIDGET_WIDTH - 24,
+              y: window.innerHeight - WIDGET_HEIGHT - 24,
+            };
+          }
+        } catch {
           initialPos = {
             x: window.innerWidth - WIDGET_WIDTH - 24,
             y: window.innerHeight - WIDGET_HEIGHT - 24,
           };
         }
-      } catch {
+      } else {
         initialPos = {
           x: window.innerWidth - WIDGET_WIDTH - 24,
           y: window.innerHeight - WIDGET_HEIGHT - 24,
         };
       }
-    } else {
-      initialPos = {
-        x: window.innerWidth - WIDGET_WIDTH - 24,
-        y: window.innerHeight - WIDGET_HEIGHT - 24,
-      };
-    }
 
-    const clamped = clampCoordinates(
-      initialPos,
-      { width: window.innerWidth, height: window.innerHeight },
-      { width: WIDGET_WIDTH, height: WIDGET_HEIGHT }
-    );
-    setPosition(clamped);
+      const clamped = clampCoordinates(
+        initialPos,
+        { width: window.innerWidth, height: window.innerHeight },
+        { width: WIDGET_WIDTH, height: WIDGET_HEIGHT }
+      );
+      setPosition(clamped);
+    });
 
     const handleResize = () => {
       setPosition((prev) => {
@@ -77,7 +79,10 @@ export function DraggablePetWidget() {
     };
 
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    return () => {
+      cancelAnimationFrame(frameId);
+      window.removeEventListener('resize', handleResize);
+    };
   }, []);
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {

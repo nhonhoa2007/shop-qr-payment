@@ -3,6 +3,7 @@ import './globals.css';
 import { Providers } from './providers';
 import { Header } from '@client/components/layout/Header';
 import { Footer } from '@client/components/layout/Footer';
+import { DraggablePetWidget } from '@client/components/assistant/DraggablePetWidget';
 
 export const metadata: Metadata = {
   title: 'shop. — Khám phá mua sắm & Thanh toán QR',
@@ -21,6 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <main id="main-content" className="flex-1">
             {children}
           </main>
+          <DraggablePetWidget />
           <Footer />
         </Providers>
       </body>
