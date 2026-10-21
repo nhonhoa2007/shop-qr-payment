@@ -4,18 +4,22 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type {
   AssistantMessageDto,
   AssistantAnswerDto,
-} from '@/shared/types/assistant.ts';
+} from '@shared/types/assistant';
 
-interface AssistantPanelProps {
+export interface AssistantPanelProps {
   initialConversationId?: string;
   defaultProductIds?: string[];
   className?: string;
+  onLoadingChange?: (loading: boolean) => void;
+  onClose?: () => void;
 }
 
 export function AssistantPanel({
   initialConversationId,
   defaultProductIds = [],
   className = '',
+  onLoadingChange,
+  onClose,
 }: AssistantPanelProps) {
   const [conversationId, setConversationId] = useState<string | null>(
     initialConversationId || null
@@ -70,6 +74,7 @@ export function AssistantPanel({
       setInputMessage('');
       setError(null);
       setIsLoading(true);
+      onLoadingChange?.(true);
 
       const nowIso = new Date().toISOString();
       const tempUserMsg: AssistantMessageDto = {
@@ -119,9 +124,10 @@ export function AssistantPanel({
         setError(err instanceof Error ? err.message : 'Lỗi kết nối trợ lý.');
       } finally {
         setIsLoading(false);
+        onLoadingChange?.(false);
       }
     },
-    [inputMessage, conversationId, isLoading, defaultProductIds]
+    [inputMessage, conversationId, isLoading, defaultProductIds, onLoadingChange]
   );
 
   return (
@@ -136,9 +142,21 @@ export function AssistantPanel({
             Trợ lý Công nghệ Grounded
           </h3>
         </div>
-        <span className="text-xs px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 font-medium">
-          Evidence-backed
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 font-medium">
+            Evidence-backed
+          </span>
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Đóng trợ lý"
+              className="p-1 rounded-md text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 hover:bg-neutral-200/60 dark:hover:bg-neutral-700/60 transition-colors"
+            >
+              ✕
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Messages Scroll Area */}
