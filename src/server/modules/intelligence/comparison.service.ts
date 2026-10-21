@@ -89,7 +89,8 @@ interface RawProductWithRelations {
   id: string;
   name: string;
   categoryId: string;
-  category: { id: string; name: string };
+  category?: string | null;
+  categoryRef?: { id: string; name: string } | null;
   brand: { name: string };
   price: bigint;
   stock: number;
@@ -134,13 +135,13 @@ export async function compareProducts(
     product: {
       findMany(args: {
         where: { id: { in: string[] } };
-        include: { category: boolean; brand: boolean; variants: boolean };
+        include: { categoryRef: boolean; brand: boolean; variants: boolean };
       }): Promise<RawProductWithRelations[]>;
     };
   }).product.findMany({
     where: { id: { in: productIds } },
     include: {
-      category: true,
+      categoryRef: true,
       brand: true,
       variants: true,
     },
@@ -156,7 +157,11 @@ export async function compareProducts(
     throw new Error('Chỉ được so sánh các sản phẩm trong cùng danh mục');
   }
 
-  const category = products[0].category;
+  const category =
+    products[0].categoryRef ||
+    (products[0].category && typeof products[0].category === 'object'
+      ? (products[0].category as unknown as { id: string; name: string })
+      : { id: products[0].categoryId, name: 'Điện tử' });
   const useCase = input.useCase ?? 'office_study';
   const salesDays = input.salesWindowDays ?? 30;
 

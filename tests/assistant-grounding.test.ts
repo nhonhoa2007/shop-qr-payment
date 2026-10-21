@@ -409,4 +409,41 @@ describe('Commerce Intelligence: Assistant Evidence Bundle & Grounding Validator
     assert.equal(bundle.products[0].benchmarks?.[0].metricName, 'cinebench_r23');
     assert.equal(bundle.products[0].scoreSnapshot?.finalScore, 85);
   });
+
+  it('does not pass scalar field category in include statement to db.product.findMany', async () => {
+    let capturedInclude: any = null;
+    const testDb = {
+      product: {
+        findMany: async (args: any) => {
+          capturedInclude = args?.include;
+          return [
+            {
+              id: 'p_1',
+              name: 'Laptop Dell XPS 13',
+              brand: { name: 'Dell' },
+              price: BigInt(30000000),
+              stock: 8,
+              specValues: {},
+            },
+          ];
+        },
+      },
+      dataSource: {
+        findMany: async () => [],
+      },
+    };
+
+    await buildEvidenceBundle({ query: 'Dell XPS 13' }, testDb as any);
+    assert.ok(capturedInclude, 'Must have called product.findMany with include');
+    assert.equal(
+      capturedInclude.category,
+      undefined,
+      'category is a scalar field and must NOT be in include statement'
+    );
+    assert.equal(
+      capturedInclude.categoryRef,
+      true,
+      'categoryRef is the relation field and should be included'
+    );
+  });
 });

@@ -7,14 +7,14 @@
  * while REVOKED DataSources are tracked for fast revocation filtering.
  */
 
-import { prisma as globalPrisma } from '@server/database/prisma.ts';
+import { prisma as globalPrisma } from '@server/database/prisma';
 import crypto from 'node:crypto';
 import type {
   EvidenceBundle,
   EvidenceBundleInput,
   EvidenceCitation,
   GroundedProductEvidence,
-} from '../../../shared/types/assistant.ts';
+} from '@shared/types/assistant';
 
 export interface AssistantEvidenceDb {
   product: {
@@ -124,7 +124,7 @@ export async function buildEvidenceBundle(
     where: productWhere,
     include: {
       brand: true,
-      category: true,
+      categoryRef: true,
       variants: {
         where: { isActive: true },
       },
