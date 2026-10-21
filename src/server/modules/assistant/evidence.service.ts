@@ -49,6 +49,104 @@ export interface AssistantEvidenceDb {
   };
 }
 
+/**
+ * Detects whether a query is a greeting, introduction, or general conversational opener
+ * rather than a specific product specification or comparison query.
+ */
+export function isGreetingQuery(query?: string | null): boolean {
+  if (!query) return true;
+  const normalized = query
+    .toLowerCase()
+    .trim()
+    .replace(/[!?.,:;~_`'"]/g, '')
+    .replace(/\s+/g, ' ');
+
+  if (!normalized) return true;
+
+  const greetings = new Set([
+    'hi',
+    'hello',
+    'hey',
+    'helo',
+    'hê lô',
+    'hế lô',
+    'alo',
+    'alô',
+    'chao',
+    'chào',
+    'chào bạn',
+    'chao ban',
+    'chào shop',
+    'chao shop',
+    'xin chào',
+    'xin chao',
+    'good morning',
+    'good afternoon',
+    'good evening',
+    'bạn là ai',
+    'ban la ai',
+    'bạn có thể làm gì',
+    'ban co the lam gi',
+    'giúp tôi',
+    'giup toi',
+    'tư vấn giúp tôi',
+    'tu van giup toi',
+    'có ai không',
+    'co ai khong',
+    'test',
+  ]);
+
+  if (greetings.has(normalized)) {
+    return true;
+  }
+
+  const words = normalized.split(' ');
+  if (words.length <= 4) {
+    const firstWord = words[0];
+    if (['hi', 'hello', 'hey', 'alo', 'chào', 'chao'].includes(firstWord)) {
+      const productKeywords = [
+        'laptop',
+        'máy tính',
+        'may tinh',
+        'pc',
+        'chuột',
+        'chuot',
+        'bàn phím',
+        'ban phim',
+        'tai nghe',
+        'loa',
+        'điện thoại',
+        'dien thoai',
+        'phone',
+        'iphone',
+        'samsung',
+        'macbook',
+        'dell',
+        'asus',
+        'acer',
+        'hp',
+        'lenovo',
+        'giá',
+        'gia',
+        'mua',
+        'bán',
+        'ban',
+        'áo',
+        'ao',
+        'quần',
+        'quan',
+        'giày',
+        'giay',
+      ];
+      if (!productKeywords.some((pk) => normalized.includes(pk))) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 export async function buildEvidenceBundle(
   input: EvidenceBundleInput,
   db: AssistantEvidenceDb = globalPrisma as unknown as AssistantEvidenceDb
@@ -110,27 +208,42 @@ export async function buildEvidenceBundle(
   }
 
   // 2. Fetch target products
+  const isGreeting = isGreetingQuery(input.query);
   const productWhere: Record<string, unknown> = {
     isActive: true,
   };
 
-  if (input.productIds && input.productIds.length > 0) {
-    productWhere.id = { in: input.productIds };
-  } else if (input.categoryId) {
-    productWhere.categoryId = input.categoryId;
-  }
+  let rawProducts: any[] = [];
 
-  const rawProducts = await db.product.findMany({
-    where: productWhere,
-    include: {
-      brand: true,
-      categoryRef: true,
-      variants: {
-        where: { isActive: true },
+  if (!isGreeting) {
+    if (input.productIds && input.productIds.length > 0) {
+      productWhere.id = { in: input.productIds };
+    } else if (input.categoryId) {
+      productWhere.categoryId = input.categoryId;
+    } else if (input.query && input.query.trim().length > 0) {
+      const trimmedQuery = input.query.trim();
+      const words = trimmedQuery.split(/\s+/).filter((w) => w.length >= 2);
+      if (words.length > 0) {
+        productWhere.OR = [
+          { name: { contains: trimmedQuery, mode: 'insensitive' } },
+          { description: { contains: trimmedQuery, mode: 'insensitive' } },
+          ...words.map((w) => ({ name: { contains: w, mode: 'insensitive' } })),
+        ];
+      }
+    }
+
+    rawProducts = await db.product.findMany({
+      where: productWhere,
+      include: {
+        brand: true,
+        categoryRef: true,
+        variants: {
+          where: { isActive: true },
+        },
       },
-    },
-    take: 5,
-  });
+      take: 5,
+    });
+  }
 
   const productsEvidence: GroundedProductEvidence[] = [];
 
@@ -212,12 +325,18 @@ export async function buildEvidenceBundle(
     });
   }
 
-  const systemInstructions =
-    'Bạn là trợ lý tư vấn công nghệ chuyên nghiệp của cửa hàng điện tử Shop QR. ' +
-    'CHỈ ĐƯỢC PHÉP trả lời dựa trên BẰNG CHỨNG (evidence bundle) được cung cấp. ' +
-    'TUYỆT ĐỐI KHÔNG đoán hoặc bịa đặt giá cả, số lượng tồn kho, dung lượng RAM/ổ cứng, hoặc điểm số. ' +
-    'Mặc định so sánh tổng quan ngắn gọn trước, sau đó hỏi đúng một câu về nhu cầu chính. ' +
-    'Trả lời theo định dạng JSON với các trường: answer, followUpQuestion, citations, claims.';
+  const systemInstructions = isGreeting
+    ? 'Bạn là Clawd Chef 🦀👨‍🍳 - trợ lý mua sắm AI thông minh, thân thiện của Shop QR. ' +
+      'Khách hàng đang chào hỏi hoặc bắt đầu cuộc trò chuyện. ' +
+      'Hãy chào lại một cách ấm áp và tự nhiên, giới thiệu bạn là Clawd Chef và sẵn sàng hỗ trợ tìm kiếm sản phẩm, kiểm tra thông số kỹ thuật (RAM, CPU, màn hình, pin...), so sánh cấu hình và tra cứu giá niêm yết chính hãng. ' +
+      'Hỏi khách hàng đang quan tâm đến dòng sản phẩm nào. ' +
+      'Không bịa đặt hay liệt kê bảng so sánh sản phẩm khi khách chưa hỏi cụ thể. ' +
+      'Trả lời dưới dạng JSON với cấu trúc: {"answer": "...", "followUpQuestion": "...", "citations": [], "claims": []}.'
+    : 'Bạn là trợ lý tư vấn công nghệ chuyên nghiệp của cửa hàng điện tử Shop QR. ' +
+      'CHỈ ĐƯỢC PHÉP trả lời dựa trên BẰNG CHỨNG (evidence bundle) được cung cấp. ' +
+      'TUYỆT ĐỐI KHÔNG đoán hoặc bịa đặt giá cả, số lượng tồn kho, dung lượng RAM/ổ cứng, hoặc điểm số. ' +
+      'Mặc định so sánh tổng quan ngắn gọn trước, sau đó hỏi đúng một câu về nhu cầu chính. ' +
+      'Trả lời theo định dạng JSON với các trường: answer, followUpQuestion, citations, claims.';
 
   return {
     bundleId,

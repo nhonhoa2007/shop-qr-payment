@@ -11,7 +11,8 @@ import type {
   AssistantClaim,
   EvidenceCitation,
   AssistantAnswerDto,
-} from '../../../shared/types/assistant.ts';
+} from '@shared/types/assistant';
+import { isGreetingQuery } from './evidence.service';
 
 const PROMPT_INJECTION_PATTERNS = [
   /system\s+override/i,
@@ -225,6 +226,23 @@ export function buildDeterministicAnswer(
   bundle: EvidenceBundle,
   reason: string
 ): AssistantAnswerDto {
+  if (isGreetingQuery(bundle.query)) {
+    return {
+      answer:
+        'Chào bạn! Mình là Clawd Chef 🦀👨‍🍳 - trợ lý mua sắm AI của Shop QR.\n\n' +
+        'Rất vui được hỗ trợ bạn hôm nay! Mình có thể giúp bạn:\n' +
+        '• Tìm kiếm sản phẩm phù hợp với nhu cầu và tầm giá\n' +
+        '• Tra cứu cấu hình & thông số kỹ thuật niêm yết chính hãng\n' +
+        '• So sánh thông số kỹ thuật và kiểm tra tình trạng còn hàng\n\n' +
+        'Hôm nay bạn đang quan tâm đến dòng sản phẩm nào (laptop, điện thoại, phụ kiện...)?',
+      followUpQuestion: 'Bạn đang tìm thiết bị phục vụ công việc, học tập hay giải trí?',
+      citations: [],
+      claims: [],
+      isGrounded: true,
+      fallbackReason: reason,
+    };
+  }
+
   if (bundle.products.length === 0) {
     return {
       answer:

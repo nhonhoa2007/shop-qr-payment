@@ -497,4 +497,38 @@ describe('Commerce Intelligence: Assistant Evidence Bundle & Grounding Validator
     assert.equal(bundle.products[0].scoreSnapshot?.priceEfficiencyScore, 85);
     assert.equal(bundle.products[0].scoreSnapshot?.version, 2);
   });
+
+  it('handles greeting queries cleanly with Clawd Chef introduction without dumping random products', async () => {
+    const testDb = {
+      product: {
+        findMany: async () => [
+          {
+            id: 'p_cloth_1',
+            name: 'Áo thun nam Cotton',
+            brand: { name: 'Shop' },
+            price: BigInt(289000),
+            stock: 20,
+            specValues: {},
+          },
+        ],
+      },
+      dataSource: {
+        findMany: async () => [],
+      },
+    };
+
+    // 1. Evidence bundle for greeting should have 0 products
+    const greetingBundle = await buildEvidenceBundle({ query: 'hi' }, testDb as any);
+    assert.equal(greetingBundle.products.length, 0, 'Greeting query must not pull random products');
+
+    // 2. Deterministic answer for greeting should welcome the user, not dump product specs
+    const answer = buildDeterministicAnswer(greetingBundle, 'PROVIDER_FALLBACK');
+    assert.match(answer.answer, /Clawd Chef/i, 'Greeting answer must introduce Clawd Chef');
+    assert.doesNotMatch(
+      answer.answer,
+      /thông tin so sánh chính xác/i,
+      'Greeting must not be a product comparison table'
+    );
+    assert.equal(answer.isGrounded, true);
+  });
 });

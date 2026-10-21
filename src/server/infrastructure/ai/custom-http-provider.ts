@@ -80,10 +80,11 @@ export class CustomHttpAiProvider implements AiProvider {
   constructor(options: CustomHttpAiProviderOptions = {}) {
     this.baseUrl = (options.baseUrl ?? process.env.AI_API_BASE_URL ?? '').trim();
     this.apiKey = (options.apiKey ?? process.env.AI_API_KEY ?? '').trim();
-    this.defaultModel = options.model || process.env.AI_MODEL_NAME || DEFAULT_AI_MODEL;
+    const envModel = process.env.AI_MODEL_NAME?.trim();
+    this.defaultModel = options.model || (envModel && envModel !== '' ? envModel : DEFAULT_AI_MODEL);
     this.defaultTimeoutMs =
       options.timeoutMs ||
-      (process.env.AI_TIMEOUT_MS ? Number(process.env.AI_TIMEOUT_MS) : 20000);
+      (process.env.AI_TIMEOUT_MS ? Number(process.env.AI_TIMEOUT_MS) : 12000);
   }
 
   async generate(
@@ -160,8 +161,9 @@ export class CustomHttpAiProvider implements AiProvider {
       const latencyMs = Date.now() - startTime;
 
       if (!response.ok) {
+        const errorText = await response.text().catch(() => '');
         console.error(
-          `[CustomHttpAiProvider] HTTP ${response.status} from ${endpointUrl}`
+          `[CustomHttpAiProvider] HTTP ${response.status} from ${endpointUrl} (model: ${model}): ${errorText}`
         );
         return {
           text: '',
@@ -233,7 +235,7 @@ export class CustomHttpAiProvider implements AiProvider {
         (err.name === 'AbortError' || err.message.includes('Timeout'));
 
       console.error(
-        `[CustomHttpAiProvider] Request error: ${err instanceof Error ? err.message : String(err)}`
+        `[CustomHttpAiProvider] Request error calling ${endpointUrl} (model: ${model}, latency: ${latencyMs}ms): ${err instanceof Error ? err.message : String(err)}`
       );
 
       return {
