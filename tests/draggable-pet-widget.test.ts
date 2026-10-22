@@ -5,7 +5,22 @@ import path from 'node:path';
 import {
   clampCoordinates,
   isDragMovement,
-} from '../src/client/components/assistant/draggable-pet-math.ts';
+} from '@client/components/assistant/draggable-pet-math';
+import { transitionPetAnimation } from '@client/components/assistant/pet-animation';
+
+describe('Clawd Chef response animation', () => {
+  it('moves from idle through cooking and waving, then returns to idle', () => {
+    assert.equal(transitionPetAnimation('idle', 'start'), 'cooking');
+    assert.equal(transitionPetAnimation('cooking', 'success'), 'finished');
+    assert.equal(transitionPetAnimation('finished', 'timeout'), 'idle');
+  });
+
+  it('does not celebrate failed responses or let an old timer interrupt a new request', () => {
+    assert.equal(transitionPetAnimation('cooking', 'failure'), 'idle');
+    assert.equal(transitionPetAnimation('finished', 'start'), 'cooking');
+    assert.equal(transitionPetAnimation('cooking', 'timeout'), 'cooking');
+  });
+});
 
 describe('DraggablePetWidget - Coordinate Clamping & Interaction Detection', () => {
   it('clamps coordinates strictly within viewport boundaries with margins', () => {

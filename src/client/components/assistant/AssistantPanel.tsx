@@ -11,6 +11,7 @@ export interface AssistantPanelProps {
   defaultProductIds?: string[];
   className?: string;
   onLoadingChange?: (loading: boolean) => void;
+  onAnswerSuccess?: () => void;
   onClose?: () => void;
 }
 
@@ -19,6 +20,7 @@ export function AssistantPanel({
   defaultProductIds = [],
   className = '',
   onLoadingChange,
+  onAnswerSuccess,
   onClose,
 }: AssistantPanelProps) {
   const [conversationId, setConversationId] = useState<string | null>(
@@ -120,6 +122,7 @@ export function AssistantPanel({
         };
 
         setMessages((prev) => [...prev, assistantMsg]);
+        onAnswerSuccess?.();
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : 'Lỗi kết nối trợ lý.');
       } finally {
@@ -127,7 +130,7 @@ export function AssistantPanel({
         onLoadingChange?.(false);
       }
     },
-    [inputMessage, conversationId, isLoading, defaultProductIds, onLoadingChange]
+    [inputMessage, conversationId, isLoading, defaultProductIds, onLoadingChange, onAnswerSuccess]
   );
 
   return (

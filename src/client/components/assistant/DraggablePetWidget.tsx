@@ -2,12 +2,16 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
-import { AssistantPanel } from './AssistantPanel';
+import { AssistantPanel } from '@client/components/assistant/AssistantPanel';
 import {
   clampCoordinates,
   isDragMovement,
   type Coordinates,
-} from './draggable-pet-math';
+} from '@client/components/assistant/draggable-pet-math';
+import {
+  transitionPetAnimation,
+  type PetAnimation,
+} from '@client/components/assistant/pet-animation';
 
 export { clampCoordinates, isDragMovement };
 
@@ -19,8 +23,33 @@ export function DraggablePetWidget() {
   const pathname = usePathname();
   const [position, setPosition] = useState<Coordinates | null>(null);
   const [isOpen, setIsOpen] = useState(false);
-  const [isCooking, setIsCooking] = useState(false);
+  const [animation, setAnimation] = useState<PetAnimation>('idle');
   const [showTooltip, setShowTooltip] = useState(true);
+  const finishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const answerSucceededRef = useRef(false);
+
+  const handleLoadingChange = useCallback((loading: boolean) => {
+    if (loading) {
+      if (finishTimerRef.current) clearTimeout(finishTimerRef.current);
+      answerSucceededRef.current = false;
+      setAnimation((current) => transitionPetAnimation(current, 'start'));
+    } else if (!answerSucceededRef.current) {
+      setAnimation((current) => transitionPetAnimation(current, 'failure'));
+    }
+  }, []);
+
+  const handleAnswerSuccess = useCallback(() => {
+    answerSucceededRef.current = true;
+    setAnimation((current) => transitionPetAnimation(current, 'success'));
+    finishTimerRef.current = setTimeout(() => {
+      setAnimation((current) => transitionPetAnimation(current, 'timeout'));
+      finishTimerRef.current = null;
+    }, 1500);
+  }, []);
+
+  useEffect(() => () => {
+    if (finishTimerRef.current) clearTimeout(finishTimerRef.current);
+  }, []);
 
   const isDraggingRef = useRef(false);
   const startPointerRef = useRef<Coordinates>({ x: 0, y: 0 });
@@ -156,6 +185,10 @@ export function DraggablePetWidget() {
           from { background-position: 0px -468px; }
           to { background-position: -432px -468px; }
         }
+        @keyframes clawd-finished-anim {
+          from { background-position: 0px -234px; }
+          to { background-position: -288px -234px; }
+        }
         .clawd-sprite-idle {
           width: 72px;
           height: 78px;
@@ -170,6 +203,14 @@ export function DraggablePetWidget() {
           background-image: url('/assets/pet/clawd-chef/spritesheet.webp');
           background-size: 576px 858px;
           animation: clawd-cooking-anim 0.8s steps(6) infinite;
+          image-rendering: pixelated;
+        }
+        .clawd-sprite-finished {
+          width: 72px;
+          height: 78px;
+          background-image: url('/assets/pet/clawd-chef/spritesheet.webp');
+          background-size: 576px 858px;
+          animation: clawd-finished-anim 0.67s steps(4) infinite;
           image-rendering: pixelated;
         }
       `}</style>
@@ -203,12 +244,12 @@ export function DraggablePetWidget() {
 
           {/* Mascot Sprite Container */}
           <div className="relative group p-1 rounded-2xl bg-white/70 dark:bg-slate-900/70 backdrop-blur-sm border border-slate-200/80 dark:border-slate-800 shadow-xl hover:shadow-2xl hover:scale-105 active:scale-95 transition-transform duration-150">
-            <div className={isCooking ? 'clawd-sprite-cooking' : 'clawd-sprite-idle'} />
+            <div className={`clawd-sprite-${animation}`} />
             <span
               className={`absolute top-1 right-1 w-3 h-3 rounded-full border-2 border-white dark:border-slate-900 ${
-                isCooking ? 'bg-amber-500 animate-ping' : 'bg-emerald-500'
+                animation === 'cooking' ? 'bg-amber-500 animate-ping' : 'bg-emerald-500'
               }`}
-              title={isCooking ? 'Clawd đang nấu câu trả lời...' : 'Clawd Chef sẵn sàng hỗ trợ'}
+              title={animation === 'cooking' ? 'Clawd đang nấu câu trả lời...' : 'Clawd Chef sẵn sàng hỗ trợ'}
             />
           </div>
         </div>
@@ -227,7 +268,8 @@ export function DraggablePetWidget() {
           <div className="fixed z-[99999] inset-x-0 bottom-0 sm:inset-auto sm:right-6 sm:bottom-24 max-w-md w-full sm:w-[420px] p-2 sm:p-0 animate-in fade-in slide-in-from-bottom-4 duration-200">
             <div className="shadow-2xl rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-white dark:bg-neutral-900">
               <AssistantPanel
-                onLoadingChange={setIsCooking}
+                onLoadingChange={handleLoadingChange}
+                onAnswerSuccess={handleAnswerSuccess}
                 onClose={() => setIsOpen(false)}
               />
             </div>
