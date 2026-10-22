@@ -1,15 +1,16 @@
-import { VIETNAM_LOCATIONS, type Province, type District, type Ward } from '../../../shared/constants/vietnam-locations.ts';
-import { removeVietnameseTones } from '../../../shared/utils/product-variants.ts';
+import { VIETNAM_LOCATIONS, type Province, type District, type Ward } from '@shared/constants/vietnam-locations';
+import { removeVietnameseTones } from '@shared/utils/product-variants';
 
 export interface ReverseGeocodeResult {
-  provinceId: string;
-  provinceName: string;
-  districtId: number;
-  districtName: string;
-  wardCode: string;
-  wardName: string;
+  provinceId: string | null;
+  provinceName: string | null;
+  districtId: number | null;
+  districtName: string | null;
+  wardCode: string | null;
+  wardName: string | null;
   specificAddress: string;
   fullDisplayName: string;
+  matchLevel: 'NONE' | 'PROVINCE' | 'DISTRICT' | 'WARD';
   isMatched: boolean;
 }
 
@@ -200,14 +201,15 @@ export async function reverseGeocodeCoordinates(
   lon: number
 ): Promise<ReverseGeocodeResult> {
   const defaultFallback: ReverseGeocodeResult = {
-    provinceId: 'hcm',
-    provinceName: 'TP. Hồ Chí Minh',
-    districtId: 1442,
-    districtName: 'Quận 1',
-    wardCode: '20101',
-    wardName: 'Phường Bến Nghé',
+    provinceId: null,
+    provinceName: null,
+    districtId: null,
+    districtName: null,
+    wardCode: null,
+    wardName: null,
     specificAddress: '',
     fullDisplayName: '',
+    matchLevel: 'NONE',
     isMatched: false,
   };
 
@@ -312,9 +314,6 @@ export async function reverseGeocodeCoordinates(
       }
     } else if (houseNumber || road) {
       specificAddress = [houseNumber, road].filter(Boolean).join(' ');
-    } else if (fullDisplayName) {
-      const segments = fullDisplayName.split(',').map((s: string) => s.trim());
-      specificAddress = segments.slice(0, 2).join(', ');
     }
 
     // So khớp Tỉnh / Thành phố
@@ -322,9 +321,7 @@ export async function reverseGeocodeCoordinates(
     if (!matchedProvince) {
       return {
         ...defaultFallback,
-        specificAddress: specificAddress || fullDisplayName,
         fullDisplayName,
-        isMatched: false,
       };
     }
 
@@ -336,6 +333,16 @@ export async function reverseGeocodeCoordinates(
       rawCityDistrict
     );
     let matchedWard: Ward | null = null;
+
+    // BDC đôi khi đặt tên quận trong locality thay vì danh sách administrative.
+    // Chỉ chấp nhận khớp chính xác và duy nhất để không nhầm tên phường với quận.
+    if (!matchedDistrict && rawWard) {
+      const localityName = normalizeLocationName(rawWard);
+      const districtMatches = matchedProvince.districts.filter(
+        (district) => normalizeLocationName(district.name) === localityName
+      );
+      if (districtMatches.length === 1) matchedDistrict = districtMatches[0];
+    }
 
     // Suy luận ngược từ Phường/Xã: dữ liệu admin cấp thấp của BDC cho Việt Nam
     // thường là TÊN PHƯỜNG (vd. "Hòa Cường") chứ không phải quận — tra phường
@@ -359,15 +366,15 @@ export async function reverseGeocodeCoordinates(
       }
     }
 
-    // Không khớp được quận nào → trả isMatched:false trung thực (route sẽ tự
-    // fallback qua IP). Tuyệt đối không đoán mù districts[0] — với dataset đầy
-    // đủ, phần tử đầu có thể là huyện đảo cách cả trăm km (vd. Hoàng Sa).
+    // Không khớp được quận nào thì chỉ trả tỉnh đã xác thực.
+    // Không đoán mù districts[0]: phần tử đầu có thể ở rất xa tọa độ thực.
     if (!matchedDistrict) {
       return {
         ...defaultFallback,
-        specificAddress: specificAddress || fullDisplayName,
+        provinceId: matchedProvince.id,
+        provinceName: matchedProvince.name,
         fullDisplayName,
-        isMatched: false,
+        matchLevel: 'PROVINCE',
       };
     }
 
@@ -375,7 +382,6 @@ export async function reverseGeocodeCoordinates(
     if (!matchedWard) {
       matchedWard = findMatchingWard(matchedDistrict, rawWard, rawSuburb, rawQuarter);
     }
-    matchedWard = matchedWard || matchedDistrict.wards[0] || null;
 
     const compositeDisplay =
       fullDisplayName ||
@@ -388,10 +394,11 @@ export async function reverseGeocodeCoordinates(
       provinceName: matchedProvince.name,
       districtId: matchedDistrict.id,
       districtName: matchedDistrict.name,
-      wardCode: matchedWard ? matchedWard.code : '',
-      wardName: matchedWard ? matchedWard.name : '',
+      wardCode: matchedWard?.code ?? null,
+      wardName: matchedWard?.name ?? null,
       specificAddress,
       fullDisplayName: compositeDisplay,
+      matchLevel: matchedWard ? 'WARD' : 'DISTRICT',
       isMatched: true,
     };
   } catch (error) {

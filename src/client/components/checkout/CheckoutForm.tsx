@@ -25,8 +25,11 @@ import { VIETNAM_LOCATIONS } from '@shared/constants/vietnam-locations';
 import {
   classifyLocationAccuracy,
   formatAccuracy,
+  getAddressAutofillLevel,
+  getLocationAreaCandidate,
   isBetterLocationSample,
   type DeviceLocationSample,
+  type LocationAreaCandidate,
   type LocationQuality,
 } from '@client/lib/geolocation';
 
@@ -68,9 +71,12 @@ interface DetectedLocationState {
   accuracy: number;
   quality: LocationQuality;
   matchLevel: LocationMatchLevel;
+  areaCandidate: LocationAreaCandidate | null;
+  confirmedArea: boolean;
 }
 
-const LOCATION_COLLECTION_MS = 10_000;
+const LOCATION_COLLECTION_MS = 2_000;
+const LOCATION_FIX_TIMEOUT_MS = 8_000;
 const LOCATION_REQUEST_TIMEOUT_MS = 20_000;
 
 export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFormProps) {
@@ -220,6 +226,26 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
     setSelectedWardCode(wardCode);
   };
 
+  const handleConfirmDetectedArea = () => {
+    const area = detectedLocation?.areaCandidate;
+    if (!area) return;
+
+    addressRevisionRef.current += 1;
+    setSelectedProvinceId(area.provinceId);
+    setSelectedDistrictId(area.districtId ?? 0);
+    setSelectedWardCode('');
+    setSpecificAddress('');
+    setDetectedLocation({
+      ...detectedLocation,
+      areaCandidate: null,
+      confirmedArea: true,
+      matchLevel: area.districtId ? 'DISTRICT' : 'PROVINCE',
+    });
+    toast.info(area.districtId
+      ? 'Đã chọn tỉnh và quận gợi ý. Vui lòng chọn phường và nhập số nhà.'
+      : 'Đã chọn tỉnh gợi ý. Vui lòng chọn quận, phường và nhập số nhà.');
+  };
+
   const applyDetectedLocation = (
     data: ReverseGeocodeSuggestion,
     sample: DeviceLocationSample,
@@ -230,13 +256,15 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
       return;
     }
 
-    const province = data.provinceId
+    const quality = classifyLocationAccuracy(sample.accuracy);
+    const autofillLevel = getAddressAutofillLevel(quality, data.matchLevel);
+    const province = autofillLevel !== 'NONE' && data.provinceId
       ? VIETNAM_LOCATIONS.find((item) => item.id === data.provinceId) ?? null
       : null;
-    const district = province && data.districtId
+    const district = province && (autofillLevel === 'DISTRICT' || autofillLevel === 'WARD') && data.districtId
       ? province.districts.find((item) => item.id === data.districtId) ?? null
       : null;
-    const ward = district && data.wardCode
+    const ward = district && autofillLevel === 'WARD' && data.wardCode
       ? district.wards.find((item) => item.code === data.wardCode) ?? null
       : null;
 
@@ -247,7 +275,7 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
         (ward?.code ?? '') !== selectedWardCode
       )
     );
-    const detectedSpecificAddress = data.specificAddress.trim();
+    const detectedSpecificAddress = quality === 'PRECISE' ? data.specificAddress.trim() : '';
 
     if (province) {
       setSelectedProvinceId(province.id);
@@ -261,16 +289,19 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
     }
     // Không áp địa chỉ đường khi chưa khớp được tỉnh: tránh ghép với địa giới cũ.
 
-    const quality = classifyLocationAccuracy(sample.accuracy);
     const label = data.fullDisplayName || [data.wardName, data.districtName, data.provinceName].filter(Boolean).join(', ');
     setDetectedLocation({
       label: label || 'Đã nhận tọa độ nhưng chưa nhận diện được địa chỉ',
       accuracy: sample.accuracy,
       quality,
-      matchLevel: data.matchLevel,
+      matchLevel: autofillLevel,
+      areaCandidate: quality === 'UNRELIABLE' ? getLocationAreaCandidate(data) : null,
+      confirmedArea: false,
     });
 
-    if (data.matchLevel === 'WARD') {
+    if (quality === 'UNRELIABLE') {
+      toast.info('Vị trí còn sai số lớn. Hãy xác nhận khu vực gợi ý hoặc chọn địa chỉ thủ công.');
+    } else if (autofillLevel === 'WARD') {
       toast.success('Đã điền địa chỉ gợi ý. Vui lòng kiểm tra trước khi đặt hàng.');
     } else {
       toast.info('Chỉ nhận diện được một phần khu vực. Vui lòng chọn các mục còn thiếu.');
@@ -317,19 +348,6 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
       }
 
       const sample: DeviceLocationSample = bestSample;
-      const quality = classifyLocationAccuracy(sample.accuracy);
-      if (quality === 'UNRELIABLE') {
-        setDetectedLocation({
-          label: 'Vị trí thiết bị chưa đủ chính xác để điền địa chỉ',
-          accuracy: sample.accuracy,
-          quality,
-          matchLevel: 'NONE',
-        });
-        setLocating(false);
-        toast.info('Vị trí sai lệch quá lớn. Vui lòng chọn địa chỉ thủ công.');
-        return;
-      }
-
       const controller = new AbortController();
       locationAbortRef.current = controller;
       const requestTimeout = setTimeout(() => controller.abort(), LOCATION_REQUEST_TIMEOUT_MS);
@@ -377,9 +395,16 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
         };
         if (isBetterLocationSample(sample, bestSample)) bestSample = sample;
         if (classifyLocationAccuracy(sample.accuracy) === 'PRECISE') void reverseBestSample();
+        else if (!locationTimerRef.current) {
+          locationTimerRef.current = setTimeout(() => void reverseBestSample(), LOCATION_COLLECTION_MS);
+        }
       },
       (geoError) => {
         if (completed || runId !== locationRunRef.current) return;
+        if (bestSample) {
+          void reverseBestSample();
+          return;
+        }
         completed = true;
         cleanup();
         setLocating(false);
@@ -388,10 +413,8 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
           : 'Không lấy được vị trí thiết bị. Vui lòng chọn địa chỉ thủ công.';
         toast.error(message);
       },
-      { enableHighAccuracy: true, maximumAge: 0, timeout: LOCATION_REQUEST_TIMEOUT_MS }
+      { enableHighAccuracy: true, maximumAge: 60_000, timeout: LOCATION_FIX_TIMEOUT_MS }
     );
-
-    locationTimerRef.current = setTimeout(() => void reverseBestSample(), LOCATION_COLLECTION_MS);
   };
 
   // Calculate discount & totals
@@ -626,7 +649,7 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
             {locating ? (
               <>
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>Đang định vị GPS...</span>
+                <span>Đang tìm vị trí...</span>
               </>
             ) : (
               <>
@@ -648,12 +671,30 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
             }`} />
             <div className="flex-1 min-w-0">
               <span className="font-semibold block mb-0.5">
-                {detectedLocation.matchLevel === 'WARD' ? 'Địa chỉ gợi ý — cần kiểm tra' : 'Vị trí chỉ mang tính ước lượng'}
+                {detectedLocation.confirmedArea
+                  ? 'Đã chọn khu vực gợi ý'
+                  : detectedLocation.matchLevel === 'WARD'
+                    ? 'Địa chỉ gợi ý — cần kiểm tra'
+                    : 'Vị trí chỉ mang tính ước lượng'}
               </span>
               <span className="leading-relaxed block">{detectedLocation.label}</span>
               <span className="block mt-1 opacity-80">
                 Sai lệch thiết bị: {formatAccuracy(detectedLocation.accuracy)}. Vui lòng xác nhận số nhà và khu vực bên dưới.
               </span>
+              {detectedLocation.areaCandidate && (
+                <button
+                  type="button"
+                  onClick={handleConfirmDetectedArea}
+                  className="mt-2 rounded-full bg-amber-900 px-3 py-1.5 text-white font-semibold hover:bg-amber-800 cursor-pointer"
+                >
+                  Dùng {detectedLocation.areaCandidate.districtName
+                    ? `${detectedLocation.areaCandidate.districtName}, ${detectedLocation.areaCandidate.provinceName}`
+                    : detectedLocation.areaCandidate.provinceName}
+                </button>
+              )}
+              {detectedLocation.confirmedArea && (
+                <span className="block mt-1 font-medium">Tiếp tục chọn phường/xã và nhập số nhà trước khi đặt hàng.</span>
+              )}
             </div>
             <button
               type="button"
@@ -829,7 +870,7 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
       <div className="bg-white rounded-[28px] p-6 sm:p-8 shadow-card space-y-4">
         <h2 className="font-semibold text-base text-ink-black tracking-[-0.031em] flex items-center justify-between">
           <span>Phương thức thanh toán</span>
-          <span className="text-xs font-normal text-muted-gray">Chọn 1 trong 3 kênh</span>
+          <span className="text-xs font-normal text-muted-gray">Chọn 1 trong 2 kênh</span>
         </h2>
 
         <div className="grid grid-cols-1 gap-3">

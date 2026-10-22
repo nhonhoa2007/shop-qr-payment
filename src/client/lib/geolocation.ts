@@ -1,4 +1,14 @@
+import { VIETNAM_LOCATIONS } from '@shared/constants/vietnam-locations';
+
 export type LocationQuality = 'PRECISE' | 'APPROXIMATE' | 'UNRELIABLE';
+export type LocationMatchLevel = 'NONE' | 'PROVINCE' | 'DISTRICT' | 'WARD';
+
+export interface LocationAreaCandidate {
+  provinceId: string;
+  provinceName: string;
+  districtId: number | null;
+  districtName: string | null;
+}
 
 export interface DeviceLocationSample {
   latitude: number;
@@ -14,6 +24,30 @@ export function classifyLocationAccuracy(accuracy: number): LocationQuality {
   if (accuracy <= PRECISE_LOCATION_THRESHOLD_METERS) return 'PRECISE';
   if (accuracy <= USABLE_LOCATION_THRESHOLD_METERS) return 'APPROXIMATE';
   return 'UNRELIABLE';
+}
+
+export function getAddressAutofillLevel(
+  quality: LocationQuality,
+  providerMatchLevel: LocationMatchLevel
+): LocationMatchLevel {
+  if (quality === 'UNRELIABLE') return 'NONE';
+  if (quality === 'APPROXIMATE' && providerMatchLevel === 'WARD') return 'DISTRICT';
+  return providerMatchLevel;
+}
+
+export function getLocationAreaCandidate(location: {
+  provinceId: string | null;
+  districtId: number | null;
+}): LocationAreaCandidate | null {
+  const province = VIETNAM_LOCATIONS.find((item) => item.id === location.provinceId);
+  if (!province) return null;
+  const district = province.districts.find((item) => item.id === location.districtId) ?? null;
+  return {
+    provinceId: province.id,
+    provinceName: province.name,
+    districtId: district?.id ?? null,
+    districtName: district?.name ?? null,
+  };
 }
 
 export function isBetterLocationSample(

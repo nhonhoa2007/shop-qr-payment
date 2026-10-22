@@ -40,6 +40,75 @@ describe('Geolocation & Fast Address Reverse Geocoding', () => {
     }
   });
 
+  it('reports a district-only match without inventing a ward', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => ({
+      ok: true,
+      json: async () => ({
+        address: {
+          city: 'Thành phố Hồ Chí Minh',
+          city_district: 'Quận 1',
+          country: 'Việt Nam',
+        },
+        display_name: 'Quận 1, Thành phố Hồ Chí Minh, Việt Nam',
+      }),
+    }) as Response;
+
+    try {
+      const result = await reverseGeocodeCoordinates(10.779785, 106.699018);
+      assert.equal(result.matchLevel, 'DISTRICT');
+      assert.equal(result.provinceId, 'hcm');
+      assert.equal(result.districtId, 1442);
+      assert.equal(result.wardCode, null);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('does not suggest Ho Chi Minh City when location providers fail', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => { throw new Error('provider unavailable'); };
+
+    try {
+      const result = await reverseGeocodeCoordinates(21.0366, 105.7825);
+      assert.equal(result.matchLevel, 'NONE');
+      assert.equal(result.provinceId, null);
+      assert.equal(result.districtId, null);
+      assert.equal(result.wardCode, null);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('recognizes a district returned as BigDataCloud locality', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (input) => {
+      if (String(input).includes('nominatim.openstreetmap.org')) {
+        return { ok: false } as Response;
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          locality: 'Ngũ Hành Sơn',
+          city: 'Đà Nẵng',
+          principalSubdivision: 'Đà Nẵng',
+          localityInfo: { administrative: [] },
+        }),
+      } as Response;
+    };
+
+    try {
+      const result = await reverseGeocodeCoordinates(16.003, 108.25);
+      assert.equal(result.provinceId, 'dn');
+      assert.equal(result.districtId, 1529);
+      assert.equal(result.districtName, 'Quận Ngũ Hành Sơn');
+      assert.equal(result.matchLevel, 'DISTRICT');
+      assert.equal(result.wardCode, null);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it('should map Hanoi coordinates accurately to province and district', async () => {
     // Tọa độ Cầu Giấy, Hà Nội
     const lat = 21.0366;
@@ -116,19 +185,4 @@ describe('Geolocation & Fast Address Reverse Geocoding', () => {
     }
   });
 
-  it('should return safe fallback when geocoding service encounters network error', async () => {
-    const originalFetch = globalThis.fetch;
-    globalThis.fetch = async () => {
-      throw new Error('Network error or timeout');
-    };
-
-    try {
-      const result = await reverseGeocodeCoordinates(0, 0);
-      assert.equal(result.isMatched, false);
-      assert.equal(result.provinceId, 'hcm'); // Fallback an toàn
-      assert.ok(result.districtId);
-    } finally {
-      globalThis.fetch = originalFetch;
-    }
-  });
 });

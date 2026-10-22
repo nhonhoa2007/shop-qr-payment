@@ -32,7 +32,6 @@ describe('Checkout Calculation Logic', () => {
     assert.equal(totalsNegative.shippingFee, STANDARD_SHIPPING_FEE);
   });
 });
-
 describe('Checkout Add-on Accessory & Compatibility Revalidation', () => {
   const mockDb = {
     product: {
@@ -130,4 +129,16 @@ describe('Checkout Add-on Accessory & Compatibility Revalidation', () => {
     assert.equal(resValid.status, 200);
   });
 });
+describe('Checkout Payment Methods Invariant', () => {
+  it('consistently declares the two supported payment channels', async () => {
+    const fs = await import('node:fs');
+    const checkoutSource = fs.readFileSync('src/client/components/checkout/CheckoutForm.tsx', 'utf-8');
 
+    // UI header reflects exactly 2 channels
+    assert.match(checkoutSource, /Chọn 1 trong 2 kênh/);
+    assert.doesNotMatch(checkoutSource, /Chọn 1 trong 3 kênh/);
+
+    // Channels are VietQR and Wallet
+    assert.match(checkoutSource, /type PaymentMethodType = 'VIETQR' \| 'WALLET'/);
+  });
+});
