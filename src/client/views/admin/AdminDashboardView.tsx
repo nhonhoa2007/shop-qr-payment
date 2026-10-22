@@ -4,6 +4,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useHydrated } from '@client/hooks/useHydrated';
 import { pusherClient } from '@client/infrastructure/pusher-client';
+import { getDashboardAnalyticsEndpoint } from '@client/lib/dashboard-analytics';
 import { AdminKpiStrip, KpiSummaryData } from '@client/components/admin/dashboard/AdminKpiStrip';
 import { AdminRevenueBars, RevenueBarRange, RevenueBarPoint } from '@client/components/admin/dashboard/AdminRevenueBars';
 import { AdminDonutChart, DonutPaymentDistribution } from '@client/components/admin/dashboard/AdminDonutChart';
@@ -109,11 +110,7 @@ export function AdminDashboardView({ user }: AdminDashboardViewProps = {}) {
         setRefreshing(true);
       }
 
-      const endpoint = isStaff
-        ? '/api/admin/analytics/staff'
-        : `/api/admin/analytics?range=${range}`;
-
-      fetch(endpoint)
+      fetch(getDashboardAnalyticsEndpoint(user?.role, range))
         .then((res) => {
           if (!res.ok) {
             throw new Error(`Analytics fetch failed with status ${res.status}`);
@@ -132,14 +129,14 @@ export function AdminDashboardView({ user }: AdminDashboardViewProps = {}) {
           setRefreshing(false);
         });
     },
-    [applyAnalytics, isStaff]
+    [applyAnalytics, isStaff, user?.role]
   );
 
   // Initial load
   useEffect(() => {
     let cancelled = false;
 
-    fetch('/api/admin/analytics?range=today')
+    fetch(getDashboardAnalyticsEndpoint(user?.role, 'today'))
       .then((res) => {
         if (!res.ok) {
           throw new Error(`Analytics fetch failed with status ${res.status}`);
@@ -147,7 +144,7 @@ export function AdminDashboardView({ user }: AdminDashboardViewProps = {}) {
         return res.json();
       })
       .then((resData) => {
-        if (!cancelled) applyAnalytics(resData);
+        if (!cancelled) applyAnalytics(isStaff ? { summary: resData, ...resData } : resData);
       })
       .catch((err) => {
         console.error('Failed to fetch analytics:', err);
@@ -160,10 +157,11 @@ export function AdminDashboardView({ user }: AdminDashboardViewProps = {}) {
     return () => {
       cancelled = true;
     };
-  }, [applyAnalytics]);
+  }, [applyAnalytics, isStaff, user?.role]);
 
   // Real-time Pusher Subscription
   useEffect(() => {
+    if (isStaff) return;
     const channel = pusherClient.subscribe('private-admin-channel');
 
     const handleAnalyticsUpdate = () => {
@@ -176,7 +174,7 @@ export function AdminDashboardView({ user }: AdminDashboardViewProps = {}) {
       channel.unbind('analytics-updated', handleAnalyticsUpdate);
       pusherClient.unsubscribe('private-admin-channel');
     };
-  }, [fetchAnalytics]);
+  }, [fetchAnalytics, isStaff]);
 
   // Fallback Auto-Polling every 15 seconds
   useEffect(() => {

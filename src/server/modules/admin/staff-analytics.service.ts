@@ -1,10 +1,10 @@
-import { prisma } from '../../database/prisma.ts';
-import type { StaffPermission } from '../../../shared/constants/permissions.ts';
+import { prisma } from '@server/database/prisma';
+import type { StaffPermission } from '@shared/constants/permissions';
 import {
   type UrgentAction,
   type RecentOrderDto,
   formatItemsSummary,
-} from './admin-analytics.service.ts';
+} from './admin-analytics.service';
 
 export interface StaffDashboardMetrics {
   totalOrders?: number;
@@ -42,7 +42,10 @@ export function sanitizeStaffAnalytics(
       sanitized.ordersByStatus = rawMetrics.ordersByStatus as Record<string, number>;
     }
     if (Array.isArray(rawMetrics.recentOrders)) {
-      sanitized.recentOrders = rawMetrics.recentOrders as RecentOrderDto[];
+      sanitized.recentOrders = (rawMetrics.recentOrders as RecentOrderDto[]).map((order) => ({
+        ...order,
+        totalAmount: Number(order.totalAmount),
+      }));
     }
   }
 
