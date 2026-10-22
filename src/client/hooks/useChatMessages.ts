@@ -28,6 +28,20 @@ export function useChatMessages(roomId: string, currentUserId: string, initialMe
     channel.bind('new-message', (data: Message) => {
       setMessages((prev) => {
         if (prev.some((m) => m.id === data.id)) return prev;
+
+        // If this is our own message and there's a matching temp message, replace it
+        const pendingTempIndex = prev.findIndex(
+          (m) =>
+            m.id.startsWith('temp-') &&
+            m.senderId === data.senderId &&
+            m.content === data.content
+        );
+        if (pendingTempIndex !== -1) {
+          const updated = [...prev];
+          updated[pendingTempIndex] = data;
+          return updated;
+        }
+
         return [...prev, data];
       });
       setIsTyping(false);
@@ -62,7 +76,7 @@ export function useChatMessages(roomId: string, currentUserId: string, initialMe
 
   const sendMessage = useCallback(
     async (content: string) => {
-      const tempId = `temp-${Date.now()}`;
+      const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
       const tempMessage: Message = {
         id: tempId,
         roomId,
@@ -87,10 +101,17 @@ export function useChatMessages(roomId: string, currentUserId: string, initialMe
           throw new Error(data.error || 'Failed to send message');
         }
 
+        const serverMessage: Message = data?.message ?? data;
+
         // Replace temp message with actual server message
-        setMessages((prev) =>
-          prev.map((msg) => (msg.id === tempId ? { ...data.message } : msg))
-        );
+        setMessages((prev) => {
+          // If Pusher event already added the message while fetch was in-flight,
+          // remove the temporary message to avoid duplicate keys.
+          if (prev.some((m) => m.id === serverMessage.id)) {
+            return prev.filter((msg) => msg.id !== tempId);
+          }
+          return prev.map((msg) => (msg.id === tempId ? serverMessage : msg));
+        });
       } catch (error: unknown) {
         // Rollback on error
         console.error('Send message error:', error);

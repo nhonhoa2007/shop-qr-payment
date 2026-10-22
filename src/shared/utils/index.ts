@@ -16,12 +16,16 @@ export function formatVND(amount: number | bigint | string): string {
 }
 
 export function formatTime(dateStr: string | Date): string {
+  if (!dateStr) return '';
   const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return '';
   return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 }
 
 export function formatDate(dateStr: string | Date): string {
+  if (!dateStr) return '';
   const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return '';
   return date.toLocaleDateString('vi-VN', {
     day: '2-digit',
     month: '2-digit',
@@ -30,7 +34,12 @@ export function formatDate(dateStr: string | Date): string {
 }
 
 export function formatDateTime(dateStr: string | Date): string {
-  return `${formatDate(dateStr)} ${formatTime(dateStr)}`;
+  const d = formatDate(dateStr);
+  const t = formatTime(dateStr);
+  if (!d && !t) return '';
+  if (!d) return t;
+  if (!t) return d;
+  return `${d} ${t}`;
 }
 
 export function formatCountdown(ms: number): string {

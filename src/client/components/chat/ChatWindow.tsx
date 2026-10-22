@@ -91,8 +91,12 @@ export function ChatWindow({
             <p className="text-[11px] text-slate-400 mt-0.5">Hãy bắt đầu cuộc trò chuyện!</p>
           </div>
         )}
-        {messages.map((msg) => (
-          <MessageBubble key={msg.id} message={msg} isOwn={msg.senderId === currentUserId} />
+        {messages.map((msg, index) => (
+          <MessageBubble
+            key={msg.id || `msg-${index}`}
+            message={msg}
+            isOwn={msg.senderId === currentUserId}
+          />
         ))}
         {isTyping && <TypingIndicator name={typingUser} />}
         <div ref={bottomRef} />

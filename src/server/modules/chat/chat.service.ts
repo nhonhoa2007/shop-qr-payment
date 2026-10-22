@@ -1,5 +1,5 @@
-import { prisma } from '../../database/prisma.ts';
-import type { ChatRoom, Message } from '@/types';
+import { prisma } from '@server/database/prisma';
+import type { ChatRoom, Message } from '@shared/types';
 
 /**
  * Chat Service - Xử lý nghiệp vụ hội thoại realtime và hỗ trợ khách hàng
@@ -9,84 +9,108 @@ export class ChatService {
    * Lấy danh sách các phòng chat đang hoạt động dành cho Quản trị viên
    */
   static async getAdminChatRooms(adminUserId: string): Promise<ChatRoom[]> {
-    const hasParticipants = 'chatRoomParticipant' in prisma;
-    const rooms = await (prisma as any).chatRoom.findMany({
-      include: {
-        order: { select: { orderCode: true } },
-        customer: { select: { id: true, name: true, avatar: true } },
-        assignedStaff: { select: { id: true, name: true, avatar: true } },
-        ...(hasParticipants
-          ? {
-              participants: {
-                where: { userId: { not: adminUserId } },
-                include: { user: { select: { id: true, name: true, avatar: true } } },
-              },
-            }
-          : {}),
-        _count: { select: { messages: true } },
-      },
-      orderBy: { lastActiveAt: 'desc' },
-    });
+    try {
+      const hasParticipants = 'chatRoomParticipant' in prisma;
+      const rooms = await (prisma as any).chatRoom.findMany({
+        include: {
+          order: { select: { orderCode: true } },
+          customer: { select: { id: true, name: true, avatar: true } },
+          assignedStaff: { select: { id: true, name: true, avatar: true } },
+          ...(hasParticipants
+            ? {
+                participants: {
+                  where: { userId: { not: adminUserId } },
+                  include: { user: { select: { id: true, name: true, avatar: true } } },
+                },
+              }
+            : {}),
+          _count: { select: { messages: true } },
+        },
+        orderBy: { lastActiveAt: 'desc' },
+      });
 
-    const mapped = rooms.map((room: any) => {
-      const otherUser = room.customer || (room.assignedStaffId !== adminUserId ? room.assignedStaff : null);
-      const participants =
-        room.participants && room.participants.length > 0
-          ? room.participants
-          : [otherUser ? { user: otherUser } : null].filter(Boolean);
+      const mapped = rooms.map((room: any) => {
+        const otherUser = room.customer || (room.assignedStaffId !== adminUserId ? room.assignedStaff : null);
+        const participants =
+          room.participants && room.participants.length > 0
+            ? room.participants
+            : [otherUser ? { user: otherUser } : null].filter(Boolean);
 
-      return {
-        ...room,
-        participants,
-      };
-    });
+        return {
+          ...room,
+          participants,
+        };
+      });
 
-    return mapped as unknown as ChatRoom[];
+      return mapped as unknown as ChatRoom[];
+    } catch (err) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(
+          '[ChatService] Không thể tải danh sách phòng chat quản trị (vui lòng chạy npx prisma db push):',
+          err instanceof Error ? err.message : err
+        );
+      } else {
+        console.error('ChatService.getAdminChatRooms error:', err);
+      }
+      return [];
+    }
   }
 
   /**
    * Lấy danh sách phòng chat của một khách hàng
    */
   static async getCustomerChatRooms(customerId: string): Promise<ChatRoom[]> {
-    const hasParticipants = 'chatRoomParticipant' in prisma;
-    const rooms = await (prisma as any).chatRoom.findMany({
-      where: {
-        OR: [
-          { customerId },
-          ...(hasParticipants ? [{ participants: { some: { userId: customerId } } }] : []),
-        ],
-      },
-      include: {
-        order: { select: { orderCode: true } },
-        customer: { select: { id: true, name: true, avatar: true } },
-        assignedStaff: { select: { id: true, name: true, avatar: true } },
-        ...(hasParticipants
-          ? {
-              participants: {
-                where: { userId: { not: customerId } },
-                include: { user: { select: { id: true, name: true, avatar: true } } },
-              },
-            }
-          : {}),
-        _count: { select: { messages: true } },
-      },
-      orderBy: { lastActiveAt: 'desc' },
-    });
+    try {
+      const hasParticipants = 'chatRoomParticipant' in prisma;
+      const rooms = await (prisma as any).chatRoom.findMany({
+        where: {
+          OR: [
+            { customerId },
+            ...(hasParticipants ? [{ participants: { some: { userId: customerId } } }] : []),
+          ],
+        },
+        include: {
+          order: { select: { orderCode: true } },
+          customer: { select: { id: true, name: true, avatar: true } },
+          assignedStaff: { select: { id: true, name: true, avatar: true } },
+          ...(hasParticipants
+            ? {
+                participants: {
+                  where: { userId: { not: customerId } },
+                  include: { user: { select: { id: true, name: true, avatar: true } } },
+                },
+              }
+            : {}),
+          _count: { select: { messages: true } },
+        },
+        orderBy: { lastActiveAt: 'desc' },
+      });
 
-    const mapped = rooms.map((room: any) => {
-      const otherUser = room.assignedStaff;
-      const participants =
-        room.participants && room.participants.length > 0
-          ? room.participants
-          : [otherUser ? { user: otherUser } : null].filter(Boolean);
+      const mapped = rooms.map((room: any) => {
+        const otherUser = room.assignedStaff;
+        const participants =
+          room.participants && room.participants.length > 0
+            ? room.participants
+            : [otherUser ? { user: otherUser } : null].filter(Boolean);
 
-      return {
-        ...room,
-        participants,
-      };
-    });
+        return {
+          ...room,
+          participants,
+        };
+      });
 
-    return mapped as unknown as ChatRoom[];
+      return mapped as unknown as ChatRoom[];
+    } catch (err) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(
+          '[ChatService] Không thể tải danh sách phòng chat (vui lòng chạy npx prisma db push):',
+          err instanceof Error ? err.message : err
+        );
+      } else {
+        console.error('ChatService.getCustomerChatRooms error:', err);
+      }
+      return [];
+    }
   }
 
   /**

@@ -63,7 +63,7 @@ export async function POST(req: Request) {
       });
     }
 
-    return NextResponse.json(message);
+    return NextResponse.json({ message, ...message });
   } catch (error) {
     console.error('Send message error:', error);
     return NextResponse.json({ error: 'Lỗi gửi tin nhắn' }, { status: 500 });

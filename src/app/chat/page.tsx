@@ -1,7 +1,7 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@server/modules/auth/auth-options';
 import { redirect } from 'next/navigation';
-import { ChatService } from '@/server/modules/chat/chat.service';
+import { ChatService } from '@server/modules/chat/chat.service';
 import { ChatView } from '@client/views/ChatView';
 import type { Metadata } from 'next';
 
