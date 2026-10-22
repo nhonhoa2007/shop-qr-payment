@@ -154,7 +154,6 @@ export async function calculateGHNFee(
         headers: {
           'Content-Type': 'application/json',
           Token: GHN_TOKEN,
-          ...(GHN_SHOP_ID ? { ShopId: GHN_SHOP_ID } : {}),
         },
         body: JSON.stringify({
           from_district_id: GHN_FROM_DISTRICT_ID,
@@ -180,6 +179,9 @@ export async function calculateGHNFee(
             source: 'GHN_API',
           };
         }
+      } else {
+        const errJson = await response.json().catch(() => null);
+        console.warn('GHN fee API returned non-200:', response.status, errJson);
       }
     } catch (err) {
       console.warn('GHN fee calculation failed, falling back to heuristic fee:', err);
