@@ -5,8 +5,8 @@
  * and requires explicit caveat confirmation for UNKNOWN compatibility accessories.
  */
 
-import { prisma as globalPrisma } from '../../database/prisma.ts';
-import { checkCompatibility } from './compatibility.service.ts';
+import { prisma as globalPrisma } from '@server/database/prisma';
+import { checkCompatibility } from '@server/modules/compatibility/compatibility.service';
 
 export interface CartRevalidationItem {
   productId: string;

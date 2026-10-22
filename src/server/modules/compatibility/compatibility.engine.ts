@@ -11,7 +11,7 @@ import type {
   CompatibilityRuleDefinition,
   CompatibilityStatus,
   CompatibilityTargetSpecs,
-} from '../../../shared/types/compatibility.ts';
+} from '@shared/types/compatibility';
 
 interface SpecProfileValue {
   state: 'KNOWN' | 'UNKNOWN' | 'UNSUPPORTED';

@@ -1,4 +1,4 @@
-import type { ProductVariantInput } from '../types';
+import type { ProductVariantInput } from '@shared/types';
 
 /**
  * Loại bỏ dấu tiếng Việt để chuyển thành chuỗi không dấu chuẩn mã SKU / Slug

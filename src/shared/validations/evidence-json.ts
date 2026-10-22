@@ -4,7 +4,7 @@ import type {
   MappingDecision,
   EvidenceQuery,
   EvidenceProvenance,
-} from '../types/intelligence.ts';
+} from '@shared/types/intelligence';
 
 export function validateReviewAggregatePayload(input: unknown): {
   valid: boolean;

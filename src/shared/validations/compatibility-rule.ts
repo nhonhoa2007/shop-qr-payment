@@ -8,7 +8,7 @@ import type {
   CompatibilityRuleDefinition,
   CompatibilityDirection,
   CompatibilityRuleStatus,
-} from '../types/compatibility.ts';
+} from '@shared/types/compatibility';
 
 const ALLOWED_RULE_KEYS = new Set([
   'id',

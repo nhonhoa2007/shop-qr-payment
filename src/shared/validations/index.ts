@@ -1,6 +1,6 @@
-import { MAX_QUANTITY_PER_ITEM } from '../constants/index.ts';
-import type { OrderRequestItem, ValidatedOrderItem, Product, ProductVariant } from '../types/index.ts';
-import { calculateCheckoutTotals } from '../utils/checkout.ts';
+import { MAX_QUANTITY_PER_ITEM } from '@shared/constants';
+import type { OrderRequestItem, ValidatedOrderItem, Product, ProductVariant } from '@shared/types';
+import { calculateCheckoutTotals } from '@shared/utils/checkout';
 
 export { MAX_QUANTITY_PER_ITEM };
 export type { OrderRequestItem, ValidatedOrderItem };

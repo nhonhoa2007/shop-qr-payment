@@ -1,7 +1,7 @@
 import type { Prisma } from '@prisma/client';
-import { prisma } from '../../database/prisma.ts';
-import { pusherServer } from '../../infrastructure/pusher.ts';
-import type { Notification, NotificationType } from '@/types';
+import { prisma } from '@server/database/prisma';
+import { pusherServer } from '@server/infrastructure/pusher';
+import type { Notification, NotificationType } from '@shared/types';
 
 export interface CreateNotificationParams {
   userId: string;

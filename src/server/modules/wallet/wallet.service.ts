@@ -1,6 +1,6 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
-import { prisma } from '../../database/prisma.ts';
-import { releaseOrderStock } from '../inventory/inventory.service.ts';
+import { prisma } from '@server/database/prisma';
+import { releaseOrderStock } from '@server/modules/inventory/inventory.service';
 import { serializeMoneyVnd } from '@shared/utils/money';
 import { serializeWalletDto } from '@server/modules/money/money-serialization';
 import type { MoneyVnd } from '@shared/types/money';

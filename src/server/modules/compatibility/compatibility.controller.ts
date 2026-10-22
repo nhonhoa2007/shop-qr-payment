@@ -6,8 +6,8 @@
 
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '../auth/auth-options.ts';
-import { prisma as globalPrisma } from '../../database/prisma.ts';
+import { authOptions } from '@server/modules/auth/auth-options';
+import { prisma as globalPrisma } from '@server/database/prisma';
 import {
   checkCompatibility,
   listCompatibleAccessories,
@@ -15,8 +15,8 @@ import {
   activateCompatibilityRule,
   revokeCompatibilityRule,
   listCompatibilityRules,
-} from './compatibility.service.ts';
-import type { DraftCompatibilityRuleInput } from '../../../shared/types/compatibility.ts';
+} from './compatibility.service';
+import type { DraftCompatibilityRuleInput } from '@shared/types/compatibility';
 
 export interface ApiResponse<T = any> {
   status: number;

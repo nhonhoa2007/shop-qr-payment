@@ -3,7 +3,7 @@ import {
   adaptLegacyColorSizeToOptionValues,
   upsertElectronicsProduct,
   type UpsertElectronicsProductInput,
-} from '../catalog/catalog-write.service.ts';
+} from '@server/modules/catalog/catalog-write.service';
 
 export {
   adaptLegacyColorSizeToOptionValues,

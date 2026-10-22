@@ -7,7 +7,7 @@
  */
 
 import crypto from 'node:crypto';
-import { redis } from '../redis.ts';
+import { redis } from '@server/infrastructure/redis';
 
 export interface BudgetInput {
   userId?: string;

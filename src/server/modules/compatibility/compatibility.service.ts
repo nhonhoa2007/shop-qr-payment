@@ -4,17 +4,17 @@
  * coordinates deterministic engine evaluation, and handles Redis caching / instant revocation invalidation.
  */
 
-import { prisma as globalPrisma } from '../../database/prisma.ts';
-import { redis } from '../../infrastructure/redis.ts';
-import { evaluateCompatibility } from './compatibility.engine.ts';
-import { validateCompatibilityRule } from '../../../shared/validations/compatibility-rule.ts';
+import { prisma as globalPrisma } from '@server/database/prisma';
+import { redis } from '@server/infrastructure/redis';
+import { evaluateCompatibility } from './compatibility.engine';
+import { validateCompatibilityRule } from '@shared/validations/compatibility-rule';
 import type {
   CompatibilityCheckDto,
   CompatibilityQuery,
   CompatibilityRuleDefinition,
   CompatibilityTargetSpecs,
   DraftCompatibilityRuleInput,
-} from '../../../shared/types/compatibility.ts';
+} from '@shared/types/compatibility';
 
 const COMPAT_CACHE_PREFIX = 'compat:';
 const COMPAT_CACHE_TTL_SECONDS = 3600; // 1 hour

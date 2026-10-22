@@ -1,4 +1,4 @@
-import type { OrderStatus, PaymentStatus } from '../types/index.ts';
+import type { OrderStatus, PaymentStatus } from '@shared/types';
 
 export const APP_NAME = 'Shop QR Payment';
 

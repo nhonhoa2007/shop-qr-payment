@@ -4,8 +4,8 @@ import type { NextResponse } from 'next/server';
 import {
   hasStaffPermissionInMemory,
   getStaffPermissions,
-} from './permission.service.ts';
-import type { StaffPermission } from '../../../shared/constants/permissions.ts';
+} from './permission.service';
+import type { StaffPermission } from '@shared/constants/permissions';
 
 export interface GuardUser {
   id: string;

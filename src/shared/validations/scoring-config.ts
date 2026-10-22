@@ -4,7 +4,7 @@ import type {
   UseCaseScoringConfig,
   ScoringMetricConfig,
   UseCaseWeights,
-} from '../types/intelligence.ts';
+} from '@shared/types/intelligence';
 
 const TOLERANCE = 0.001;
 

@@ -1,11 +1,11 @@
 import crypto from 'node:crypto';
 import type { Prisma, PrismaClient } from '@prisma/client';
-import { prisma } from '../../database/prisma.ts';
-import { redis } from '../../infrastructure/redis.ts';
-import { generateTopupCode } from '../../../shared/utils/index.ts';
-import { getBankInfo } from '../payment/vietqr.service.ts';
-import { getOrCreateWallet } from './wallet.service.ts';
-import type { WalletTopupSession, WalletTopupResponse } from '../../../shared/types/index.ts';
+import { prisma } from '@server/database/prisma';
+import { redis } from '@server/infrastructure/redis';
+import { generateTopupCode } from '@shared/utils';
+import { getBankInfo } from '@server/modules/payment/vietqr.service';
+import { getOrCreateWallet } from './wallet.service';
+import type { WalletTopupSession, WalletTopupResponse } from '@shared/types';
 
 type TransactionClient = Prisma.TransactionClient | PrismaClient;
 

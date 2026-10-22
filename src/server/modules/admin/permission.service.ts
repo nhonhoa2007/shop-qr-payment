@@ -1,8 +1,8 @@
-import { prisma } from '../../database/prisma.ts';
+import { prisma } from '@server/database/prisma';
 import {
   isStaffPermission,
   type StaffPermission,
-} from '../../../shared/constants/permissions.ts';
+} from '@shared/constants/permissions';
 import { appendAdminAudit } from '@server/modules/admin/audit-log.service';
 
 export type { StaffPermission };

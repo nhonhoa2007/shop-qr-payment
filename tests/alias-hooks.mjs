@@ -29,6 +29,17 @@ function resolveAlias(specifier) {
   return hit ? pathToFileURL(hit).href : null;
 }
 
+function resolveRelative(specifier, parentURL) {
+  if (!parentURL || (!specifier.startsWith('./') && !specifier.startsWith('../'))) return null;
+  if (!parentURL.startsWith('file://')) return null;
+  const parentPath = fileURLToPath(parentURL);
+  const basePath = path.resolve(path.dirname(parentPath), specifier);
+  const hit = EXTENSIONS.map((ext) => basePath + ext).find(
+    (candidate) => existsSync(candidate) && statSync(candidate).isFile()
+  );
+  return hit ? pathToFileURL(hit).href : null;
+}
+
 export function resolve(specifier, context, nextResolve) {
   if (specifier === 'next/server') {
     return {
@@ -36,7 +47,7 @@ export function resolve(specifier, context, nextResolve) {
       shortCircuit: true,
     };
   }
-  const resolved = resolveAlias(specifier);
+  const resolved = resolveAlias(specifier) || resolveRelative(specifier, context?.parentURL);
   if (resolved) {
     return { url: resolved, shortCircuit: true };
   }

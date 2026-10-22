@@ -277,12 +277,14 @@ export interface UserWallet {
 
 export type UserRole = 'CUSTOMER' | 'STAFF' | 'ADMIN';
 
+import type { StaffPermission } from '@shared/constants/permissions';
+
 export {
   STAFF_PERMISSIONS,
   PERMISSION_LABELS,
   isStaffPermission,
   type StaffPermission,
-} from '../constants/permissions';
+} from '@shared/constants/permissions';
 
 export interface UserAccount {
   id: string;
@@ -292,7 +294,7 @@ export interface UserAccount {
   avatar: string | null;
   address: string | null;
   role: UserRole;
-  permissions?: import('../constants/permissions').StaffPermission[];
+  permissions?: StaffPermission[];
   isVerified: boolean;
   isBlocked: boolean;
   createdAt: string;
