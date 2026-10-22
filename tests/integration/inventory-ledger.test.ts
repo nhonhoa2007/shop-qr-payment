@@ -255,6 +255,45 @@ describe('Inventory Movement Ledger - Integration & Lifecycle', () => {
     assert.equal(report2.createdCount, 0);
   });
 
+  it('does not overwrite a live stock projection when a legacy opening is absent', async () => {
+    const db = createInMemoryLedgerDb();
+    db._seedProduct({
+      id: 'prod_live', onHandStock: 10, reservedStock: 2,
+      quarantinedStock: 0, stock: 8, stockVersion: 1,
+      inventoryMode: 'BASE', isActive: true,
+    });
+    await db.inventoryMovement.create({ data: {
+      operationKey: 'order:existing:reserve', productId: 'prod_live',
+      variantId: null, kind: 'RESERVE', deltaOnHand: 0, deltaReserved: 2,
+    } });
+
+    const result = await backfillOpeningLegacyMovements(db);
+    const product = await db.product.findUnique({ where: { id: 'prod_live' } });
+    assert.equal(result.createdCount, 0);
+    assert.equal(product.onHandStock, 10);
+    assert.equal(product.reservedStock, 2);
+    assert.equal(db._getMovements().length, 1);
+  });
+
+  it('preserves an untouched projection that already has a ledger movement', async () => {
+    const db = createInMemoryLedgerDb();
+    db._seedProduct({
+      id: 'prod_existing', onHandStock: 0, reservedStock: 0,
+      quarantinedStock: 0, stock: 7, stockVersion: 0,
+      inventoryMode: 'BASE', isActive: true,
+    });
+    await db.inventoryMovement.create({ data: {
+      operationKey: 'po:existing:receipt', productId: 'prod_existing',
+      variantId: null, kind: 'RECEIVE', deltaOnHand: 7, deltaReserved: 0,
+    } });
+
+    const result = await backfillOpeningLegacyMovements(db);
+    const product = await db.product.findUnique({ where: { id: 'prod_existing' } });
+    assert.equal(result.createdCount, 0);
+    assert.equal(product.onHandStock, 0);
+    assert.equal(db._getMovements().length, 1);
+  });
+
   describe('Order Writers - Routing through Movement Ledger', () => {
     it('reserveOrderStock routes through ledger with stable operationKey and is replay-safe', async () => {
       const db = createInMemoryLedgerDb();
@@ -285,6 +324,16 @@ describe('Inventory Movement Ledger - Integration & Lifecycle', () => {
       assert.equal(prodAfter.reservedStock, 2);
       assert.equal(prodAfter.stock, 8);
       assert.equal(db._getMovements().length, 1);
+    });
+
+    it('propagates ledger failures instead of reporting an out-of-stock item', async () => {
+      const tx = {
+        inventoryMovement: { findUnique: async () => { throw new Error('database unavailable'); }, create: async () => null },
+      };
+      await assert.rejects(
+        reserveOrderStock(tx as any, [{ productId: 'prod_live', quantity: 1 }], 'order:test:reserve'),
+        /database unavailable/
+      );
     });
 
     it('consumeShippedStock routes through ledger to decrement onHand and reserved', async () => {

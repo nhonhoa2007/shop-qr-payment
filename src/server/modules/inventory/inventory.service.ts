@@ -1,6 +1,6 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { normalizeOrderStockItems } from '@shared/types/inventory';
-import { applyInventoryMovement } from '@server/modules/inventory/inventory-ledger.service';
+import { applyInventoryMovement, InsufficientStockError } from '@server/modules/inventory/inventory-ledger.service';
 
 type TransactionClient = Prisma.TransactionClient | PrismaClient;
 
@@ -38,8 +38,9 @@ export async function reserveOrderStock(
           referenceType: 'ORDER',
           referenceId: baseKey,
         });
-      } catch (err: any) {
-        return item.variantId ?? item.productId;
+      } catch (err) {
+        if (err instanceof InsufficientStockError) return item.variantId ?? item.productId;
+        throw err;
       }
     }
     return null;

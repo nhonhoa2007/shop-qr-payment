@@ -15,6 +15,7 @@
     "docs:uml": "node scripts/generate-uml.js",
     "db:backup": "node scripts/db-backup.js",
     "db:restore": "node scripts/db-restore.js",
+    "db:backfill-inventory": "node --experimental-strip-types --import ./tests/register-alias.mjs --env-file=.env scripts/backfill-legacy-inventory.ts",
     "ghn:import": "node scripts/fetch-ghn-locations.js",
     "schema:budget": "node scripts/check-prisma-model-budget.mjs",
     "eval:assistant": "node --experimental-strip-types --import ./tests/register-alias.mjs scripts/eval-assistant.ts",

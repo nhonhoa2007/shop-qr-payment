@@ -6,6 +6,8 @@ import type {
   StockTarget,
 } from '@shared/types/inventory-ledger';
 
+export class InsufficientStockError extends Error {}
+
 export function computeMovementFingerprint(input: ApplyMovementInput): string {
   const normalized = {
     target: {
@@ -121,7 +123,7 @@ export async function applyInventoryMovement(
     throw new Error(`Negative quarantined stock not allowed: ${afterQuarantined} < 0`);
   }
   if (afterAvailable < 0) {
-    throw new Error(`Insufficient stock: available stock cannot be negative (${afterAvailable})`);
+    throw new InsufficientStockError(`Insufficient stock: available stock cannot be negative (${afterAvailable})`);
   }
 
   const deltaStock = afterAvailable - beforeAvailable;
@@ -302,6 +304,10 @@ export async function reconcileInventoryLedger(
   };
 }
 
+function needsLegacyOpening(entity: { stock?: number | null; onHandStock?: number | null; reservedStock?: number | null; quarantinedStock?: number | null }): boolean {
+  return (entity.stock ?? 0) > 0 && entity.onHandStock === 0 && entity.reservedStock === 0 && entity.quarantinedStock === 0;
+}
+
 export async function backfillOpeningLegacyMovements(
   tx: any
 ): Promise<{ createdCount: number }> {
@@ -313,19 +319,22 @@ export async function backfillOpeningLegacyMovements(
   });
 
   for (const variant of variants) {
-    const existing = await tx.inventoryMovement.findUnique({
-      where: { operationKey: `opening:legacy:variant:${variant.id}` },
+    if (!needsLegacyOpening(variant)) continue;
+    const movements = await tx.inventoryMovement.findMany({
+      where: { productId: variant.productId, variantId: variant.id },
+      take: 1,
     });
-    if (!existing) {
+    if (movements.length === 0) {
       const stock = variant.stock ?? 0;
-      await tx.productVariant.updateMany({
-        where: { id: variant.id },
+      const updated = await tx.productVariant.updateMany({
+        where: { id: variant.id, stock, onHandStock: 0, reservedStock: 0, quarantinedStock: 0, stockVersion: variant.stockVersion },
         data: {
           onHandStock: stock,
           reservedStock: 0,
           quarantinedStock: 0,
         },
       });
+      if (updated.count !== 1) throw new Error(`Legacy variant stock changed during backfill: ${variant.id}`);
 
       await tx.inventoryMovement.create({
         data: {
@@ -362,20 +371,22 @@ export async function backfillOpeningLegacyMovements(
   });
 
   for (const product of products) {
-    // Only backfill base product if it's BASE mode or has no variant movements
-    const existing = await tx.inventoryMovement.findUnique({
-      where: { operationKey: `opening:legacy:product:${product.id}` },
+    if (!needsLegacyOpening(product)) continue;
+    const movements = await tx.inventoryMovement.findMany({
+      where: { productId: product.id, variantId: null },
+      take: 1,
     });
-    if (!existing) {
+    if (movements.length === 0) {
       const stock = product.stock ?? 0;
-      await tx.product.updateMany({
-        where: { id: product.id },
+      const updated = await tx.product.updateMany({
+        where: { id: product.id, stock, onHandStock: 0, reservedStock: 0, quarantinedStock: 0, stockVersion: product.stockVersion },
         data: {
           onHandStock: stock,
           reservedStock: 0,
           quarantinedStock: 0,
         },
       });
+      if (updated.count !== 1) throw new Error(`Legacy product stock changed during backfill: ${product.id}`);
 
       await tx.inventoryMovement.create({
         data: {
