@@ -1,6 +1,6 @@
 # Commerce Intelligence & AI Assistant Evaluation Report
 
-- **Evaluation Date:** 2026-10-18T16:11:48.695Z
+- **Evaluation Date:** 2026-10-22T09:37:28.857Z
 - **Execution Mode:** OFFLINE (Deterministic Mock / Zero Network Spend)
 - **Status:** PASS (All Invariants Satisfied)
 
@@ -27,7 +27,7 @@
 | **Citation Precision** | 100% | 100.0% | PASS |
 | **Grounded Claim Rate** | 100% | 100.0% | PASS |
 | **Abstention Correctness** | 100% | 100.0% | PASS |
-| **Average Latency** | < 100ms | 0.1 ms | PASS |
+| **Average Latency** | < 100ms | 0.02 ms | PASS |
 | **Cost per Completed Answer** | $0.00 | $0.0000 | PASS |
 
 ---
