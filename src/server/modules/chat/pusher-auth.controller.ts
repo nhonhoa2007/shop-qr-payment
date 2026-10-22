@@ -5,6 +5,41 @@ import { pusherServer } from '@server/infrastructure/pusher';
 import { authOptions } from '@server/modules/auth/auth-options';
 import { resolveOperatorAccess } from '@server/modules/admin/guards';
 
+interface ChannelUser {
+  id: string;
+  role: string;
+  permissions?: readonly string[];
+}
+
+interface ChannelRoom {
+  customerId: string | null;
+  assignedStaffId: string | null;
+}
+
+export async function canSubscribeToChannel(
+  channelName: string,
+  user: ChannelUser,
+  findRoom: (roomId: string) => Promise<ChannelRoom | null>
+): Promise<boolean> {
+  if (channelName === 'private-admin-channel') return user.role === 'ADMIN';
+
+  if (channelName.startsWith('private-user-')) {
+    return channelName.slice('private-user-'.length) === user.id;
+  }
+
+  if (channelName.startsWith('private-chat-')) {
+    const roomId = channelName.slice('private-chat-'.length);
+    if (!roomId) return false;
+    const room = await findRoom(roomId);
+    return Boolean(
+      (room && (room.customerId === user.id || room.assignedStaffId === user.id)) ||
+      (room && resolveOperatorAccess(user, 'chat'))
+    );
+  }
+
+  return false;
+}
+
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -13,27 +48,16 @@ export async function POST(req: Request) {
     }
 
     const formData = await req.formData();
-    const socketId = formData.get('socket_id') as string;
-    const channelName = formData.get('channel_name') as string;
-
-    if (channelName === 'private-admin-channel' || channelName.startsWith('private-admin-')) {
-      if (session.user.role !== 'ADMIN') return new Response('Forbidden', { status: 403 });
+    const socketId = formData.get('socket_id');
+    const channelName = formData.get('channel_name');
+    if (typeof socketId !== 'string' || !socketId || typeof channelName !== 'string') {
+      return new Response('Bad Request', { status: 400 });
     }
 
-    if (channelName.startsWith('private-chat-')) {
-      const roomId = channelName.replace('private-chat-', '');
-      const room = await (prisma as any).chatRoom.findUnique({
-        where: { id: roomId },
-      });
-      const isRoomMember = room && (room.customerId === session.user.id || room.assignedStaffId === session.user.id);
-      const canAccessChat = resolveOperatorAccess(session.user, 'chat');
-      if (!isRoomMember && !canAccessChat) return new Response('Forbidden', { status: 403 });
-    }
-
-    if (channelName.startsWith('private-user-')) {
-      const userId = channelName.replace('private-user-', '');
-      if (userId !== session.user.id) return new Response('Forbidden', { status: 403 });
-    }
+    const allowed = await canSubscribeToChannel(channelName, session.user, (roomId) =>
+      prisma.chatRoom.findUnique({ where: { id: roomId } })
+    );
+    if (!allowed) return new Response('Forbidden', { status: 403 });
 
     const auth = pusherServer.authorizeChannel(socketId, channelName);
     return NextResponse.json(auth);

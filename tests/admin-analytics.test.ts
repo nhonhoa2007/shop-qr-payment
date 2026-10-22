@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { canSubscribeToChannel } from '@server/modules/chat/pusher-auth.controller';
 import { calculateRevenueGrowth,
   calculateQrMatchRate,
   calculatePaymentMethodDistribution,
@@ -398,67 +399,33 @@ describe('Admin Analytics - Dynamic Time Range (today, 7days, month) via buildRe
   });
 });
 
-describe('Admin Analytics - Pusher Admin Channel Authorization Guard', () => {
-  function authorizePusherChannel(
-    channelName: string,
-    session: { user?: { id: string; role?: string } } | null
-  ): { allowed: boolean; status: number } {
-    if (!session?.user?.id) {
-      return { allowed: false, status: 401 };
+describe('Pusher channel authorization', () => {
+  const customer = { id: 'customer-1', role: 'CUSTOMER' };
+  const admin = { id: 'admin-1', role: 'ADMIN' };
+  const findRoom = async () => ({ customerId: 'customer-1', assignedStaffId: 'staff-1' });
+
+  it('refuses unknown and non-private channels without signing them', async () => {
+    for (const channel of ['public-orders', 'private-payments', 'presence-admin', 'private-admin-orders', 'private-chat-', 'private-user-']) {
+      assert.equal(await canSubscribeToChannel(channel, admin, findRoom), false, channel);
     }
-
-    if (channelName.startsWith('private-admin-')) {
-      if (session.user.role !== 'ADMIN') {
-        return { allowed: false, status: 403 };
-      }
-    }
-
-    if (channelName.startsWith('private-chat-')) {
-      // roomId check placeholder
-    }
-
-    if (channelName.startsWith('private-user-')) {
-      const userId = channelName.replace('private-user-', '');
-      if (userId !== session.user.id) {
-        return { allowed: false, status: 403 };
-      }
-    }
-
-    return { allowed: true, status: 200 };
-  }
-
-  it('should reject unauthenticated requests to private-admin-channel with 401', () => {
-    const result = authorizePusherChannel('private-admin-channel', null);
-    assert.equal(result.allowed, false);
-    assert.equal(result.status, 401);
   });
 
-  it('should reject non-admin users attempting to subscribe to private-admin-channel with 403', () => {
-    const customerSession = { user: { id: 'usr_customer_123', role: 'CUSTOMER' } };
-    const result = authorizePusherChannel('private-admin-channel', customerSession);
-    assert.equal(result.allowed, false);
-    assert.equal(result.status, 403);
+  it('only permits ADMIN on the admin channel', async () => {
+    assert.equal(await canSubscribeToChannel('private-admin-channel', admin, findRoom), true);
+    assert.equal(await canSubscribeToChannel('private-admin-channel', customer, findRoom), false);
+    assert.equal(await canSubscribeToChannel('private-admin-channel', { id: 'staff-1', role: 'STAFF', permissions: ['chat'] }, findRoom), false);
   });
 
-  it('should reject staff users without ADMIN role from subscribing to private-admin-channel with 403', () => {
-    const staffSession = { user: { id: 'usr_staff_456', role: 'STAFF' } };
-    const result = authorizePusherChannel('private-admin-channel', staffSession);
-    assert.equal(result.allowed, false);
-    assert.equal(result.status, 403);
+  it('only permits a user to subscribe to their own user channel', async () => {
+    assert.equal(await canSubscribeToChannel('private-user-customer-1', customer, findRoom), true);
+    assert.equal(await canSubscribeToChannel('private-user-other', customer, findRoom), false);
   });
 
-  it('should allow ADMIN users to subscribe to private-admin-channel with 200', () => {
-    const adminSession = { user: { id: 'usr_admin_001', role: 'ADMIN' } };
-    const result = authorizePusherChannel('private-admin-channel', adminSession);
-    assert.equal(result.allowed, true);
-    assert.equal(result.status, 200);
-  });
-
-  it('should allow ADMIN users to subscribe to any private-admin-* subchannel', () => {
-    const adminSession = { user: { id: 'usr_admin_001', role: 'ADMIN' } };
-    const result = authorizePusherChannel('private-admin-orders', adminSession);
-    assert.equal(result.allowed, true);
-    assert.equal(result.status, 200);
+  it('permits chat participants or chat-enabled operators but not other customers', async () => {
+    assert.equal(await canSubscribeToChannel('private-chat-room-1', customer, findRoom), true);
+    assert.equal(await canSubscribeToChannel('private-chat-room-1', { id: 'staff-1', role: 'STAFF', permissions: ['chat'] }, findRoom), true);
+    assert.equal(await canSubscribeToChannel('private-chat-room-1', { id: 'other', role: 'CUSTOMER' }, findRoom), false);
+    assert.equal(await canSubscribeToChannel('private-chat-missing', customer, async () => null), false);
   });
 });
 
