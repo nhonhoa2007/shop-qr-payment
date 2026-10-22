@@ -20,7 +20,10 @@ import {
   type UpsertElectronicsProductInput,
 } from './product.service.ts';
 import { resolveOperatorAccess, type GuardUser } from '@server/modules/admin/guards';
-import { serializeProductDto } from '@server/modules/money/money-serialization';
+import {
+  serializeProductDto,
+  serializeProductMutationResult,
+} from '@server/modules/money/money-serialization';
 
 interface ProductBody {
   id?: unknown;
@@ -407,7 +410,10 @@ export async function DELETE(req: Request) {
     // Invalidate product cache
     await invalidateProductCache();
 
-    return NextResponse.json({ success: true, ...result });
+    return NextResponse.json({
+      success: true,
+      ...serializeProductMutationResult(result),
+    });
   } catch (error: unknown) {
     console.error('Delete product/variant error:', error);
     if (error instanceof Error) {

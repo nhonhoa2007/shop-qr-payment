@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   serializeProductDto,
+  serializeProductMutationResult,
+  serializeCouponDto,
   serializeOrderDto,
   serializeWalletDto,
 } from '@server/modules/money/money-serialization';
@@ -42,6 +44,45 @@ test('serializeProductDto converts BigInt prices to MoneyVnd decimal strings', (
   assert.equal(dto.price, '35000000');
   assert.equal(typeof dto.variants?.[0].price, 'string');
   assert.equal(dto.variants?.[0].price, '42000000');
+});
+
+test('serializeProductMutationResult makes product deletion responses JSON-safe', () => {
+  const result = {
+    type: 'PRODUCT' as const,
+    productId: 'prod-1',
+    product: {
+      id: 'prod-1',
+      price: 35_000_000n,
+      variants: [{ id: 'var-1', price: 42_000_000n }],
+    },
+  };
+
+  assert.throws(() => JSON.stringify({ success: true, ...result }), /BigInt/);
+
+  const serialized = serializeProductMutationResult(result);
+  assert.doesNotThrow(() => JSON.stringify({ success: true, ...serialized }));
+  assert.equal(serialized.product.price, '35000000');
+  assert.equal(serialized.product.variants?.[0].price, '42000000');
+});
+
+test('serializeCouponDto converts BigInt money fields without changing percentage values', () => {
+  const coupon = {
+    id: 'coupon-1',
+    discountType: 'PERCENTAGE',
+    discountValue: 10,
+    fixedDiscountAmount: null,
+    maxDiscount: 500_000n,
+    minOrderAmount: 2_000_000n,
+  };
+
+  assert.throws(() => JSON.stringify(coupon), /BigInt/);
+
+  const serialized = serializeCouponDto(coupon);
+  assert.doesNotThrow(() => JSON.stringify(serialized));
+  assert.equal(serialized.discountValue, 10);
+  assert.equal(serialized.fixedDiscountAmount, null);
+  assert.equal(serialized.maxDiscount, '500000');
+  assert.equal(serialized.minOrderAmount, '2000000');
 });
 
 test('serializeOrderDto converts monetary fields to MoneyVnd decimal strings', () => {

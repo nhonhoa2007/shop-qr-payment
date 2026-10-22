@@ -74,6 +74,38 @@ export function serializeProductDto<
   };
 }
 
+export function serializeProductMutationResult<
+  T extends {
+    product: { price: MoneyValue; variants?: Array<{ price: MoneyValue }> };
+  }
+>(result: T) {
+  return {
+    ...result,
+    product: serializeProductDto(result.product),
+  };
+}
+
+function serializeOptionalBigInt<T extends MoneyValue | null | undefined>(value: T) {
+  return typeof value === 'bigint' ? value.toString() : value;
+}
+
+export function serializeCouponDto<
+  T extends {
+    discountValue: MoneyValue;
+    fixedDiscountAmount?: MoneyValue | null;
+    maxDiscount?: MoneyValue | null;
+    minOrderAmount: MoneyValue;
+  }
+>(coupon: T) {
+  return {
+    ...coupon,
+    discountValue: serializeOptionalBigInt(coupon.discountValue),
+    fixedDiscountAmount: serializeOptionalBigInt(coupon.fixedDiscountAmount),
+    maxDiscount: serializeOptionalBigInt(coupon.maxDiscount),
+    minOrderAmount: serializeOptionalBigInt(coupon.minOrderAmount),
+  };
+}
+
 export function serializeOrderDto<
   T extends {
     subtotal?: MoneyValue | null;
