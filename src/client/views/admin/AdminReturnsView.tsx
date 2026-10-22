@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 import { RotateCcw } from 'lucide-react';
 
 export interface AdminReturnsViewProps {
