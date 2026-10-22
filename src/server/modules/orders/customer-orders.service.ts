@@ -7,50 +7,62 @@ export class CustomerOrderService {
    * Kèm thông tin vận đơn GHN Logistics và lộ trình giao hàng trực tiếp
    */
   static async getCustomerOrders(userId: string, role?: string): Promise<SerializedOrder[]> {
-    const orders = await prisma.order.findMany({
-      where: role === 'ADMIN' ? {} : { userId },
-      include: {
-        items: { include: { product: true } },
-        shipment: true,
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    return orders.map((order) => ({
-      id: order.id,
-      orderCode: order.orderCode,
-      totalAmount: order.totalAmount,
-      status: order.status,
-      paymentStatus: order.paymentStatus,
-      createdAt: order.createdAt.toISOString(),
-      items: order.items.map((item) => ({
-        id: item.id,
-        quantity: item.quantity,
-        price: item.price,
-        product: {
-          name: item.product.name,
-          image: item.product.image,
+    try {
+      const orders = await prisma.order.findMany({
+        where: role === 'ADMIN' ? {} : { userId },
+        include: {
+          items: { include: { product: true } },
+          shipment: true,
         },
-        variantTitle: item.variantTitle,
-      })),
-      shipment: order.shipment
-        ? {
-            id: order.shipment.id,
-            carrier: order.shipment.carrier,
-            trackingCode: order.shipment.trackingCode,
-            shippingFee: order.shipment.shippingFee,
-            codAmount: order.shipment.codAmount,
-            status: order.shipment.status,
-            estimatedArrival: order.shipment.estimatedArrival
-              ? order.shipment.estimatedArrival.toISOString()
-              : null,
-            shippingLogs: Array.isArray(order.shipment.shippingLogs)
-              ? (order.shipment.shippingLogs as unknown as SerializedShipmentLog[])
-              : [],
-            createdAt: order.shipment.createdAt.toISOString(),
-          }
-        : null,
-    }));
+        orderBy: { createdAt: 'desc' },
+      });
+
+      return orders.map((order) => ({
+        id: order.id,
+        orderCode: order.orderCode,
+        totalAmount: order.totalAmount,
+        status: order.status,
+        paymentStatus: order.paymentStatus,
+        createdAt: order.createdAt.toISOString(),
+        items: order.items.map((item) => ({
+          id: item.id,
+          quantity: item.quantity,
+          price: item.price,
+          product: {
+            name: item.product.name,
+            image: item.product.image,
+          },
+          variantTitle: item.variantTitle,
+        })),
+        shipment: order.shipment
+          ? {
+              id: order.shipment.id,
+              carrier: order.shipment.carrier,
+              trackingCode: order.shipment.trackingCode,
+              shippingFee: order.shipment.shippingFee,
+              codAmount: order.shipment.codAmount,
+              status: order.shipment.status,
+              estimatedArrival: order.shipment.estimatedArrival
+                ? order.shipment.estimatedArrival.toISOString()
+                : null,
+              shippingLogs: Array.isArray(order.shipment.shippingLogs)
+                ? (order.shipment.shippingLogs as unknown as SerializedShipmentLog[])
+                : [],
+              createdAt: order.shipment.createdAt.toISOString(),
+            }
+          : null,
+      }));
+    } catch (err) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(
+          '[CustomerOrderService] Không thể tải danh sách đơn hàng (CSDL chưa cập nhật schema, chạy npx prisma db push):',
+          err instanceof Error ? err.message : err
+        );
+      } else {
+        console.error('CustomerOrderService.getCustomerOrders error:', err);
+      }
+      return [];
+    }
   }
 
   /**

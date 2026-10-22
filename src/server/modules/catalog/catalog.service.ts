@@ -171,7 +171,14 @@ export class CatalogService {
 
       return { products, allCategories, total, page, limit };
     } catch (error) {
-      console.error('CatalogService.getHomeCatalog error:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(
+          '[CatalogService] Không thể kết nối cơ sở dữ liệu (PostgreSQL). Vui lòng đảm bảo dịch vụ PostgreSQL đang chạy:',
+          error instanceof Error ? error.message : error
+        );
+      } else {
+        console.error('CatalogService.getHomeCatalog error:', error);
+      }
       return { products: [], allCategories: [], total: 0, page: 1, limit };
     }
   }
@@ -318,7 +325,14 @@ export class CatalogService {
       await redis.set(fallbackCacheKey, result, { ex: 120 });
       return result;
     } catch (error) {
-      console.error('CatalogService.getProductDetail error:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(
+          '[CatalogService] getProductDetail: Không thể kết nối cơ sở dữ liệu:',
+          error instanceof Error ? error.message : error
+        );
+      } else {
+        console.error('CatalogService.getProductDetail error:', error);
+      }
       return null;
     }
   });
