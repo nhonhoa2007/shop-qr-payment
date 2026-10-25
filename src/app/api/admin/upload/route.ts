@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@server/modules/auth/auth-options';
 import { resolveOperatorAccess } from '@server/modules/admin/guards';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -55,6 +55,9 @@ export async function POST(req: Request) {
 
     // 4. Check Cloudinary Configuration
     const cloudinaryConfig = getCloudinaryConfig();
+    if (!cloudinaryConfig && process.env.NODE_ENV === 'production') {
+      return NextResponse.json({ error: 'Thiếu cấu hình Cloudinary cho môi trường production' }, { status: 503 });
+    }
 
     if (cloudinaryConfig) {
       // Cloudinary upload mode

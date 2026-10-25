@@ -183,7 +183,7 @@ describe('Telegram Infrastructure - API Communication', () => {
     process.env.TELEGRAM_CHAT_ID = 'mock_chat_id';
 
     let calledUrl = '';
-    let calledBody: any = null;
+    let calledBody: { chat_id?: string; text?: string; parse_mode?: string; message_id?: number } = {};
 
     globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       calledUrl = String(input);
@@ -211,7 +211,7 @@ describe('Telegram Infrastructure - API Communication', () => {
     process.env.TELEGRAM_BOT_TOKEN = 'mock_bot_token';
 
     let calledUrl = '';
-    let calledBody: any = null;
+    let calledBody: { chat_id?: string; text?: string; parse_mode?: string; message_id?: number } = {};
 
     globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       calledUrl = String(input);
@@ -238,7 +238,7 @@ describe('Telegram Infrastructure - API Communication', () => {
     process.env.TELEGRAM_BOT_TOKEN = 'mock_bot_token';
 
     let calledUrl = '';
-    let calledBody: any = null;
+    let calledBody: { chat_id?: string; text?: string; parse_mode?: string; message_id?: number } = {};
 
     globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       calledUrl = String(input);

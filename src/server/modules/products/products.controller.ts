@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { prisma } from '@server/database/prisma';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@server/modules/auth/auth-options';
 import {
   buildProductCacheKey,
   getCachedProductList,
@@ -16,6 +16,7 @@ import {
   updateProductWithVariants,
   deleteProductOrVariant,
 } from './product.service.ts';
+import { serializeProductForJson } from './product-serialization.ts';
 import { resolveOperatorAccess } from '@server/modules/admin/guards';
 
 interface ProductBody {
@@ -263,7 +264,11 @@ export async function DELETE(req: Request) {
     // Invalidate product cache
     await invalidateProductCache();
 
-    return NextResponse.json({ success: true, ...result });
+    return NextResponse.json({
+      success: true,
+      ...result,
+      product: serializeProductForJson(result.product),
+    });
   } catch (error: unknown) {
     console.error('Delete product/variant error:', error);
     if (error instanceof Error) {

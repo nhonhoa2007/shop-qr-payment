@@ -96,6 +96,10 @@ export async function PATCH(
     const isAdmin = session.user.role === 'ADMIN';
     const isOperator = resolveOperatorAccess(session.user, 'orders');
 
+    if (paymentStatus !== undefined) {
+      return NextResponse.json({ error: 'Trạng thái thanh toán chỉ được đổi qua giao dịch ngân hàng, ví hoặc quy trình hoàn tiền' }, { status: 400 });
+    }
+
     if (!isOperator) {
       // 1. Phải là chủ nhân đơn hàng
       if (currentOrder.userId !== session.user.id) {
@@ -127,6 +131,18 @@ export async function PATCH(
 
     const nextStatus = status as OrderStatus | undefined;
     const nextPaymentStatus = paymentStatus as PaymentStatus | undefined;
+    if (nextStatus === 'CONFIRMED' && currentOrder.paymentStatus !== 'PAID') {
+      return NextResponse.json({ error: 'Chỉ xác nhận đơn sau khi thanh toán được ghi nhận qua ngân hàng hoặc ví' }, { status: 409 });
+    }
+    if ((nextStatus === 'SHIPPING' || nextStatus === 'COMPLETED') && !currentOrder.shipment) {
+      return NextResponse.json({ error: 'Đơn chưa có vận đơn GHN' }, { status: 409 });
+    }
+    if (nextStatus && ['PROCESSING', 'SHIPPING', 'COMPLETED'].includes(nextStatus) && (currentOrder.fulfillmentState === 'REVIEW' || currentOrder.fulfillmentState === 'REQUESTING')) {
+      return NextResponse.json({ error: 'Cần kiểm tra trạng thái tạo vận đơn trên GHN trước khi tiếp tục' }, { status: 409 });
+    }
+    if (nextStatus === 'CANCELLED' && (currentOrder.shipment || currentOrder.fulfillmentState !== 'NONE')) {
+      return NextResponse.json({ error: 'Đơn đã gửi yêu cầu vận đơn GHN; kiểm tra hoặc hủy vận đơn trên GHN trước khi hoàn hàng' }, { status: 409 });
+    }
     const transitionError = validateOrderTransition({
       currentStatus: currentOrder.status,
       currentPaymentStatus: currentOrder.paymentStatus,
@@ -135,6 +151,13 @@ export async function PATCH(
     });
     if (transitionError) {
       return NextResponse.json({ error: transitionError }, { status: 400 });
+    }
+
+    if (nextStatus === 'PROCESSING' && !currentOrder.shipment) {
+      const fulfillment = await approveAndFulfillOrder(currentOrder.id);
+      if (!fulfillment.success) return NextResponse.json({ error: fulfillment.error }, { status: 502 });
+      const order = await prisma.order.findUnique({ where: { id }, include: { items: { include: { product: true, variant: true } } } });
+      return NextResponse.json({ order });
     }
 
     const shouldRefundPaidOrder =
@@ -148,17 +171,16 @@ export async function PATCH(
       currentOrder.paymentStatus !== 'PAID';
 
     const updatedOrder = await prisma.$transaction(async (tx) => {
-      const order = await tx.order.update({
-        where: { id },
-        data: {
-          ...(nextStatus && { status: nextStatus }),
-          ...(!shouldRefundPaidOrder && nextPaymentStatus && { paymentStatus: nextPaymentStatus }),
-        },
-        include: { items: { include: { product: true, variant: true } } },
-      });
+      if (!shouldRefundPaidOrder && nextStatus) {
+        const claimed = await tx.order.updateMany({
+          where: { id, status: currentOrder.status, paymentStatus: currentOrder.paymentStatus },
+          data: { status: nextStatus },
+        });
+        if (claimed.count !== 1) throw new Error('Trạng thái đơn đã thay đổi; vui lòng tải lại');
+      }
 
       if (shouldRefundPaidOrder) {
-        await refundOrderToWallet(
+        const refund = await refundOrderToWallet(
           tx,
           currentOrder.id,
           isAdmin
@@ -167,6 +189,7 @@ export async function PATCH(
             ? 'Hủy đơn hàng bởi Nhân viên vận hành'
             : 'Hủy đơn hàng bởi khách hàng'
         );
+        if (!refund.success) throw new Error(refund.error || 'Không thể xử lý hoàn tiền');
       } else if (shouldReleaseStock) {
         await releaseOrderStock(tx, currentOrder.items);
 
@@ -189,13 +212,8 @@ export async function PATCH(
         }
       }
 
-      return order;
+      return tx.order.findUniqueOrThrow({ where: { id }, include: { items: { include: { product: true, variant: true } } } });
     });
-
-    // Tự động khởi tạo vận đơn GHN khi đơn hàng chuyển sang PROCESSING (thực thi ngoài DB Transaction để giải phóng Connection Pool)
-    if (nextStatus === 'PROCESSING' && !currentOrder.shipment) {
-      await approveAndFulfillOrder(currentOrder.id);
-    }
 
     if (currentOrder.userId) {
       if (nextPaymentStatus === 'PAID' && currentOrder.paymentStatus !== 'PAID') {

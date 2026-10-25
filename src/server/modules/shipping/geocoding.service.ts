@@ -1,23 +1,55 @@
-import { VIETNAM_LOCATIONS, type Province, type District, type Ward } from '../../../shared/constants/vietnam-locations.ts';
-import { removeVietnameseTones } from '../../../shared/utils/product-variants.ts';
+import { VIETNAM_LOCATIONS, type Province, type District, type Ward } from '@shared/constants/vietnam-locations';
+import { removeVietnameseTones } from '@shared/utils/product-variants';
+
+export type LocationMatchLevel = 'NONE' | 'PROVINCE' | 'DISTRICT' | 'WARD';
+export type GeocodingProvider = 'NOMINATIM' | 'BIGDATACLOUD' | 'IP';
 
 export interface ReverseGeocodeResult {
-  provinceId: string;
-  provinceName: string;
-  districtId: number;
-  districtName: string;
-  wardCode: string;
-  wardName: string;
+  provinceId: string | null;
+  provinceName: string | null;
+  districtId: number | null;
+  districtName: string | null;
+  wardCode: string | null;
+  wardName: string | null;
   specificAddress: string;
   fullDisplayName: string;
+  matchLevel: LocationMatchLevel;
   isMatched: boolean;
+  provider: GeocodingProvider | null;
+  providerResponded: boolean;
+}
+
+interface RawLocation {
+  provinceCandidates: string[];
+  districtCandidates: string[];
+  wardCandidates: string[];
+  houseNumber: string;
+  road: string;
+  building: string;
+  fullDisplayName: string;
+  provider: Exclude<GeocodingProvider, 'IP'>;
+}
+
+function emptyResult(provider: GeocodingProvider | null = null): ReverseGeocodeResult {
+  return {
+    provinceId: null,
+    provinceName: null,
+    districtId: null,
+    districtName: null,
+    wardCode: null,
+    wardName: null,
+    specificAddress: '',
+    fullDisplayName: '',
+    matchLevel: 'NONE',
+    isMatched: false,
+    provider,
+    providerResponded: false,
+  };
 }
 
 /**
- * Chuẩn hóa tên đơn vị hành chính để so khớp (bỏ dấu, chuyển chữ thường, loại bỏ tiền tố hành chính)
- *
- * Lưu ý: chỉ strip tiền tố ở ĐẦU chuỗi ("Tỉnh Hà Tĩnh" → "hatinh") — nếu strip mọi
- * từ "tinh/quan/xa" thì "Hà Tĩnh" còn "ha" và false-positive với mọi tên chứa "ha".
+ * Chuẩn hóa tên đơn vị hành chính. Chỉ bỏ tiền tố ở đầu chuỗi để tránh
+ * false-positive như "Hà Tĩnh" bị rút thành "Hà".
  */
 function normalizeLocationName(name: string): string {
   if (!name) return '';
@@ -28,10 +60,6 @@ function normalizeLocationName(name: string): string {
     .trim();
 }
 
-/**
- * So khớp gần đúng an toàn: contains chỉ khi cả hai phía đủ dài (≥4 ký tự),
- * tránh false positive của tên rút gọn (vd. 'ha' ⊂ 'nguhanhson').
- */
 function looselyMatches(a: string, b: string): boolean {
   if (!a || !b) return false;
   if (a === b) return true;
@@ -39,401 +67,265 @@ function looselyMatches(a: string, b: string): boolean {
   return a.includes(b) || b.includes(a);
 }
 
-/**
- * Tìm kiếm Tỉnh/Thành phố khớp nhất từ danh sách cấu hình
- */
-function findMatchingProvince(rawProvince: string, rawCity: string, rawState: string): Province | null {
-  const candidates = [rawProvince, rawCity, rawState].filter(Boolean);
-
-  for (const cand of candidates) {
-    const norm = normalizeLocationName(cand);
-
-    // Xử lý các tỉnh thành trọng điểm
-    if (norm.includes('hochiminh') || norm.includes('saigon') || norm === 'hcm') {
-      return VIETNAM_LOCATIONS.find((p) => p.id === 'hcm') || null;
-    }
-    if (norm.includes('hanoi') || norm === 'hn') {
-      return VIETNAM_LOCATIONS.find((p) => p.id === 'hn') || null;
-    }
-    if (norm.includes('danang') || norm === 'dn') {
-      return VIETNAM_LOCATIONS.find((p) => p.id === 'dn') || null;
-    }
-    if (norm.includes('cantho') || norm === 'ct') {
-      return VIETNAM_LOCATIONS.find((p) => p.id === 'ct') || null;
-    }
-    if (norm.includes('haiphong') || norm === 'hp') {
-      return VIETNAM_LOCATIONS.find((p) => p.id === 'hp') || null;
-    }
-    if (norm.includes('binhduong') || norm === 'bd') {
-      return VIETNAM_LOCATIONS.find((p) => p.id === 'bd') || null;
-    }
-    if (norm.includes('dongnai') || norm === 'dnai') {
-      return VIETNAM_LOCATIONS.find((p) => p.id === 'dnai') || null;
-    }
-    if (norm.includes('vungtau') || norm.includes('baria') || norm === 'vt') {
-      return VIETNAM_LOCATIONS.find((p) => p.id === 'vt') || null;
-    }
-    if (norm.includes('khanhhoa') || norm.includes('nhatrang') || norm === 'kh') {
-      return VIETNAM_LOCATIONS.find((p) => p.id === 'kh') || null;
-    }
-    if (norm.includes('lamdong') || norm.includes('dalat') || norm === 'ld') {
-      return VIETNAM_LOCATIONS.find((p) => p.id === 'ld') || null;
-    }
-    if (norm.includes('hue') || norm.includes('thuathienhue')) {
-      return VIETNAM_LOCATIONS.find((p) => p.id === 'hue') || null;
-    }
-    if (norm.includes('quangninh') || norm.includes('halong') || norm === 'qn') {
-      return VIETNAM_LOCATIONS.find((p) => p.id === 'qn') || null;
-    }
-    if (norm.includes('bacninh') || norm === 'bn') {
-      return VIETNAM_LOCATIONS.find((p) => p.id === 'bn') || null;
-    }
-    if (norm.includes('nghean') || norm.includes('vinh') || norm === 'na') {
-      return VIETNAM_LOCATIONS.find((p) => p.id === 'na') || null;
-    }
-    if (norm.includes('thanhhoa') || norm === 'th') {
-      return VIETNAM_LOCATIONS.find((p) => p.id === 'th') || null;
-    }
-    if (norm.includes('tiengiang') || norm.includes('mytho') || norm === 'tg') {
-      return VIETNAM_LOCATIONS.find((p) => p.id === 'tg') || null;
-    }
-    if (norm.includes('kiengiang') || norm.includes('phuquoc') || norm.includes('rachgia') || norm === 'kg') {
-      return VIETNAM_LOCATIONS.find((p) => p.id === 'kg') || null;
-    }
-
-    for (const prov of VIETNAM_LOCATIONS) {
-      const provNorm = normalizeLocationName(prov.name);
-      if (looselyMatches(norm, provNorm)) {
-        return prov;
-      }
-    }
-  }
-
-  return null;
+function uniqueNames(values: unknown[]): string[] {
+  return [...new Set(values.filter((value): value is string => typeof value === 'string' && value.trim().length > 0).map((value) => value.trim()))];
 }
 
-/**
- * Tìm kiếm Quận/Huyện khớp trong Tỉnh/Thành phố
- */
-function findMatchingDistrict(
-  province: Province,
-  rawDistrict: string,
-  rawCounty: string,
-  rawCityDistrict: string
-): District | null {
-  const candidates = [rawDistrict, rawCounty, rawCityDistrict].filter(Boolean);
-
-  // Bước 1: Ưu tiên so khớp chính xác 100%
-  for (const cand of candidates) {
-    const norm = normalizeLocationName(cand);
-    if (!norm) continue;
-
-    for (const dist of province.districts) {
-      const distNorm = normalizeLocationName(dist.name);
-      if (norm === distNorm) {
-        return dist;
-      }
-    }
-  }
-
-  // Bước 2: So khớp gần đúng (looselyMatches — contains với ngưỡng độ dài an toàn)
-  for (const cand of candidates) {
-    const norm = normalizeLocationName(cand);
-    if (!norm) continue;
-
-    for (const dist of province.districts) {
-      const distNorm = normalizeLocationName(dist.name);
-      if (looselyMatches(norm, distNorm)) {
-        return dist;
-      }
-    }
-  }
-
-  return null;
-}
-
-/**
- * Tìm kiếm Phường/Xã khớp trong Quận/Huyện
- */
-function findMatchingWard(
-  district: District,
-  rawWard: string,
-  rawSuburb: string,
-  rawQuarter: string
-): Ward | null {
-  const candidates = [rawWard, rawSuburb, rawQuarter].filter(Boolean);
-
-  // Bước 1: Ưu tiên so khớp chính xác 100%
-  for (const cand of candidates) {
-    const norm = normalizeLocationName(cand);
-    if (!norm) continue;
-
-    for (const ward of district.wards) {
-      const wardNorm = normalizeLocationName(ward.name);
-      if (norm === wardNorm) {
-        return ward;
-      }
-    }
-  }
-
-  // Bước 2: So khớp gần đúng (looselyMatches — contains với ngưỡng độ dài an toàn)
-  for (const cand of candidates) {
-    const norm = normalizeLocationName(cand);
-    if (!norm) continue;
-
-    for (const ward of district.wards) {
-      const wardNorm = normalizeLocationName(ward.name);
-      if (looselyMatches(norm, wardNorm)) {
-        return ward;
-      }
-    }
-  }
-
-  return null;
-}
-
-/**
- * Giải mã tọa độ GPS (Latitude, Longitude) thành địa chỉ hành chính Việt Nam & mapping với GHN
- */
-export async function reverseGeocodeCoordinates(
-  lat: number,
-  lon: number
-): Promise<ReverseGeocodeResult> {
-  const defaultFallback: ReverseGeocodeResult = {
-    provinceId: 'hcm',
-    provinceName: 'TP. Hồ Chí Minh',
-    districtId: 1442,
-    districtName: 'Quận 1',
-    wardCode: '20101',
-    wardName: 'Phường Bến Nghé',
-    specificAddress: '',
-    fullDisplayName: '',
-    isMatched: false,
+function findMatchingProvince(...rawNames: string[]): Province | null {
+  const exactAliases: Record<string, string> = {
+    hcm: 'hcm', hn: 'hn', dn: 'dn', ct: 'ct', hp: 'hp', bd: 'bd', dnai: 'dnai',
+    vt: 'vt', kh: 'kh', ld: 'ld', qn: 'qn', bn: 'bn', na: 'na', th: 'th', tg: 'tg', kg: 'kg',
+  };
+  const longAliases: Record<string, string> = {
+    hochiminh: 'hcm', saigon: 'hcm', hanoi: 'hn', danang: 'dn', cantho: 'ct',
+    haiphong: 'hp', binhduong: 'bd', dongnai: 'dnai', vungtau: 'vt', baria: 'vt',
+    khanhhoa: 'kh', nhatrang: 'kh', lamdong: 'ld', dalat: 'ld', hue: 'hue',
+    thuathienhue: 'hue', quangninh: 'qn', halong: 'qn', bacninh: 'bn', nghean: 'na',
+    thanhhoa: 'th', tiengiang: 'tg', mytho: 'tg', kiengiang: 'kg', phuquoc: 'kg', rachgia: 'kg',
   };
 
-  try {
-    let rawProvince = '';
-    let rawCity = '';
-    let rawState = '';
-    let rawDistrict = '';
-    let rawCounty = '';
-    let rawCityDistrict = '';
-    let rawWard = '';
-    let rawSuburb = '';
-    let rawQuarter = '';
-    let houseNumber = '';
-    let road = '';
-    let building = '';
-    let fullDisplayName = '';
+  for (const candidate of uniqueNames(rawNames)) {
+    const normalized = normalizeLocationName(candidate);
+    const aliasId = exactAliases[normalized]
+      ?? Object.entries(longAliases).find(([name]) => normalized === name || normalized.includes(name))?.[1];
+    if (aliasId) return VIETNAM_LOCATIONS.find((province) => province.id === aliasId) ?? null;
 
-    // Provider 1: OpenStreetMap Nominatim
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 4000);
+    const exact = VIETNAM_LOCATIONS.find((province) => normalizeLocationName(province.name) === normalized);
+    if (exact) return exact;
+  }
 
-      const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${encodeURIComponent(
-        lat
-      )}&lon=${encodeURIComponent(lon)}&zoom=18&addressdetails=1&accept-language=vi`;
+  for (const candidate of uniqueNames(rawNames)) {
+    const normalized = normalizeLocationName(candidate);
+    const matches = VIETNAM_LOCATIONS.filter((province) => looselyMatches(normalized, normalizeLocationName(province.name)));
+    if (matches.length === 1) return matches[0];
+  }
 
-      const res = await fetch(url, {
-        headers: {
-          'User-Agent': 'ShopQRPayment/1.0 (nhonhoa.developer@gmail.com)',
-          Accept: 'application/json',
-        },
-        signal: controller.signal,
-      });
-      clearTimeout(timeout);
+  return null;
+}
 
-      if (res.ok) {
-        const data = await res.json();
-        const addr = data.address || {};
-        fullDisplayName = data.display_name || '';
+function findUniqueMatch<T extends { name: string }>(items: T[], rawNames: string[]): T | null {
+  for (const candidate of uniqueNames(rawNames)) {
+    const normalized = normalizeLocationName(candidate);
+    const exact = items.filter((item) => normalizeLocationName(item.name) === normalized);
+    if (exact.length === 1) return exact[0];
+  }
 
-        rawProvince = addr.province || '';
-        rawCity = addr.city || '';
-        rawState = addr.state || '';
-        rawDistrict = addr.district || '';
-        rawCounty = addr.county || '';
-        rawCityDistrict = addr.city_district || '';
-        rawWard = addr.ward || '';
-        rawSuburb = addr.suburb || '';
-        rawQuarter = addr.quarter || addr.neighbourhood || '';
-        houseNumber = addr.house_number || '';
-        road = addr.road || addr.street || '';
-        building = addr.building || addr.amenity || '';
-      }
-    } catch (nomErr) {
-      console.warn('[GeocodingService] Nominatim fetch error or timeout, trying secondary provider:', nomErr);
-    }
+  for (const candidate of uniqueNames(rawNames)) {
+    const normalized = normalizeLocationName(candidate);
+    const loose = items.filter((item) => looselyMatches(normalized, normalizeLocationName(item.name)));
+    if (loose.length === 1) return loose[0];
+  }
 
-    // Provider 2: BigDataCloud Reverse Geocode (Nhanh và không bị giới hạn)
-    if (!rawProvince && !rawCity && !rawState) {
-      try {
-        const bdcController = new AbortController();
-        const bdcTimeout = setTimeout(() => bdcController.abort(), 3500);
+  return null;
+}
 
-        const bdcUrl = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${encodeURIComponent(
-          lat
-        )}&longitude=${encodeURIComponent(lon)}&localityLanguage=vi`;
+function findMatchingDistrict(province: Province, candidates: string[]): District | null {
+  return findUniqueMatch(province.districts, candidates);
+}
 
-        const bdcRes = await fetch(bdcUrl, { signal: bdcController.signal });
-        clearTimeout(bdcTimeout);
+function findMatchingWard(district: District, candidates: string[]): Ward | null {
+  return findUniqueMatch(district.wards, candidates);
+}
 
-        if (bdcRes.ok) {
-          const bdcData = await bdcRes.json();
-          rawCity = bdcData.city || '';
-          rawState = bdcData.principalSubdivision || '';
-          rawWard = bdcData.locality || '';
-          // BDC có thể trả NHIỀU đơn vị hành chính cấp 6/7 (ví dụ vùng giáp ranh
-          // Đà Nẵng/Quảng Nam trả cả "Dien Ban Dong" lẫn "Ngũ Hành Sơn") — đưa
-          // tất cả vào các slot ứng viên để bộ so khớp thử lần lượt, thay vì chỉ
-          // lấy entry đầu tiên gây khớp trượt quận.
-          const adminNames = (bdcData.localityInfo?.administrative || [])
-            .filter((a: { adminLevel?: number }) => a.adminLevel === 6 || a.adminLevel === 7)
-            .map((a: { name?: string }) => a.name || '');
-          rawDistrict = adminNames[0] || '';
-          rawCounty = adminNames[1] || '';
-          rawCityDistrict = adminNames[2] || '';
-          fullDisplayName = [bdcData.locality, bdcData.city, bdcData.principalSubdivision]
-            .filter(Boolean)
-            .join(', ');
-        }
-      } catch (bdcErr) {
-        console.warn('[GeocodingService] BigDataCloud fallback failed:', bdcErr);
-      }
-    }
+function inferUniqueWardParent(province: Province, candidates: string[]): { district: District; ward: Ward } | null {
+  const uniqueCandidates = uniqueNames(candidates);
 
-    // Xây dựng địa chỉ cụ thể (số nhà, tên đường, tên tòa nhà)
-    let specificAddress = '';
-    if (building) {
-      specificAddress = building;
-      if (houseNumber || road) {
-        specificAddress += `, ${[houseNumber, road].filter(Boolean).join(' ')}`;
-      }
-    } else if (houseNumber || road) {
-      specificAddress = [houseNumber, road].filter(Boolean).join(' ');
-    } else if (fullDisplayName) {
-      const segments = fullDisplayName.split(',').map((s: string) => s.trim());
-      specificAddress = segments.slice(0, 2).join(', ');
-    }
-
-    // So khớp Tỉnh / Thành phố
-    const matchedProvince = findMatchingProvince(rawProvince, rawCity, rawState);
-    if (!matchedProvince) {
-      return {
-        ...defaultFallback,
-        specificAddress: specificAddress || fullDisplayName,
-        fullDisplayName,
-        isMatched: false,
-      };
-    }
-
-    // So khớp Quận / Huyện trực tiếp từ candidates
-    let matchedDistrict = findMatchingDistrict(
-      matchedProvince,
-      rawDistrict,
-      rawCounty,
-      rawCityDistrict
+  // Đếm trên toàn tỉnh thay vì lấy tối đa một kết quả mỗi huyện. Nếu cùng một tên
+  // xuất hiện nhiều lần (kể cả trong cùng huyện), không được suy luận cha tự động.
+  for (const candidate of uniqueCandidates) {
+    const normalized = normalizeLocationName(candidate);
+    const exactHits = province.districts.flatMap((district) =>
+      district.wards
+        .filter((ward) => normalizeLocationName(ward.name) === normalized)
+        .map((ward) => ({ district, ward }))
     );
-    let matchedWard: Ward | null = null;
+    if (exactHits.length === 1) return exactHits[0];
+  }
 
-    // Suy luận ngược từ Phường/Xã: dữ liệu admin cấp thấp của BDC cho Việt Nam
-    // thường là TÊN PHƯỜNG (vd. "Hòa Cường") chứ không phải quận — tra phường
-    // trước rồi lấy quận cha, chính xác hơn nhiều so với khớp quận trực tiếp.
-    if (!matchedDistrict) {
-      const wardCandidates = [rawWard, rawSuburb, rawQuarter, rawDistrict, rawCounty, rawCityDistrict];
-      for (const cand of wardCandidates) {
-        const norm = normalizeLocationName(cand);
-        if (!norm) continue;
-        for (const dist of matchedProvince.districts) {
-          const wardHit = dist.wards.find((w) =>
-            looselyMatches(norm, normalizeLocationName(w.name))
-          );
-          if (wardHit) {
-            matchedDistrict = dist;
-            matchedWard = wardHit;
-            break;
-          }
-        }
-        if (matchedDistrict) break;
-      }
+  for (const candidate of uniqueCandidates) {
+    const normalized = normalizeLocationName(candidate);
+    const looseHits = province.districts.flatMap((district) =>
+      district.wards
+        .filter((ward) => looselyMatches(normalized, normalizeLocationName(ward.name)))
+        .map((ward) => ({ district, ward }))
+    );
+    if (looseHits.length === 1) return looseHits[0];
+  }
+
+  return null;
+}
+
+function specificAddressFrom(raw: RawLocation): string {
+  const street = [raw.houseNumber, raw.road].filter(Boolean).join(' ').trim();
+  if (raw.building && street) return `${raw.building}, ${street}`;
+  return raw.building || street;
+}
+
+function mapRawLocation(raw: RawLocation): ReverseGeocodeResult {
+  const base = emptyResult(raw.provider);
+  base.providerResponded = true;
+  base.fullDisplayName = raw.fullDisplayName;
+  base.specificAddress = specificAddressFrom(raw);
+
+  const province = findMatchingProvince(...raw.provinceCandidates);
+  if (!province) return base;
+
+  base.provinceId = province.id;
+  base.provinceName = province.name;
+  base.matchLevel = 'PROVINCE';
+
+  let district = findMatchingDistrict(province, raw.districtCandidates);
+  let ward: Ward | null = null;
+
+  if (!district) {
+    const inferred = inferUniqueWardParent(province, [...raw.wardCandidates, ...raw.districtCandidates]);
+    if (inferred) {
+      district = inferred.district;
+      ward = inferred.ward;
     }
+  }
 
-    // Không khớp được quận nào → trả isMatched:false trung thực (route sẽ tự
-    // fallback qua IP). Tuyệt đối không đoán mù districts[0] — với dataset đầy
-    // đủ, phần tử đầu có thể là huyện đảo cách cả trăm km (vd. Hoàng Sa).
-    if (!matchedDistrict) {
-      return {
-        ...defaultFallback,
-        specificAddress: specificAddress || fullDisplayName,
-        fullDisplayName,
-        isMatched: false,
-      };
-    }
+  if (!district) return base;
 
-    // So khớp Phường / Xã trong quận (nếu chưa suy luận được từ bước trên)
-    if (!matchedWard) {
-      matchedWard = findMatchingWard(matchedDistrict, rawWard, rawSuburb, rawQuarter);
-    }
-    matchedWard = matchedWard || matchedDistrict.wards[0] || null;
+  base.districtId = district.id;
+  base.districtName = district.name;
+  base.matchLevel = 'DISTRICT';
 
-    const compositeDisplay =
-      fullDisplayName ||
-      [specificAddress, matchedWard?.name, matchedDistrict.name, matchedProvince.name]
-        .filter(Boolean)
-        .join(', ');
+  ward ??= findMatchingWard(district, raw.wardCandidates);
+  if (!ward) return base;
 
+  base.wardCode = ward.code;
+  base.wardName = ward.name;
+  base.matchLevel = 'WARD';
+  base.isMatched = true;
+  return base;
+}
+
+async function fetchNominatim(lat: number, lon: number): Promise<RawLocation | null> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 4000);
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=18&addressdetails=1&accept-language=vi`;
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'ShopQRPayment/1.0 (nhonhoa.developer@gmail.com)',
+        Accept: 'application/json',
+      },
+      signal: controller.signal,
+    });
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    const address = data.address ?? {};
     return {
-      provinceId: matchedProvince.id,
-      provinceName: matchedProvince.name,
-      districtId: matchedDistrict.id,
-      districtName: matchedDistrict.name,
-      wardCode: matchedWard ? matchedWard.code : '',
-      wardName: matchedWard ? matchedWard.name : '',
-      specificAddress,
-      fullDisplayName: compositeDisplay,
-      isMatched: true,
+      provinceCandidates: uniqueNames([address.province, address.city, address.state]),
+      districtCandidates: uniqueNames([address.district, address.county, address.city_district]),
+      wardCandidates: uniqueNames([address.ward, address.suburb, address.quarter, address.neighbourhood]),
+      houseNumber: typeof address.house_number === 'string' ? address.house_number : '',
+      road: typeof (address.road ?? address.street) === 'string' ? (address.road ?? address.street) : '',
+      building: typeof (address.building ?? address.amenity) === 'string' ? (address.building ?? address.amenity) : '',
+      fullDisplayName: typeof data.display_name === 'string' ? data.display_name : '',
+      provider: 'NOMINATIM',
     };
   } catch (error) {
-    console.warn('[GeocodingService] Reverse geocode exception:', error);
-    return defaultFallback;
+    console.warn('[GeocodingService] Nominatim unavailable:', error);
+    return null;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
+async function fetchBigDataCloud(lat: number, lon: number): Promise<RawLocation | null> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 3500);
+  try {
+    const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&localityLanguage=vi`;
+    const response = await fetch(url, { signal: controller.signal });
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    const administrative = Array.isArray(data.localityInfo?.administrative)
+      ? data.localityInfo.administrative
+          .filter((entry: { adminLevel?: number }) => entry.adminLevel === 6 || entry.adminLevel === 7 || entry.adminLevel === 8)
+          .map((entry: { name?: unknown }) => entry.name)
+      : [];
+
+    return {
+      provinceCandidates: uniqueNames([data.principalSubdivision, data.city]),
+      districtCandidates: uniqueNames(administrative),
+      wardCandidates: uniqueNames([data.locality, ...administrative]),
+      houseNumber: '',
+      road: '',
+      building: '',
+      fullDisplayName: uniqueNames([data.locality, data.city, data.principalSubdivision]).join(', '),
+      provider: 'BIGDATACLOUD',
+    };
+  } catch (error) {
+    console.warn('[GeocodingService] BigDataCloud unavailable:', error);
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function rankMatch(level: LocationMatchLevel): number {
+  return { NONE: 0, PROVINCE: 1, DISTRICT: 2, WARD: 3 }[level];
+}
+
 /**
- * Tự động định vị dựa trên địa chỉ IP của client (Fallback khi thiết bị không có GPS hoặc người dùng chặn quyền)
+ * Reverse geocode tọa độ thành gợi ý địa chỉ và mã địa giới GHN.
+ * Không bao giờ tự chọn tỉnh/quận/phường mặc định khi provider không khớp.
+ */
+export async function reverseGeocodeCoordinates(lat: number, lon: number): Promise<ReverseGeocodeResult> {
+  const nominatimRaw = await fetchNominatim(lat, lon);
+  const nominatim = nominatimRaw ? mapRawLocation(nominatimRaw) : emptyResult('NOMINATIM');
+  if (nominatim.matchLevel === 'WARD') return nominatim;
+
+  const bigDataCloudRaw = await fetchBigDataCloud(lat, lon);
+  const bigDataCloud = bigDataCloudRaw ? mapRawLocation(bigDataCloudRaw) : emptyResult('BIGDATACLOUD');
+  return rankMatch(bigDataCloud.matchLevel) > rankMatch(nominatim.matchLevel) ? bigDataCloud : nominatim;
+}
+
+function isPrivateOrLocalIp(ip?: string): boolean {
+  if (!ip) return true;
+  const normalized = ip.replace(/^::ffff:/, '');
+  if (normalized === '127.0.0.1' || normalized === '::1' || normalized === 'localhost') return true;
+  if (normalized.startsWith('10.') || normalized.startsWith('192.168.')) return true;
+  const match172 = normalized.match(/^172\.(\d{1,3})\./);
+  return Boolean(match172 && Number(match172[1]) >= 16 && Number(match172[1]) <= 31);
+}
+
+/**
+ * IP chỉ được dùng để gợi ý tỉnh/thành. Không suy diễn quận, phường hoặc địa chỉ đường.
  */
 export async function resolveLocationByIp(clientIp?: string): Promise<ReverseGeocodeResult | null> {
+  const queryUrl = isPrivateOrLocalIp(clientIp)
+    ? 'http://ip-api.com/json/?fields=status,message,country,countryCode,region,regionName,city,lat,lon'
+    : `http://ip-api.com/json/${encodeURIComponent(clientIp!)}?fields=status,message,country,countryCode,region,regionName,city,lat,lon`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 4000);
+
   try {
-    const isLocalIp =
-      !clientIp ||
-      clientIp === '127.0.0.1' ||
-      clientIp === '::1' ||
-      clientIp === 'localhost' ||
-      clientIp.startsWith('192.168.') ||
-      clientIp.startsWith('10.');
+    const response = await fetch(queryUrl, { signal: controller.signal });
+    if (!response.ok) return null;
+    const data = await response.json();
+    if (data.status !== 'success' || data.countryCode !== 'VN') return null;
 
-    const queryUrl = isLocalIp
-      ? 'http://ip-api.com/json/?fields=status,message,country,countryCode,region,regionName,city,lat,lon'
-      : `http://ip-api.com/json/${encodeURIComponent(
-          clientIp
-        )}?fields=status,message,country,countryCode,region,regionName,city,lat,lon`;
+    const province = findMatchingProvince(data.regionName ?? '', data.city ?? '', data.region ?? '');
+    if (!province) return null;
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 4000);
-
-    const res = await fetch(queryUrl, { signal: controller.signal });
+    return {
+      ...emptyResult('IP'),
+      provinceId: province.id,
+      provinceName: province.name,
+      fullDisplayName: province.name,
+      matchLevel: 'PROVINCE',
+      providerResponded: true,
+    };
+  } catch (error) {
+    console.warn('[GeocodingService] IP geolocation unavailable:', error);
+    return null;
+  } finally {
     clearTimeout(timeout);
-
-    if (!res.ok) return null;
-
-    const data = await res.json();
-    if (data.status === 'success' && typeof data.lat === 'number' && typeof data.lon === 'number') {
-      return reverseGeocodeCoordinates(data.lat, data.lon);
-    }
-    return null;
-  } catch (err) {
-    console.warn('[GeocodingService] IP Geolocation lookup failed:', err);
-    return null;
   }
 }

@@ -147,6 +147,7 @@ describe('Shop Wallet - refundOrderToWallet (Refund Engine)', () => {
     assert.deepEqual(orderUpdatedWhere, {
       id: fakeOrder.id,
       paymentStatus: 'PAID',
+      status: { not: 'CANCELLED' },
     });
 
     assert.deepEqual(orderUpdatedData, {
@@ -232,6 +233,7 @@ describe('Shop Wallet - refundOrderToWallet (Refund Engine)', () => {
           return {};
         },
       },
+      refundCase: { upsert: async () => ({ id: 'refund_case_guest' }) },
     } as unknown as TxClient;
 
     const res = await refundOrderToWallet(fakeTx, fakeOrder.id);

@@ -12,7 +12,7 @@ import {
   parseTopupCodeFromDescription,
   evaluateWebhookDecision,
 } from '@server/modules/payment/vietqr-parser.service';
-import { processWalletTopup } from '@server/modules/wallet/wallet-topup.service';
+import { processWalletTopup, getWalletTopupSession } from '@server/modules/wallet/wallet-topup.service';
 import { formatPaidOrderMessage, sendTelegramMessage } from '@server/infrastructure/telegram';
 
 interface CassoWebhookBody {
@@ -39,28 +39,58 @@ export async function POST(req: Request) {
 
     for (const txn of transactions) {
       const transactionId = getTransactionId(txn);
-      const isDuplicate = transactionId
-        ? !!(await prisma.transaction.findUnique({
-            where: { bankTransId: transactionId },
-          }))
-        : false;
+      const topupCode = parseTopupCodeFromDescription(txn.description);
+      const matchedCode = parseOrderCodeFromDescription(txn.description);
+      const amount = Number(txn.amount);
+      const validIncomingAmount = Number.isSafeInteger(amount) && amount > 0 && amount <= 2_147_483_647;
+      const storedAmount = Number.isFinite(amount) ? Math.max(-2_147_483_648, Math.min(2_147_483_647, Math.round(amount))) : 0;
+      const order = matchedCode ? await prisma.order.findFirst({
+        where: { orderCode: { equals: matchedCode, mode: 'insensitive' } },
+        include: { chatRoom: true },
+      }) : null;
+      const fingerprint = crypto.createHash('sha256').update(transactionId
+        ? `casso:${transactionId}`
+        : JSON.stringify({ amount: txn.amount, description: txn.description, when: txn.when, bankSubAccId: txn.bankSubAccId })).digest('hex');
+      let ledger;
+      try {
+        ledger = await prisma.bankTransfer.create({ data: {
+          fingerprint, bankTransId: transactionId, amount: storedAmount,
+          description: txn.description || '', bankName: txn.bankSubAccId || null,
+          receivedAt: txn.when && !Number.isNaN(Date.parse(txn.when)) ? new Date(txn.when) : null,
+          rawWebhookData: txn as unknown as Prisma.InputJsonValue,
+          orderId: order?.id || null, topupCode,
+          reviewReason: !transactionId ? 'Thiếu mã giao dịch ngân hàng' : !validIncomingAmount ? 'Số tiền không hợp lệ, vượt giới hạn hoặc không phải tiền vào' : null,
+        } });
+      } catch (err) {
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') continue;
+        throw err;
+      }
+      if (!transactionId || !validIncomingAmount) continue;
 
       // 1. Kiểm tra và Xử lý Giao dịch Nạp tiền Ví điện tử (cú pháp NAPxxxxx)
-      const topupCode = parseTopupCodeFromDescription(txn.description);
       if (topupCode) {
-        const topupAmount = Number(txn.amount);
+        const topupAmount = amount;
+        const session = await getWalletTopupSession(topupCode);
+        if (!session || session.status !== 'PENDING' || session.amount !== topupAmount) {
+          await prisma.bankTransfer.update({ where: { id: ledger.id }, data: { reviewReason: 'Phiên nạp ví không tồn tại, đã xử lý hoặc sai số tiền' } });
+          continue;
+        }
         if (Number.isFinite(topupAmount) && topupAmount > 0) {
           try {
             const topupResult = await prisma.$transaction(async (tx) => {
               return await processWalletTopup(tx, {
                 topupCode,
                 amount: Math.round(topupAmount),
-                bankTransId: transactionId || `CASSO_${Date.now()}`,
+                bankTransId: transactionId,
                 description: txn.description || `Nạp ví qua chuyển khoản ngân hàng ${topupCode}`,
+              }).then(async (result) => {
+                if (result.success && !result.alreadyProcessed) await tx.bankTransfer.update({ where: { id: ledger.id }, data: { status: 'APPLIED_TOPUP', reviewReason: null } });
+                else await tx.bankTransfer.update({ where: { id: ledger.id }, data: { reviewReason: result.alreadyProcessed ? 'Giao dịch nạp ví đã được xử lý; kiểm tra mã ngân hàng' : result.error || 'Không thể nạp ví; cần đối soát' } });
+                return result;
               });
             });
 
-            if (topupResult.success && topupResult.userId) {
+            if (topupResult.success && !topupResult.alreadyProcessed && topupResult.userId) {
               await pusherServer.trigger(`private-user-${topupResult.userId}`, 'wallet-updated', {
                 balance: topupResult.newBalance,
                 topupAmount: Math.round(topupAmount),
@@ -87,37 +117,31 @@ export async function POST(req: Request) {
             }
           } catch (topupErr) {
             console.error('[Casso Webhook] Lỗi xử lý nạp tiền ví:', topupErr);
+            await prisma.bankTransfer.update({ where: { id: ledger.id }, data: { reviewReason: 'Lỗi xử lý nạp ví; cần đối soát thủ công' } });
           }
         }
         continue;
       }
 
-      const matchedCode = parseOrderCodeFromDescription(txn.description);
-      const order = matchedCode
-        ? await prisma.order.findFirst({
-            where: { orderCode: { equals: matchedCode, mode: 'insensitive' } },
-            include: { chatRoom: true },
-          })
-        : null;
-
       const decision = evaluateWebhookDecision(txn, {
-        isDuplicateTransaction: isDuplicate,
+        isDuplicateTransaction: false,
         order,
       });
-
-      if (decision.action === 'SKIP' || !order) continue;
-
-      const amount = decision.amount;
+      if (!order || decision.action === 'SKIP' || order.expiresAt <= new Date()) {
+        await prisma.bankTransfer.update({ where: { id: ledger.id }, data: { reviewReason: !order ? 'Không tìm thấy đơn hàng' : order.expiresAt <= new Date() ? 'Tiền đến sau hạn thanh toán' : decision.action === 'SKIP' ? decision.reason : 'Cần đối soát' } });
+        continue;
+      }
 
       let createdTransaction;
       try {
         createdTransaction = await prisma.$transaction(async (tx) => {
-          await tx.order.update({
-            where: { id: order.id },
+          const changed = await tx.order.updateMany({
+            where: { id: order.id, status: 'PENDING', paymentStatus: 'UNPAID', expiresAt: { gt: new Date() } },
             data: { paymentStatus: 'PAID', status: 'CONFIRMED' },
           });
+          if (changed.count !== 1) return null;
 
-          return tx.transaction.create({
+          const payment = await tx.transaction.create({
             data: {
               orderId: order.id,
               bankTransId: transactionId,
@@ -129,6 +153,8 @@ export async function POST(req: Request) {
               rawWebhookData: txn as unknown as Prisma.InputJsonValue,
             },
           });
+          await tx.bankTransfer.update({ where: { id: ledger.id }, data: { status: 'APPLIED_ORDER', reviewReason: null } });
+          return payment;
         });
       } catch (err) {
         if (
@@ -137,12 +163,16 @@ export async function POST(req: Request) {
         ) {
           // Unique constraint violation (duplicate bankTransId or orderId due to race condition)
           // Gracefully skip to preserve idempotency without failing the webhook request
+          await prisma.bankTransfer.update({ where: { id: ledger.id }, data: { reviewReason: 'Đơn đã được xử lý đồng thời; cần đối soát' } });
           continue;
         }
         throw err;
       }
 
-      if (!createdTransaction) continue;
+      if (!createdTransaction) {
+        await prisma.bankTransfer.update({ where: { id: ledger.id }, data: { reviewReason: 'Trạng thái đơn đã thay đổi; cần đối soát' } });
+        continue;
+      }
 
       if (order.userId) {
         await createNotification({

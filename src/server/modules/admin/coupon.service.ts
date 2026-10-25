@@ -10,6 +10,7 @@ export interface CouponValidationResult {
     discountValue: number;
     maxDiscount: number | null;
     minOrderAmount: number;
+    perUserLimit: number;
   };
 }
 
@@ -35,7 +36,7 @@ export async function validateCoupon(
     return { valid: false, error: 'Mã giảm giá chưa hoặc đã hết hạn sử dụng' };
   }
 
-  if (coupon._count.userUsages >= coupon.usageLimit) {
+  if (coupon.usedCount >= coupon.usageLimit) {
     return { valid: false, error: 'Mã giảm giá đã hết lượt sử dụng' };
   }
 
@@ -61,6 +62,7 @@ export async function validateCoupon(
       discountValue: coupon.discountValue,
       maxDiscount: coupon.maxDiscount,
       minOrderAmount: coupon.minOrderAmount,
+      perUserLimit: coupon.perUserLimit,
     },
   };
 }

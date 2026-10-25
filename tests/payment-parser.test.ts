@@ -27,13 +27,12 @@ describe('Payment Parser - getTransactionAmount & getTransactionId', () => {
   it('should parse valid positive amounts', () => {
     assert.equal(getTransactionAmount({ amount: 150000 }), 150000);
     assert.equal(getTransactionAmount({ amount: '200000' }), 200000);
-    assert.equal(getTransactionAmount({ amount: -50000 }), 50000); // Math.abs
+    assert.equal(getTransactionAmount({ amount: -50000 }), null);
   });
 
   it('should return null for invalid amounts', () => {
     assert.equal(getTransactionAmount({ amount: 'abc' }), null);
-    // null converts to 0 which is finite — lib returns 0; callers guard with > 0
-    assert.equal(typeof getTransactionAmount({ amount: null }), 'number');
+    assert.equal(getTransactionAmount({ amount: null }), null);
     assert.equal(getTransactionAmount({}), null);
   });
 

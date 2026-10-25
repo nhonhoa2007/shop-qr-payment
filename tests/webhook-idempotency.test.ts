@@ -64,7 +64,7 @@ describe('Webhook Idempotency - Replay Attack Prevention', () => {
     assert.equal(decision.action, 'PROCESS');
   });
 
-  it('should PROCESS when txn has no id (null) — no duplicate check possible', () => {
+  it('should hold a transaction with no id for review', () => {
     const decision = evaluateWebhookDecision(
       makeTxn({ id: null }),
       {
@@ -72,11 +72,11 @@ describe('Webhook Idempotency - Replay Attack Prevention', () => {
         order: makeOrder(),
       }
     );
-    assert.equal(decision.action, 'PROCESS');
-    assert.equal(decision.transactionId, null);
+    assert.equal(decision.action, 'SKIP');
+    assert.equal(decision.reason, 'MISSING_TRANSACTION_ID');
   });
 
-  it('should PROCESS when txn id is undefined — no duplicate check', () => {
+  it('should hold a transaction with undefined id for review', () => {
     const decision = evaluateWebhookDecision(
       makeTxn({ id: undefined }),
       {
@@ -84,8 +84,8 @@ describe('Webhook Idempotency - Replay Attack Prevention', () => {
         order: makeOrder(),
       }
     );
-    assert.equal(decision.action, 'PROCESS');
-    assert.equal(decision.transactionId, null);
+    assert.equal(decision.action, 'SKIP');
+    assert.equal(decision.reason, 'MISSING_TRANSACTION_ID');
   });
 });
 
@@ -154,7 +154,7 @@ describe('Webhook Decision - Amount Validation', () => {
     assert.equal(decision.amount, 200000);
   });
 
-  it('should PROCESS when overpaid (amount > totalAmount)', () => {
+  it('should hold overpayment for review', () => {
     const decision = evaluateWebhookDecision(
       makeTxn({ amount: 500000 }),
       {
@@ -162,8 +162,8 @@ describe('Webhook Decision - Amount Validation', () => {
         order: makeOrder({ totalAmount: 200000 }),
       }
     );
-    assert.equal(decision.action, 'PROCESS');
-    assert.equal(decision.amount, 500000);
+    assert.equal(decision.action, 'SKIP');
+    assert.equal(decision.reason, 'OVERPAID');
   });
 
   it('should SKIP for zero amount', () => {
@@ -178,7 +178,7 @@ describe('Webhook Decision - Amount Validation', () => {
     assert.equal(decision.reason, 'INVALID_AMOUNT');
   });
 
-  it('should handle negative amount (Math.abs converts to positive)', () => {
+  it('should reject negative amount', () => {
     const decision = evaluateWebhookDecision(
       makeTxn({ amount: -200000 }),
       {
@@ -186,9 +186,8 @@ describe('Webhook Decision - Amount Validation', () => {
         order: makeOrder({ totalAmount: 200000 }),
       }
     );
-    // getTransactionAmount uses Math.abs, so -200000 becomes 200000
-    assert.equal(decision.action, 'PROCESS');
-    assert.equal(decision.amount, 200000);
+    assert.equal(decision.action, 'SKIP');
+    assert.equal(decision.reason, 'INVALID_AMOUNT');
   });
 
   it('should SKIP for NaN / non-numeric amount string', () => {

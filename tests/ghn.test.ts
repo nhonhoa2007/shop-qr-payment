@@ -94,6 +94,20 @@ describe('GHN Logistics - Fee Calculation', () => {
 });
 
 describe('GHN Logistics - Shipment Creation', () => {
+  it('does not create a mock tracking code in production when GHN cannot be called', async () => {
+    const previous = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    try {
+      await assert.rejects(createGHNShipment({
+        orderId: 'order-prod', orderCode: 'DHPROD', customerName: 'Guest',
+        customerPhone: '0900000000', customerAddress: 'Test',
+        toDistrictId: 0, toWardCode: '', items: [],
+      }), /Thiếu cấu hình GHN hoặc địa bàn nhận hàng/);
+    } finally {
+      if (previous === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = previous;
+    }
+  });
   it('should generate valid mock shipment with tracking code when in mock/fallback mode', async () => {
     const res = await createGHNShipment({
       orderId: 'order_123',
