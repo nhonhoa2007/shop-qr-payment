@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { formatVND, formatDateTime, getStatusLabel, getStatusColor } from '@shared/utils';
 import { toast } from 'sonner';
 import Link from 'next/link';
-import { Coins, Check, User, Phone, Mail, MapPin, FileText } from 'lucide-react';
+import { Check, User, Phone, Mail, MapPin, FileText } from 'lucide-react';
 
 export interface AdminOrder {
   id: string;
@@ -16,6 +16,8 @@ export interface AdminOrder {
   totalAmount: number;
   status: string;
   paymentStatus: string;
+  fulfillmentState?: string;
+  shipment?: { trackingCode: string } | null;
   note?: string;
   createdAt: string;
   items: {
@@ -33,7 +35,7 @@ export function AdminOrdersView({ initialOrders }: { initialOrders: AdminOrder[]
   const [searchQuery, setSearchQuery] = useState('');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  const handleUpdate = async (orderId: string, payload: { status?: string; paymentStatus?: string }) => {
+  const handleUpdate = async (orderId: string, payload: { status: string }) => {
     setUpdatingId(orderId);
     try {
       const res = await fetch(`/api/orders/${orderId}`, {
@@ -45,7 +47,7 @@ export function AdminOrdersView({ initialOrders }: { initialOrders: AdminOrder[]
       if (!res.ok) throw new Error(data.error);
 
       setOrders((prev) =>
-        prev.map((o) => (o.id === orderId ? { ...o, ...payload } : o))
+        prev.map((o) => (o.id === orderId ? { ...o, status: data.order?.status || o.status, paymentStatus: data.order?.paymentStatus || o.paymentStatus, fulfillmentState: data.order?.fulfillmentState || o.fulfillmentState } : o))
       );
       toast.success('Đã cập nhật trạng thái đơn hàng!');
     } catch (err: unknown) {
@@ -53,6 +55,24 @@ export function AdminOrdersView({ initialOrders }: { initialOrders: AdminOrder[]
     } finally {
       setUpdatingId(null);
     }
+  };
+
+  const handleFulfillmentReview = async (orderId: string, outcome: 'NOT_CREATED' | 'CREATED') => {
+    const trackingCode = outcome === 'CREATED' ? window.prompt('Nhập mã vận đơn thật đã kiểm tra trên GHN:') : '';
+    if (trackingCode === null) return;
+    const feeInput = outcome === 'CREATED' ? window.prompt('Phí GHN thực tế (VND):') : '0';
+    if (feeInput === null) return;
+    const note = window.prompt('Ghi chú bằng chứng kiểm tra trên GHN (bắt buộc):');
+    if (!note?.trim()) return;
+    setUpdatingId(orderId);
+    try {
+      const res = await fetch('/api/admin/fulfillment-review', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId, outcome, trackingCode, shippingFee: Number(feeInput), note }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Không thể đối soát GHN');
+      setOrders((current) => current.map((order) => order.id === orderId ? { ...order, status: data.order.status, fulfillmentState: data.order.fulfillmentState } : order));
+      toast.success('Đã ghi nhận kết quả kiểm tra GHN');
+    } catch (err) { toast.error(err instanceof Error ? err.message : 'Lỗi đối soát GHN'); }
+    finally { setUpdatingId(null); }
   };
 
   const filteredOrders = orders.filter((o) => {
@@ -141,6 +161,8 @@ export function AdminOrdersView({ initialOrders }: { initialOrders: AdminOrder[]
                     <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${getStatusColor(order.paymentStatus)}`}>
                       {getStatusLabel(order.paymentStatus)}
                     </span>
+                    {order.fulfillmentState === 'REVIEW' && <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">Cần kiểm tra GHN{order.shipment ? ` · ${order.shipment.trackingCode}` : ''}</span>}
+                    {order.fulfillmentState === 'REQUESTING' && <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">Đang gửi yêu cầu GHN</span>}
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
                     Ngày đặt: {formatDateTime(order.createdAt)}
@@ -207,14 +229,26 @@ export function AdminOrdersView({ initialOrders }: { initialOrders: AdminOrder[]
               <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-gray-100 bg-gray-50/50 -mx-6 -mb-6 p-4 rounded-b-2xl">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-xs text-gray-500 font-medium">Chuyển tiến độ:</span>
-                  <button
+                  {order.status === 'PENDING' && order.paymentStatus === 'PAID' && <button
                     type="button"
                     disabled={updatingId === order.id}
                     onClick={() => handleUpdate(order.id, { status: 'CONFIRMED' })}
                     className="px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg text-xs font-medium transition"
                   >
                     Xác nhận
-                  </button>
+                  </button>}
+                  {order.status === 'CONFIRMED' && order.paymentStatus === 'PAID' && order.fulfillmentState === 'NONE' && <button
+                    type="button"
+                    disabled={updatingId === order.id}
+                    onClick={() => handleUpdate(order.id, { status: 'PROCESSING' })}
+                    className="px-3 py-1.5 bg-violet-100 text-violet-700 hover:bg-violet-200 rounded-lg text-xs font-medium transition"
+                  >
+                    Tạo vận đơn GHN
+                  </button>}
+                  {order.fulfillmentState === 'REVIEW' && <>
+                    <button type="button" disabled={updatingId === order.id} onClick={() => void handleFulfillmentReview(order.id, 'NOT_CREATED')} className="px-3 py-1.5 bg-amber-100 text-amber-800 rounded-lg text-xs font-medium disabled:opacity-50">GHN chưa tạo · cho gửi lại</button>
+                    <button type="button" disabled={updatingId === order.id} onClick={() => void handleFulfillmentReview(order.id, 'CREATED')} className="px-3 py-1.5 bg-amber-100 text-amber-800 rounded-lg text-xs font-medium disabled:opacity-50">GHN đã tạo · ghi mã thật</button>
+                  </>}
                   <button
                     type="button"
                     disabled={updatingId === order.id}
@@ -242,21 +276,13 @@ export function AdminOrdersView({ initialOrders }: { initialOrders: AdminOrder[]
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {order.paymentStatus !== 'PAID' ? (
-                    <button
-                      type="button"
-                      disabled={updatingId === order.id}
-                      onClick={() => handleUpdate(order.id, { paymentStatus: 'PAID', status: 'CONFIRMED' })}
-                      className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-semibold transition flex items-center gap-1.5 shadow-sm"
-                    >
-                      <Coins className="w-3.5 h-3.5" />
-                      <span>Xác nhận đã nhận tiền</span>
-                    </button>
-                  ) : (
+                  {order.paymentStatus === 'PAID' ? (
                     <span className="text-xs text-green-700 font-semibold flex items-center gap-1">
                       <Check className="w-3.5 h-3.5" />
                       <span>Đã thanh toán đầy đủ</span>
                     </span>
+                  ) : (
+                    <Link href="/admin/transactions" className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-semibold transition">Đối soát giao dịch</Link>
                   )}
                 </div>
               </div>

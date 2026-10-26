@@ -22,7 +22,7 @@ Dự án được xây dựng bằng **Next.js 16 (App Router)**, **React 19**, 
 
 ## 1. Yêu cầu hệ thống
 
-- **Node.js**: Phiên bản `18.18+` trở lên (Khuyến nghị `Node.js 20 LTS` hoặc `Node.js 22 LTS`).
+- **Node.js**: Phiên bản `20.9+` trở lên (khuyến nghị Node.js 22).
 - **NPM** hoặc **PNPM** / **Yarn**.
 - **PostgreSQL**: Phiên bản `14+` trở lên.
 
@@ -206,7 +206,8 @@ CRON_SECRET="your-cron-secret-key"
 
 3. **Đồng bộ Database Schema với Prisma**:
    ```cmd
-   npx prisma db push
+   npx prisma migrate deploy
+   npx prisma generate
    ```
 
 4. **Nạp dữ liệu mẫu ban đầu (Seed data)**:
@@ -248,7 +249,8 @@ CRON_SECRET="your-cron-secret-key"
 
 4. **Đồng bộ Database Schema với Prisma**:
    ```bash
-   npx prisma db push
+   npx prisma migrate deploy
+   npx prisma generate
    ```
 
 5. **Nạp dữ liệu mẫu ban đầu (Seed data)**:
@@ -305,21 +307,23 @@ Script cộng dồn an toàn (idempotent — chạy nhiều lần không nhân �
 
 ## 6. Chạy kiểm thử (Unit Tests)
 
-Dự án sử dụng bộ kiểm thử độc lập viết bằng **Node Native Test Runner** (`node:test` & `node:assert`) chạy trực tiếp không cần cài đặt thêm runner, **không cần** database hay dịch vụ ngoài (service có mock client và fallback in-memory). Hiện có **45 test suites**:
+Dự án sử dụng bộ kiểm thử độc lập viết bằng **Node Native Test Runner** (`node:test` & `node:assert`) chạy trực tiếp không cần cài đặt thêm runner, **không cần** database hay dịch vụ ngoài (service có mock client và fallback in-memory). Hiện có **50 test files**:
 
 ```bash
 # Chạy toàn bộ test suites:
 npm run test
 
 # Chạy một suite cụ thể:
-node --experimental-strip-types --test tests/checkout.test.ts
+node --experimental-strip-types --import ./tests/register-alias.mjs --test tests/checkout.test.ts
 
 # Chạy theo tên test case:
-node --experimental-strip-types --test --test-name-pattern="refund" tests/wallet.test.ts
+node --experimental-strip-types --import ./tests/register-alias.mjs --test --test-name-pattern="refund" tests/wallet.test.ts
 ```
 
+Kiểm thử tích hợp dùng PostgreSQL riêng: tạo database sạch, đặt `DATABASE_URL`, chạy `npx prisma migrate deploy`, rồi `npm run test:integration`. Bộ test này dọn dữ liệu do nó tạo; không dùng database có dữ liệu thật.
+
 Các nhóm nội dung được kiểm thử:
-- ✅ Checkout & validation: miễn phí ship trên 500k, phí tiêu chuẩn 30k, chặn giỏ rỗng / vượt tồn kho / vượt 99 món.
+- ✅ Checkout & validation: miễn phí ship từ 500.000đ, phí GHN theo địa bàn và giỏ hàng, chặn giỏ rỗng / vượt tồn kho / vượt 99 món.
 - ✅ Parser & webhook: bóc tách mã `DHxxxxxx` / mã nạp ví `NAP…` khỏi nội dung chuyển khoản, idempotency `bankTransId`, chống trả thiếu tiền.
 - ✅ Đơn hàng: máy trạng thái FSM (chặn ship khi chưa trả tiền, chặn sửa đơn hủy), hủy đơn hoàn kho + thu hồi coupon.
 - ✅ Ví: thanh toán bằng ví CAS trừ tiền, nạp tiền idempotent, hoàn tiền chống trùng lặp.
@@ -334,9 +338,13 @@ Các nhóm nội dung được kiểm thử:
 - URL nhận Webhook ngân hàng: `https://your-domain.com/api/webhooks/payment` (header xác thực: `secure-token: <CASSO_WEBHOOK_SECRET>`)
 - Tính năng: Tự động khớp mã đơn hàng (`DH…`) và mã nạp ví (`NAP…`) từ nội dung chuyển khoản, kiểm tra trùng lặp (`Idempotency`), cập nhật trạng thái đơn thành `PAID` / cộng số dư ví và thông báo tức thì qua Pusher.
 
+Mọi giao dịch Casso được lưu vào sổ `BankTransfer` trước khi khớp đơn hoặc nạp ví. Khoản thiếu, dư, âm, thiếu mã hay đến muộn nằm ở **Admin → Đối soát giao dịch**. Admin chỉ có thể khớp từ các giao dịch đã ghi; khi phục hồi đơn hủy, hệ thống giữ lại tồn kho và lượt coupon trong cùng transaction. Với yêu cầu hoàn tiền khách vãng lai, admin xác nhận sau khi chuyển khoản thực tế và ghi mã tham chiếu vào ghi chú. Endpoint đối soát cũ đã ngừng sử dụng.
+
 ### 2. Webhook Vận đơn GHN
 - URL: `https://your-domain.com/api/webhooks/ghn` (header xác thực: `token: <GHN_WEBHOOK_TOKEN>`)
-- Tính năng: Đồng bộ lộ trình vận đơn (`delivering → SHIPPING`, `delivered → COMPLETED` — COD thì tự đánh dấu PAID, `cancel/return → CANCELLED` + hoàn kho), nối shippingLog vào timeline đơn hàng.
+- Tính năng: Đồng bộ lộ trình vận đơn (`delivering → SHIPPING`, `delivered → COMPLETED` — COD thì tự đánh dấu PAID, `cancel/return → CANCELLED` + hoàn kho đúng một lần, hoàn ví cho thành viên hoặc lập yêu cầu hoàn thủ công cho khách vãng lai), nối shippingLog vào timeline đơn hàng.
+
+Checkout tính lại giá, tồn kho, trọng lượng và phí GHN trên máy chủ. Nếu báo giá thay đổi lúc đặt hàng, API trả `409` để khách xác nhận lại; GHN không báo được phí thì không tạo đơn. Địa bàn nhận được lưu trên đơn và dùng lại khi tạo vận đơn. Trên production, lỗi GHN không sinh mã vận đơn mô phỏng. Trường hợp timeout xuất hiện trong **Admin → Đơn hàng**: kiểm tra trên GHN, rồi ghi mã thật hoặc xác nhận GHN chưa tạo để mở lại thao tác gửi; mỗi quyết định có ghi người xử lý và ghi chú. Ảnh sản phẩm production cần cấu hình Cloudinary. Font Inter được lưu trong project để build không tải Google Fonts.
 
 ### 3. Tự động hủy đơn quá hạn (Order Expiry Cron)
 - Đơn hàng sau **15 phút** không thanh toán sẽ hết hạn và hoàn lại tồn kho.
@@ -346,7 +354,7 @@ Các nhóm nội dung được kiểm thử:
   POST /api/cron/expire-orders
   Header: Authorization: Bearer <CRON_SECRET>
   ```
-- **Vercel Hobby Tier:** File `vercel.json` đặt lịch chạy 1 lần/ngày (`0 0 * * *`) để tuân thủ chính sách Vercel Free.
+- **Lịch triển khai:** File `vercel.json` hiện chạy 1 lần/ngày (`0 0 * * *`); để hủy đơn gần mốc 15 phút, cần lịch gọi endpoint khoảng mỗi 5 phút trên môi trường triển khai.
 - **Giải pháp 5 phút miễn phí:** Xem chi tiết 3 phương án chạy định kỳ 5 phút/lần (cron-job.org, GitHub Actions, Upstash QStash) tại 👉 **[docs/architecture/CRON_SETUP.md](./docs/architecture/CRON_SETUP.md)**.
 
 

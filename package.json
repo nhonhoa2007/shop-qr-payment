@@ -4,11 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "node ./node_modules/eslint/bin/eslint.js .",
     "arch:check": "depcruise src --config .dependency-cruiser.cjs",
     "test": "node --experimental-strip-types --import ./tests/register-alias.mjs --test tests/*.test.ts",
+    "test:integration": "node --experimental-strip-types --import ./tests/register-alias.mjs --test tests/integration/*.test.ts",
     "seed": "node --experimental-strip-types prisma/seed.ts",
     "docs:uml": "node scripts/generate-uml.js",
     "db:backup": "node scripts/db-backup.js",

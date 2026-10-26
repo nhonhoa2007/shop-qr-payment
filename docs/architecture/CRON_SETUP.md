@@ -3,7 +3,7 @@
 ## Bối cảnh và vấn đề
 - **Vercel Hobby (Free Tier)** giới hạn Cron Job chỉ được chạy **tối đa 1 lần / ngày** (ví dụ: `0 0 * * *`).
 - Nếu cấu hình tần suất dày hơn (như `*/5 * * * *`) trong `vercel.json`, Vercel sẽ cảnh báo hoặc từ chối deploy.
-- Đối với hệ thống Shop QR Payment, đơn hàng chưa thanh toán cần được tự động hết hạn (sau 15 phút) và hoàn lại số lượng tồn kho (stock) liên tục, lý tưởng nhất là quét định kỳ mỗi **5 phút/lần**.
+- Đối với hệ thống Shop QR Payment, đơn hàng chưa thanh toán cần được tự động hết hạn (sau 15 phút) và hoàn lại số lượng tồn kho (stock) liên tục, cần quét định kỳ khoảng **5 phút/lần**. Lịch một lần/ngày trong `vercel.json` sẽ làm đơn được hủy muộn tới gần 24 giờ; không dùng lịch này như lịch chính khi nhận đơn thật.
 
 Endpoint thực hiện nhiệm vụ này:
 ```http

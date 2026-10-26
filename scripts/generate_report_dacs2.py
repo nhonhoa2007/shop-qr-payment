@@ -25,7 +25,7 @@ from docx.oxml.ns import qn, nsdecls
 PROJECT_ROOT = "/home/nhonhoa/shop-qr-payment"
 ACADEMIC_DIR = os.path.join(PROJECT_ROOT, "docs", "academic")
 UML_IMAGES_DIR = os.path.join(PROJECT_ROOT, "docs", "uml", "images")
-MOCKUPS_DIR = os.path.join(PROJECT_ROOT, "public", "admin-mockups")
+MOCKUPS_DIR = os.path.join(PROJECT_ROOT, "docs", "architecture", "admin-mockups")
 BAN_THAO_PATH = os.path.join(ACADEMIC_DIR, "BAN_THAO_BAO_CAO_DACS2.md")
 DOCX_OUT_PATH = os.path.join(ACADEMIC_DIR, "BAO_CAO_DACS2_SHOP_QR_PAYMENT.docx")
 PDF_OUT_PATH = os.path.join(ACADEMIC_DIR, "BAO_CAO_DACS2_SHOP_QR_PAYMENT.pdf")

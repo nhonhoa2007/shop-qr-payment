@@ -25,21 +25,6 @@ const VIETNAMESE_NAMES = [
   'Chu Ngọc Diệp', 'Tôn Nữ Yến Nhi', 'Lưu Gia Huy', 'Mạc Thanh Tùng',
 ];
 
-const VIETNAMESE_COMMENTS = [
-  'Sản phẩm đúng như hình, đóng gói cẩn thận, giao nhanh. Sẽ ủng hộ shop tiếp!',
-  'Chất lượng vượt mong đợi ở tầm giá này. Quét QR chuyển khoản xong là đơn tự xác nhận luôn, quá tiện.',
-  'Shop tư vấn nhiệt tình qua chat, hàng chính hãng. Rất đáng tiền.',
-  'Giao hàng nhanh, temple đẹp, chất vải dày dặn. 5 sao!',
-  'Lần đầu thanh toán bằng Ví Shop, trừ tiền tức thì không cần quét lại. Trải nghiệm mượt.',
-  'Hơi chờ đợi shipper hơi lâu nhưng sản phẩm ổn, zui.',
-  'Đóng gói kỹ, có phiếu bảo hành. Sẽ review thêm sau khi dùng lâu.',
-  'Mua cho người yêu, bạn ấy thích lắm. Size chuẩn theo bảng của shop.',
-  'Đúng hàng chính hãng, quét mã kiểm tra được. Shop uy tín.',
-  'Giá tốt hơn mấy nơi khác, đổi trả 7 ngày yên tâm.',
-  'Pin trâu, tiếng hay, chống ồn tốt. Đáng mua!',
-  'Form đẹp nhưng mình cần size lớn hơn, shop đổi trả nhanh gọn lẹ.',
-];
-
 function rand(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
@@ -54,6 +39,416 @@ function weighted<T>(entries: Array<[T, number]>): T {
     if (r <= 0) return v;
   }
   return entries[0][0];
+}
+
+// ─── TẠO ĐÁNH GIÁ CHÂN THỰC & CHÍNH XÁC THEO TỪNG MẶT HÀNG ───
+function getProductSpecificReview(
+  productName: string,
+  category: string,
+  rating: number
+): { comment: string; reply: string | null } {
+  const name = productName.toLowerCase();
+
+  // 1. Phụ kiện nhỏ giá rẻ (<20k): Móc khóa, Sticker, Khăn lau, Dây buộc cáp, Tất vớ
+  if (name.includes('sticker')) {
+    if (rating === 5) {
+      return {
+        comment: pick([
+          'Sticker in hình sắc nét, màu tươi, có lớp màng bóng chống nước tốt. Mình dán mũ bảo hiểm đi mưa mấy hôm vẫn bám rất chắc.',
+          'Chất keo dính chắc chắn, lột ra không để lại vết keo dơ. Giá 5k quá rẻ để trang trí laptop và điện thoại.',
+        ]),
+        reply: 'Cảm ơn bạn đã yêu thích món quà nhỏ này của ShopQR nhé! Chúc bạn có những món đồ thật phong cách ❤️',
+      };
+    } else {
+      return {
+        comment: 'Sticker đẹp, keo dán chắc. Dán lên laptop và bình nước nhìn rất cá tính.',
+        reply: 'Dạ shop cảm ơn bạn nhiều ạ! Lần sau bạn nhớ ghé shop sưu tầm thêm các mẫu mới nhé.',
+      };
+    }
+  }
+
+  if (name.includes('móc khóa')) {
+    if (rating === 5) {
+      return {
+        comment: pick([
+          'Móc khóa mica 2 mặt sáng bóng, dày dặn, hình in đẹp không trầy xước. Mua kèm test thanh toán QR rất tiện lợi.',
+          'Móc khóa nhỏ gọn, viền cắt laser mịn màng không bén tay, khoen inox chắc chắn. 10k quá hời!',
+        ]),
+        reply: 'Cảm ơn bạn đã ủng hộ móc khóa ShopQR ạ! Món phụ kiện nhỏ xinh xắn cho balo và chùm chìa khóa ❤️',
+      };
+    } else {
+      return {
+        comment: 'Móc khóa xinh, khoen kim loại chắc chắn. Treo balo hay chìa khóa xe đều đẹp.',
+        reply: 'Dạ shop cảm ơn bạn! Chúc bạn một ngày tràn đầy năng lượng ạ.',
+      };
+    }
+  }
+
+  if (name.includes('khăn lau')) {
+    if (rating === 5) {
+      return {
+        comment: pick([
+          'Khăn microfiber lau sạch bóng dầu nhờn và bụi bẩn trên mắt kính với điện thoại mà không hề để lại xơ vải.',
+          'Vải microfiber mật độ cao siêu mềm mịn, lau ống kính camera không sợ trầy xước. Rất ưng ý!',
+        ]),
+        reply: 'Shop cảm ơn bạn đã tin dùng khăn lau chuyên dụng của shop ạ!',
+      };
+    } else {
+      return {
+        comment: 'Khăn mềm mịn, kích thước vừa tay, lau mắt kính và camera rất sạch.',
+        reply: 'Dạ shop cảm ơn bạn nhiều! Bạn có thể giặt nhẹ bằng nước ấm để tái sử dụng lâu dài nhé.',
+      };
+    }
+  }
+
+  if (name.includes('dây buộc') || (name.includes('cáp') && name.includes('silicone'))) {
+    if (rating === 5) {
+      return {
+        comment: pick([
+          'Dây buộc cáp silicone mềm dẻo, nút cài chắc chắn giúp bàn làm việc gọn gàng hẳn. Giá 15k quá rẻ và tiện ích!',
+          'Chất liệu silicone dẻo dai đàn hồi tốt, thu gọn đống dây sạc lòng thòng trong balo nhanh chóng.',
+        ]),
+        reply: 'Dạ Shop cảm ơn bạn nhiều! Món phụ kiện nhỏ nhưng mang lại tiện ích lớn cho góc làm việc ạ ❤️',
+      };
+    } else {
+      return {
+        comment: 'Dây cài chắc, chất liệu silicone mềm dai. Gom dây sạc điện thoại gọn gàng.',
+        reply: 'Dạ shop cảm ơn bạn đã đánh giá! Chúc bạn có không gian làm việc luôn ngăn nắp nhé.',
+      };
+    }
+  }
+
+  if (name.includes('tất') || name.includes('vớ')) {
+    if (rating === 5) {
+      return {
+        comment: pick([
+          'Vớ cotton mềm, thoáng khí, đi êm chân không bị hôi, thun co giãn tốt không thít cổ chân.',
+          'Chất 95% cotton dày dặn, đệm gót chống tuột tốt khi mang giày sneaker vận động cả ngày.',
+        ]),
+        reply: 'Shop cảm ơn bạn đã đánh giá! Chúc bạn luôn êm ái và thoải mái trên từng bước chân ạ 👟',
+      };
+    } else {
+      return {
+        comment: 'Chất vải cotton tốt, đệm gót bám tốt không bị tuột khi đi sneaker.',
+        reply: 'Dạ shop cảm ơn bạn đã phản hồi! Shop luôn chú trọng chất liệu vải tự nhiên để bảo vệ chân tốt nhất ạ.',
+      };
+    }
+  }
+
+  // 2. Thiết bị công nghệ: Sạc dự phòng, Camera, Ổ cứng SSD, Đèn bàn, Bàn phím, Chuột, Tai nghe, Đồng hồ
+  if (name.includes('sạc dự phòng') || name.includes('pin dự phòng')) {
+    if (rating === 5) {
+      return {
+        comment: pick([
+          'Sạc nhanh chuẩn PD 22.5W không bị nóng máy, nhỏ gọn dễ bỏ túi. Dung lượng 20.000mAh chuẩn sạc được nhiều lần.',
+          'Màn hình LED hiển thị chính xác % pin, 3 cổng sạc tiện lợi cùng lúc cho cả điện thoại và tai nghe.',
+        ]),
+        reply: 'ShopQR cảm ơn bạn nhiều! Hàng chính hãng bảo hành 12 tháng nên bạn an tâm dùng nhé ⚡',
+      };
+    } else {
+      return {
+        comment: 'Sạc nhanh, màn hình LED hiển thị % pin trực quan. Cầm hơi đầm tay một chút.',
+        reply: 'Dạ shop cảm ơn bạn! Dung lượng 20.000mAh thực tế cần cell pin lớn nên cầm sẽ đầm tay và chắc chắn ạ.',
+      };
+    }
+  }
+
+  if (name.includes('camera')) {
+    if (rating === 5) {
+      return {
+        comment: pick([
+          'Camera góc quay rộng 170 độ, video 2K ban đêm rõ biển số xe, kết nối WiFi xem lại trên điện thoại rất mượt mà.',
+          'Độ phân giải 2K sắc nét, cảm biến ban đêm nhạy sáng tốt. Lắp đặt giấu dây gọn gàng, tự ghi đè khi thẻ nhớ đầy.',
+        ]),
+        reply: 'Shop cảm ơn bạn đã tin chọn camera hành trình của ShopQR! Chúc bạn vạn dặm bình an ạ 🚗',
+      };
+    } else {
+      return {
+        comment: 'Hình ảnh sắc nét, dễ lắp đặt. Ứng dụng điện thoại mượt mà, ghi hình vòng lặp ổn định.',
+        reply: 'Dạ shop cảm ơn bạn đã phản hồi! Cần hỗ trợ kỹ thuật cài đặt thêm bạn cứ gọi hotline shop hỗ trợ ngay nhé.',
+      };
+    }
+  }
+
+  if (name.includes('ssd') || name.includes('ổ cứng')) {
+    if (rating === 5) {
+      return {
+        comment: pick([
+          'Tốc độ đọc ghi hơn 1000MB/s cực nhanh, sao chép file video 4K nặng mượt mà. Vỏ nhôm tản nhiệt mát mẻ, nhỏ như bao diêm.',
+          'Kết nối Type-C cắm là nhận ngay trên cả MacBook lẫn Windows. Tốc độ truyền tải dữ liệu cực kỳ ấn tượng.',
+        ]),
+        reply: 'Cảm ơn bạn đã lựa chọn ổ cứng di động chính hãng tại ShopQR! Sản phẩm bảo hành 3 năm an tâm sử dụng ạ 💾',
+      };
+    } else {
+      return {
+        comment: 'Ổ cứng nhận diện nhanh trên cả MacBook và Win, cáp Type-C đi kèm chất lượng tốt.',
+        reply: 'Dạ shop cảm ơn bạn! Vỏ nhôm nguyên khối giúp tản nhiệt tối ưu cho chip nhớ khi làm việc lâu ạ.',
+      };
+    }
+  }
+
+  if (name.includes('đèn')) {
+    if (rating === 5) {
+      return {
+        comment: pick([
+          'Đèn bàn ánh sáng dịu mắt, chỉ số hoàn màu CRI 95 không gây mỏi mắt khi làm việc buổi tối, cảm ứng chạm nhạy.',
+          'Thiết kế tối giản sang trọng, có 3 chế độ nhiệt độ màu và hẹn giờ tắt rất tiện lợi cho học tập và làm việc.',
+        ]),
+        reply: 'Shop cảm ơn bạn đã đánh giá! Chúc bạn học tập và làm việc thật năng suất cùng ánh sáng dịu mắt nhé 💡',
+      };
+    } else {
+      return {
+        comment: 'Đèn thiết kế tối giản đẹp mắt, có 3 chế độ sáng tiện lợi. Pin tích điện dùng được khá lâu.',
+        reply: 'Dạ shop cảm ơn bạn! Bạn có thể cắm sạc trực tiếp để độ sáng luôn đạt mức tối đa liên tục nhé ạ.',
+      };
+    }
+  }
+
+  if (name.includes('bàn phím') || name.includes('chuột')) {
+    if (rating === 5) {
+      return {
+        comment: pick([
+          'Bàn phím/chuột gõ cực đầm tay, switch linear êm ái không gây ồn, kết nối không dây 3 chế độ ổn định không độ trễ. LED RGB đẹp.',
+          'Cảm biến quang học chính xác từng milimet, nút bấm nảy tanh tách, build chắc chắn không bị flex, pin dùng bền bỉ.',
+        ]),
+        reply: 'ShopQR cảm ơn bạn đã tin tưởng phụ kiện công nghệ của shop! Chúc bạn làm việc và giải trí thật năng suất ⌨️',
+      };
+    } else {
+      return {
+        comment: 'Cảm giác gõ/di chuột rất tốt, pin dùng lâu. Phần mềm tùy biến LED lúc đầu cần một chút thời gian làm quen.',
+        reply: 'Dạ shop có sẵn file hướng dẫn cài đặt phần mềm chi tiết, bạn nhắn shop để shop gửi link hỗ trợ nhé ạ!',
+      };
+    }
+  }
+
+  if (name.includes('tai nghe') || name.includes('anc') || name.includes('tws')) {
+    if (rating === 5) {
+      return {
+        comment: pick([
+          'Chất âm rất trong, âm bass đánh chắc nịch, chống ồn chủ động ANC cách ly môi trường rất hiệu quả. Pin trâu dùng cả tuần.',
+          'Độ trễ cực thấp xem phim chơi game mượt mà, đệm tai êm ái đeo nhiều giờ không bị cấn tai. Rất đáng tiền!',
+        ]),
+        reply: 'Cảm ơn bạn đã lựa chọn tai nghe chính hãng tại ShopQR! Sản phẩm được bảo hành 12 tháng nên bạn cứ yên tâm trải nghiệm nhé 🎧',
+      };
+    } else if (rating === 4) {
+      return {
+        comment: 'Chất âm hay, âm trường rộng, pin tốt. Mic đàm thoại ở nơi đông người hơi bắt tiếng ồn một chút.',
+        reply: 'Dạ shop cảm ơn bạn! Ở nơi ồn ào bạn có thể bật chế độ lọc âm trên máy để đàm thoại rõ hơn nhé ạ.',
+      };
+    } else {
+      return {
+        comment: 'Nghe nhạc hay trong tầm giá, thời lượng pin ở mức vừa đủ dùng trong ngày. Đóng gói cẩn thận.',
+        reply: 'Shop cảm ơn bạn đã phản hồi! Nếu cần hỗ trợ kỹ thuật bạn cứ liên hệ hotline bảo hành của shop nhé.',
+      };
+    }
+  }
+
+  if (name.includes('đồng hồ') || name.includes('band')) {
+    if (rating === 5) {
+      return {
+        comment: pick([
+          'Màn hình AMOLED hiển thị rõ ràng ngay cả ngoài trời nắng gắt, đo nhịp tim và bước chân chuẩn xác, pin trâu 5-7 ngày.',
+          'Thiết kế thanh lịch, nhiều mặt đồng hồ đẹp, nhận thông báo tin nhắn và cuộc gọi tức thì.',
+        ]),
+        reply: 'Cảm ơn bạn đã đánh giá! Chúc bạn có những giờ phút rèn luyện sức khỏe hiệu quả cùng Smart Band nhé ⌚',
+      };
+    } else {
+      return {
+        comment: 'Đồng hồ nhẹ, đeo đi ngủ theo dõi giấc ngủ rất êm. Cần cải thiện thêm một vài giao diện mặt đồng hồ thể thao.',
+        reply: 'Dạ hãng sẽ cập nhật thêm mặt đồng hồ mới qua các bản update firmware, bạn chú ý cập nhật app nhé ạ!',
+      };
+    }
+  }
+
+  // 3. Quần áo & Giày dép
+  if (name.includes('áo') || name.includes('sơ mi') || name.includes('hoodie') || name.includes('thun') || name.includes('khoác')) {
+    if (rating === 5) {
+      return {
+        comment: pick([
+          'Chất vải mềm mịn, thoáng mát và co giãn tốt. Form áo mặc lên rất tôn dáng, đường may tỉ mỉ, giặt máy không bị xù lông.',
+          'Vải cotton dệt dày dặn vừa vặn, form áo chuẩn như hình. Mua mặc đi làm hay dạo phố đều lịch sự và thoải mái.',
+          'Đóng gói cẩn thận 2 lớp, vải thơm và không có chỉ thừa. Đúng chuẩn chất lượng cao cấp, sẽ ủng hộ shop tiếp!',
+        ]),
+        reply: 'Shop cảm ơn bạn nhiều ạ! Chúc bạn luôn tự tin và phong cách cùng set đồ của ShopQR ❤️',
+      };
+    } else if (rating === 4) {
+      return {
+        comment: 'Áo đẹp, chất vải tốt trong tầm giá. Bạn nào thích mặc rộng rãi thoải mái nên nhích lên 1 size nhé.',
+        reply: 'Dạ ShopQR cảm ơn bạn đã góp ý! Lần tới bạn nhắn tin để shop tư vấn chuẩn size cho bạn nhé ạ.',
+      };
+    } else {
+      return {
+        comment: 'Chất vải tạm ổn trong tầm giá, giao hàng đúng hẹn. Cổ áo hơi ôm một chút so với sở thích của mình.',
+        reply: 'Shop cảm ơn bạn đã phản hồi chân thành! Shop sẽ lưu ý để cải thiện bảng size và hình ảnh tốt hơn ạ.',
+      };
+    }
+  }
+
+  if (name.includes('quần') || name.includes('jeans') || name.includes('short') || name.includes('kaki')) {
+    if (rating === 5) {
+      return {
+        comment: pick([
+          'Chất vải co giãn nhẹ mặc vận động rất dễ chịu, cạp quần chắc chắn, form đứng dáng tôn chân.',
+          'Quần đẹp, chất denim/kaki dày dặn mà không bị cứng, giặt không bị phai màu ra các đồ khác.',
+        ]),
+        reply: 'Cảm ơn bạn đã tin tưởng sản phẩm quần thời trang của ShopQR! Chúc bạn có trải nghiệm tuyệt vời ạ ❤️',
+      };
+    } else {
+      return {
+        comment: 'Vải đẹp, form chuẩn. Chiều dài quần hơi dài một tí so với mình, cắt gấu lại là vừa vặn hoàn hảo.',
+        reply: 'Dạ shop cảm ơn bạn đã góp ý! Lần sau bạn có thể nhắn chiều cao để shop hỗ trợ tư vấn độ dài phù hợp nhé.',
+      };
+    }
+  }
+
+  if (name.includes('giày') || name.includes('sneaker') || name.includes('loafers')) {
+    if (rating === 5) {
+      return {
+        comment: pick([
+          'Đế giày siêu êm chân và nhẹ, bám đường tốt, đi bộ cả ngày không bị đau gót hay mỏi chân.',
+          'Chất liệu da/vải cao cấp, mũi giày bo tròn đẹp, đường keo dán sắc nét không bị thừa. Quét VietQR nhận đơn giao nhanh.',
+        ]),
+        reply: 'Shop cảm ơn bạn đã ủng hộ giày của ShopQR! Chúc bạn có những bước chân thật êm ái và tự tin ạ 👟',
+      };
+    } else {
+      return {
+        comment: 'Giày đi êm, đúng kích cỡ. Hộp giày hơi móp một chút do bên chuyển phát nhanh nhưng giày bên trong nguyên vẹn.',
+        reply: 'Dạ shop sẽ làm việc lại với bên vận chuyển để bọc chống sốc hộp giày kỹ hơn nữa. Cảm ơn bạn!',
+      };
+    }
+  }
+
+  // 4. Gia dụng & Đời sống: Máy pha cà phê, Dao, Bình giữ nhiệt, Ly, Nồi, Máy xay, Thảm yoga, Nến thơm
+  if (name.includes('cà phê')) {
+    return {
+      comment: rating === 5
+        ? 'Chiết xuất cà phê 20 bar đậm đà chuẩn vị, lớp bọt crema béo ngậy. Vòi đánh sữa tạo bọt mịn làm latte rất thích.'
+        : 'Máy pha cà phê nhỏ gọn, dễ thao tác và vệ sinh. Khi bắt đầu bơm áp suất tiếng máy hơi kêu một chút.',
+      reply: 'Shop cảm ơn bạn! Chúc bạn mỗi sáng đều có những tách cà phê thơm ngon tuyệt hảo ☕',
+    };
+  }
+
+  if (name.includes('dao')) {
+    return {
+      comment: rating === 5
+        ? 'Lưỡi thép Damascus 67 lớp cực kỳ sắc bén, thái thịt cá ngọt lịm, cán gỗ mun tự nhiên cầm đầm tay không bị trơn.'
+        : 'Bộ dao đầy đủ kích thước từ thái đến gọt hoa quả, hoàn thiện tinh xảo, kéo cắt gà cũng rất bén.',
+      reply: 'Shop cảm ơn bạn đã tin dùng bộ dao làm bếp cao cấp của ShopQR ạ 🔪',
+    };
+  }
+
+  if (name.includes('bình giữ nhiệt')) {
+    return {
+      comment: rating === 5
+        ? 'Bình giữ nhiệt inox 316 giữ đá qua đêm vẫn còn nguyên, nắp đậy khít không bị rò nước ra ngoài khi để nghiêng trong balo.'
+        : 'Sơn tĩnh điện nhám cầm chắc tay không bám vân tay, giữ nóng cả ngày dài rất ưng ý.',
+      reply: 'Shop cảm ơn bạn! Chúc bạn luôn có đồ uống thơm ngon và nhiệt độ như ý suốt cả ngày ạ 💧',
+    };
+  }
+
+  if (name.includes('ly thủy tinh') || name.startsWith('ly ') || name.includes('cốc')) {
+    return {
+      comment: rating === 5
+        ? 'Ly thủy tinh 2 lớp cách nhiệt borosilicate cầm không bị nóng tay khi rót nước sôi, không bị toát mồ hôi khi uống nước đá.'
+        : 'Ly đẹp tinh tế, đóng gói hộp xốp chống sốc rất cẩn thận, dùng uống trà hay cà phê đều sang.',
+      reply: 'Shop cảm ơn bạn đã lựa chọn ly thủy tinh hai lớp của ShopQR ạ ❤️',
+    };
+  }
+
+  if (name.includes('nồi')) {
+    return {
+      comment: rating === 5
+        ? 'Bộ nồi inox 304 sáng bóng, đáy 3 lớp bắt từ siêu nhanh, nắp kính cường lực trong suốt dễ quan sát thức ăn khi nấu.'
+        : 'Nồi dày dặn, quai cầm chắc chắn không bị nóng khi nấu. Dùng trên bếp từ rất nhạy.',
+      reply: 'Shop cảm ơn bạn đã trang bị bộ nồi chất lượng cho gian bếp gia đình ạ 🍲',
+    };
+  }
+
+  if (name.includes('xay') || name.includes('sinh tố')) {
+    return {
+      comment: rating === 5
+        ? 'Cối thủy tinh dày dặn chịu lực, 4 lưỡi dao sắc bén xay sinh tố và nghiền đá nhuyễn mịn chỉ trong 30 giây.'
+        : 'Máy xay khỏe, dễ tháo lắp cọ rửa. Chạy số lớn nhất tiếng máy hơi to một chút nhưng xay rất nhanh.',
+      reply: 'Shop cảm ơn bạn nhiều! Chúc bạn và gia đình có những ly sinh tố thơm mát bổ dưỡng ạ 🥤',
+    };
+  }
+
+  if (name.includes('thảm yoga')) {
+    return {
+      comment: rating === 5
+        ? 'Chất liệu TPE 2 lớp êm ái 6mm đàn hồi tốt, bám sàn chống trượt cực kỳ an toàn, có vạch kẻ định tuyến hỗ trợ tư thế.'
+        : 'Thảm nhẹ, không có mùi hôi nhựa, cuộn lại gọn gàng có kèm dây đeo tiện mang đi tập.',
+      reply: 'Shop chúc bạn luôn có những buổi tập yoga và rèn luyện sức khỏe thật thư thái ạ 🧘',
+    };
+  }
+
+  if (name.includes('nến')) {
+    return {
+      comment: rating === 5
+        ? 'Sáp đậu nành thiên nhiên cháy sạch không khói đen, hương oải hương dịu nhẹ lan tỏa khắp phòng giúp ngủ ngon hơn.'
+        : 'Hũ thủy tinh sang trọng, bấc gỗ khi cháy kêu tách tách nghe rất thư giãn.',
+      reply: 'Shop cảm ơn bạn! Chúc bạn có những phút giây thư giãn bình yên trong không gian thơm mát ạ 🕯️',
+    };
+  }
+
+  // 5. Phụ kiện: Balo, Ví, Kính râm, Mặt nạ, Chăn ga
+  if (name.includes('balo')) {
+    return {
+      comment: rating === 5
+        ? 'Balo vải Oxford dày dặn chống nước tốt, ngăn laptop có đệm khí êm ái chống sốc. Quai đeo có đệm mút không đau vai khi mang nặng.'
+        : 'Nhiều ngăn tiện lợi, đường may tỉ mỉ, khóa kéo YKK êm mượt.',
+      reply: 'Shop cảm ơn bạn! Chúc balo đồng hành cùng bạn trên mọi hành trình làm việc và du lịch ạ 🎒',
+    };
+  }
+
+  if (name.includes('ví')) {
+    return {
+      comment: rating === 5
+        ? 'Ví da bò thật mềm tay, đường may thủ công tỉ mỉ, kích thước nhỏ gọn vừa túi quần mà đựng được nhiều thẻ ngân hàng.'
+        : 'Da thật thơm mùi thuộc da tự nhiên, ngăn thẻ chắc chắn không bị lỏng lẻo.',
+      reply: 'Shop cảm ơn bạn đã lựa chọn ví da thủ công của ShopQR ạ 👛',
+    };
+  }
+
+  if (name.includes('kính')) {
+    return {
+      comment: rating === 5
+        ? 'Tròng kính phân cực Polarized chống chói lóa khi lái xe trời nắng rất tốt, gọng titan siêu nhẹ đeo không đau sống mũi.'
+        : 'Mắt kính thời trang, chống tia UV400 chuẩn, kèm hộp đựng và khăn lau đầy đủ.',
+      reply: 'Shop cảm ơn bạn! Chúc bạn luôn tự tin và an toàn trên mọi cung đường ạ 🕶️',
+    };
+  }
+
+  if (name.includes('mặt nạ')) {
+    return {
+      comment: rating === 5
+        ? 'Thiết kế 3D ôm khít khuôn mặt nhưng không chạm môi, lọc bụi mịn than hoạt tính tốt, dây đeo êm tai không bị hằn.'
+        : 'Chất liệu thoáng khí, dùng khi đi xe máy ngoài đường giảm mùi khói bụi rõ rệt.',
+      reply: 'Shop cảm ơn bạn đã tin chọn sản phẩm bảo vệ sức khỏe của ShopQR ạ 😷',
+    };
+  }
+
+  if (name.includes('chăn') || name.includes('ga')) {
+    return {
+      comment: rating === 5
+        ? 'Chất cotton poly mềm mịn, không phai màu hay xù lông sau khi giặt, hoa văn nhã nhặn sang trọng.'
+        : 'Vải thoáng mát, kích thước chuẩn vừa vặn với đệm giường. Đóng gói túi kéo gọn gàng.',
+      reply: 'Shop cảm ơn bạn! Chúc bạn có những giấc ngủ thật êm ái và trọn vẹn ạ 🛏️',
+    };
+  }
+
+  // 6. Mặc định theo category
+  if (rating === 5) {
+    return {
+      comment: 'Sản phẩm hoàn thiện tỉ mỉ, chất lượng xuất sắc đúng như mô tả. Đóng gói 2 lớp chống sốc cẩn thận, giao hàng rất nhanh.',
+      reply: 'ShopQR cảm ơn bạn đã tin tưởng và ủng hộ sản phẩm của shop! Chúc bạn nhiều trải nghiệm tuyệt vời ❤️',
+    };
+  } else {
+    return {
+      comment: 'Sản phẩm hoàn thiện đẹp, giao hàng nhanh. Sẽ tiếp tục theo dõi các chương trình khuyến mại của shop.',
+      reply: 'Dạ shop cảm ơn bạn nhiều! Bạn nhớ lưu mã giảm giá cho đơn hàng tiếp theo nhé ạ.',
+    };
+  }
 }
 
 // ─── 20 sản phẩm mới (ảnh Unsplash, một phần có biến thể) ───
@@ -105,7 +500,13 @@ async function main() {
   for (let i = 0; i < VIETNAMESE_NAMES.length; i++) {
     const name = VIETNAMESE_NAMES[i];
     const email = `khach${String(i + 1).padStart(2, '0')}@demo.vn`;
-    if (existingEmails.has(email)) continue;
+    if (existingEmails.has(email)) {
+      await prisma.user.update({
+        where: { email },
+        data: { passwordHash: userPassword },
+      });
+      continue;
+    }
     // Trải 12 tháng: mỗi khách đăng ký vào tháng khác nhau (bucket cuối = tháng hiện tại)
     const monthOffset = i % 12;
     const createdAt = new Date(now.getFullYear(), now.getMonth() - (11 - monthOffset), rand(1, 27), rand(8, 21), rand(0, 59));
@@ -183,7 +584,7 @@ async function main() {
     // 1-3 items
     const itemCount = rand(1, 3);
     const chosen = new Set<string>();
-    const items: Array<{ productId: string; variantId: string | null; name: string; price: number; quantity: number }> = [];
+    const items: Array<{ productId: string; variantId: string | null; name: string; category: string; price: number; quantity: number }> = [];
     for (let j = 0; j < itemCount; j++) {
       const prod = pick(allProducts);
       if (chosen.has(prod.id)) continue;
@@ -194,6 +595,7 @@ async function main() {
         productId: prod.id,
         variantId: variant?.id ?? null,
         name: variant ? `${prod.name} (${variant.title})` : prod.name,
+        category: prod.category ?? 'Phụ kiện',
         price: variant?.price ?? prod.price,
         quantity: rand(1, 2),
       });
@@ -319,16 +721,17 @@ async function main() {
     if (status === 'COMPLETED' && user) {
       for (const it of items) {
         if (Math.random() > 0.55) continue;
-        const comment = Math.random() < 0.85 ? pick(VIETNAMESE_COMMENTS) : null;
+        const rating = weighted<number>([[5, 75], [4, 20], [3, 5]]);
+        const rev = getProductSpecificReview(it.name, it.category, rating);
         await prisma.review.create({
           data: {
             productId: it.productId,
             userId: user.id,
             orderId: order.id,
-            rating: weighted<number>([[5, 45], [4, 35], [3, 15], [2, 5]]),
-            comment,
+            rating,
+            comment: rev.comment,
             images: [],
-            reply: Math.random() < 0.2 ? 'Cảm ơn anh/chị đã tin tưởng shop! Hẹn gặp lại ạ 🧡' : null,
+            reply: rev.reply,
             createdAt: new Date(day.getTime() + rand(1, 5) * 86_400_000),
           },
         }).catch(() => { /* trùng unique(productId,userId,orderId) thì bỏ qua */ });
@@ -412,6 +815,22 @@ async function main() {
     });
   }
   console.log('✅ Coupon: 3 mã đang chạy (SALE10, GIAM50K, FREESHIP)');
+
+  // ═══ 5.5 CHUẨN HÓA TOÀN BỘ REVIEWS HIỆN CÓ ĐỂ ĂN KHỚP 100% VỚI TỪNG MẶT HÀNG ═══
+  const allExistingReviews = await prisma.review.findMany({
+    include: { product: true },
+  });
+  for (const r of allExistingReviews) {
+    const rev = getProductSpecificReview(r.product.name, r.product.category ?? 'Phụ kiện', r.rating);
+    await prisma.review.update({
+      where: { id: r.id },
+      data: {
+        comment: rev.comment,
+        reply: rev.reply,
+      },
+    });
+  }
+  console.log(`✅ Đã đồng bộ & chuẩn hóa ${allExistingReviews.length} đánh giá khớp 100% từng mặt hàng`);
 
   // ═══ 6. XÓA CACHE REDIS để dashboard + cửa hàng thấy dữ liệu mới ngay ═══
   const flushed = await redis.delPattern('cache:products:*');

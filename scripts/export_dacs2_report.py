@@ -933,10 +933,10 @@ def generate_document():
                     i += 1
             elif "3.3.1. Dashboard phân tích doanh thu Realtime" in title:
                 # Chèn hình mockup Bento Grid
-                add_figure_image(doc, "/home/nhonhoa/shop-qr-payment/public/admin-mockups/option-1-saas-bento.png", "Hình 3.1: Giao diện Bảng điều khiển Quản trị SaaS Bento Grid 21 chỉ số analytics")
+                add_figure_image(doc, "/home/nhonhoa/shop-qr-payment/docs/architecture/admin-mockups/option-1-saas-bento.png", "Hình 3.1: Giao diện Bảng điều khiển Quản trị SaaS Bento Grid 21 chỉ số analytics")
             elif "3.3.2. Quản lý Đơn hàng & Duyệt FSM" in title:
                 # Chèn hình mockup Operations Dual Panel
-                add_figure_image(doc, "/home/nhonhoa/shop-qr-payment/public/admin-mockups/option-3-operations-dual-panel.png", "Hình 3.2: Giao diện Vận hành Đơn hàng và Vận chuyển GHN")
+                add_figure_image(doc, "/home/nhonhoa/shop-qr-payment/docs/architecture/admin-mockups/option-3-operations-dual-panel.png", "Hình 3.2: Giao diện Vận hành Đơn hàng và Vận chuyển GHN")
             continue
 
         # 5. HEADING 4 (Mục cấp 4: 2.1.4.1 Đặc tả UC01...)

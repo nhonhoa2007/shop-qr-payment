@@ -11,8 +11,10 @@
 
 ### ĐỀ TÀI: WEBSITE THƯƠNG MẠI ĐIỆN TỬ TÍCH HỢP THANH TOÁN VIETQR TỰ ĐỘNG VÀ QUẢN TRỊ SAAS BENTO GRID (SHOP QR PAYMENT)
 
-**Sinh viên thực hiện :** `[Họ và tên sinh viên 1 - MSSV 1]`  
-`[Họ và tên sinh viên 2 - MSSV 2]`  
+**Sinh viên thực hiện :**  
+1. `[Họ và tên Trưởng nhóm - MSSV 1]` (Nhóm trưởng)  
+2. `[Họ và tên Tiên - MSSV 2]` (Thành viên)  
+3. `[Họ và tên Vanh - MSSV 3]` (Thành viên)  
 **Lớp :** `[Lớp sinh hoạt / học phần]`  
 **Giảng viên hướng dẫn :** `[Học hàm, Học vị & Họ tên Giảng viên hướng dẫn]`  
 
@@ -28,8 +30,10 @@
 
 ### ĐỀ TÀI: WEBSITE THƯƠNG MẠI ĐIỆN TỬ TÍCH HỢP THANH TOÁN VIETQR TỰ ĐỘNG VÀ QUẢN TRỊ SAAS BENTO GRID (SHOP QR PAYMENT)
 
-**Sinh viên thực hiện :** `[Họ và tên sinh viên 1 - MSSV 1]`  
-`[Họ và tên sinh viên 2 - MSSV 2]`  
+**Sinh viên thực hiện :**  
+1. `[Họ và tên Trưởng nhóm - MSSV 1]` (Nhóm trưởng)  
+2. `[Họ và tên Tiên - MSSV 2]` (Thành viên)  
+3. `[Họ và tên Vanh - MSSV 3]` (Thành viên)  
 **Lớp :** `[Lớp sinh hoạt / học phần]`  
 **Giảng viên hướng dẫn :** `[Học hàm, Học vị & Họ tên Giảng viên hướng dẫn]`  
 
@@ -101,6 +105,7 @@ Mặc dù đã nỗ lực hết mình để xây dựng hệ thống hoàn chỉ
     - [1.2.5. Tài liệu hướng dẫn người dùng](#125-tài-liệu-hướng-dẫn-người-dùng)
     - [1.2.6. Giả định và phụ thuộc](#126-giả-định-và-phụ-thuộc)
   - [1.3. Observation (Biên bản họp nhóm)](#13-observation-biên-bản-họp-nhóm)
+  - [1.4. Phân công nhiệm vụ thành viên đề tài](#14-phân-công-nhiệm-vụ-thành-viên-đề-tài)
 - [CHƯƠNG II: MÔ HÌNH VÀ CHỨC NĂNG](#chương-ii-mô-hình-và-chức-năng)
   - [2.1. Các yêu cầu chức năng](#21-các-yêu-cầu-chức-năng)
     - [2.1.1. Các tác nhân](#211-các-tác-nhân)
@@ -198,14 +203,27 @@ Hệ thống cung cấp giao diện trực quan hướng dẫn khách hàng các
 ## 1.3. Observation (Biên bản họp nhóm)
 
 **BIÊN BẢN HỌP NHÓM ĐỊNH KỲ**  
-- **Thành viên tham gia:** `[Họ và tên sinh viên 1]`, `[Họ và tên sinh viên 2]`  
+- **Thành viên tham gia:**  
+  1. `[Họ và tên Trưởng nhóm]` (Nhóm trưởng)  
+  2. `[Họ và tên Tiên]` (Thành viên)  
+  3. `[Họ và tên Vanh]` (Thành viên)  
 - **Địa điểm:** Phòng Lab Công nghệ phần mềm, Trường Đại học Công nghệ Thông tin & Truyền thông Việt - Hàn  
 - **Thời gian họp:** 14:00 – 17:30, Ngày 05/10/2026  
 - **Nội dung cuộc họp:**  
   1. Thảo luận và thống nhất phạm vi nghiệp vụ cho Đồ án cơ sở 2: Bổ sung phân hệ Ví nội bộ, Quản lý đa biến thể sản phẩm (SKU Matrix), và Ma trận phân quyền nhân viên (Staff Permission Matrix).  
   2. Rà soát thiết kế cơ sở dữ liệu gồm 18 thực thể, bảo đảm chuẩn hóa dạng chuẩn 3NF và tích hợp các chỉ mục hiệu năng cao.  
   3. Thống nhất phương pháp tiếp cận kiểm thử tự động với Node.js Native Test Runner (`node:test`), đặt mục tiêu vượt qua 100% các ca kiểm thử đơn vị và tích hợp trước khi đóng gói báo cáo.  
-  4. Phân công nhiệm vụ soạn thảo thuyết minh kỹ thuật và chuẩn hóa văn bản theo quy cách trường VKU.
+  4. Phân công nhiệm vụ chi tiết giữa 3 thành viên: Trưởng nhóm phụ trách toàn diện Backend & CSDL & Kiểm thử; Tiên phụ trách Frontend phân hệ Khách hàng & Đóng gói sản phẩm; Vanh phụ trách Frontend phân hệ Quản trị & Đặc tả nghiệp vụ.
+
+---
+
+## 1.4. Phân công nhiệm vụ thành viên đề tài
+
+| STT | Thành viên | Vai trò học thuật | Phân hệ & Nhiệm vụ cụ thể | Minh chứng mã nguồn chính | Tỷ lệ đóng góp |
+| :---: | :--- | :--- | :--- | :--- | :---: |
+| 1 | `[Họ và tên Trưởng nhóm]` | Tech Lead & Backend Architect | - Thiết kế kiến trúc Clean Architecture & CSDL 18 bảng Prisma.<br>- Xây dựng toàn bộ hệ thống API, Webhook VietQR (Casso) & GHN.<br>- Xử lý kho nguyên tử (Atomic CAS) & Bộ kiểm thử tự động 452 tests. | `prisma/schema.prisma`<br>`src/server/**`<br>`tests/**` | 36% |
+| 2 | `[Họ và tên Tiên]` | Frontend Storefront & Packaging Lead | - Xây dựng Giao diện Khách hàng (Catalog, Giỏ hàng Zustand, Checkout).<br>- Màn hình thanh toán VietQR động 15p & Ví nội bộ Shop Wallet.<br>- Soạn thảo tài liệu và script đóng gói mã nguồn, hướng dẫn cài đặt. | `src/client/views/HomeView.tsx`<br>`src/client/views/PaymentView.tsx`<br>`src/client/stores/cart-store.ts`<br>`scripts/package-project.sh` | 32% |
+| 3 | `[Họ và tên Vanh]` | Frontend Admin Portal & UI/UX Lead | - Xây dựng Bảng điều khiển SaaS Bento Grid 21 chỉ số KPI & biểu đồ SVG.<br>- Giao diện Quản lý Đơn hàng FSM, Sản phẩm biến thể SKU Matrix.<br>- Giao diện Đối soát ngân hàng VietQR & Ma trận phân quyền Staff. | `src/client/views/admin/AdminDashboardView.tsx`<br>`src/client/views/admin/AdminCustomersView.tsx`<br>`src/client/views/admin/AdminTransactionsView.tsx` | 32% |
 
 ---
 

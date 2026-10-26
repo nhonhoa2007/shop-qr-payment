@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@server/modules/auth/auth-options';
 import { prisma } from '@server/database/prisma';
+import { serializeCouponForJson } from '@server/modules/admin/coupon-serialization';
 
 export async function GET() {
   try {
@@ -19,7 +20,7 @@ export async function GET() {
       },
     });
 
-    return NextResponse.json({ coupons });
+    return NextResponse.json({ coupons: coupons.map(serializeCouponForJson) });
   } catch (error) {
     console.error('Fetch coupons error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -74,7 +75,7 @@ export async function POST(req: Request) {
       },
     });
 
-    return NextResponse.json(newCoupon, { status: 201 });
+    return NextResponse.json(serializeCouponForJson(newCoupon), { status: 201 });
   } catch (error: unknown) {
     console.error('Create coupon error:', error);
     const errObj = error as { code?: string };
@@ -104,7 +105,7 @@ export async function PATCH(req: Request) {
       data: { isActive },
     });
 
-    return NextResponse.json({ success: true, coupon: updated });
+    return NextResponse.json({ success: true, coupon: serializeCouponForJson(updated) });
   } catch (error: unknown) {
     console.error('Update coupon error:', error);
     return NextResponse.json({ error: 'Lỗi cập nhật mã giảm giá' }, { status: 500 });
@@ -139,7 +140,7 @@ export async function DELETE(req: Request) {
         success: true,
         softDeactivated: true,
         message: 'Mã giảm giá đã có đơn hàng sử dụng trong lịch sử. Hệ thống đã chuyển sang Vô hiệu hóa (Tắt) thay vì xóa cứng.',
-        coupon: updated,
+        coupon: serializeCouponForJson(updated),
       });
     }
 

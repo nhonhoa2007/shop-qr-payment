@@ -13,7 +13,9 @@ async function main() {
 
   const admin = await prisma.user.upsert({
     where: { email: 'admin@shop.com' },
-    update: {},
+    update: {
+      passwordHash: adminPassword,
+    },
     create: {
       email: 'admin@shop.com',
       passwordHash: adminPassword,
@@ -25,7 +27,9 @@ async function main() {
 
   const staff = await prisma.user.upsert({
     where: { email: 'staff@shop.com' },
-    update: {},
+    update: {
+      passwordHash: staffPassword,
+    },
     create: {
       email: 'staff@shop.com',
       passwordHash: staffPassword,
@@ -49,7 +53,9 @@ async function main() {
 
   const customer1 = await prisma.user.upsert({
     where: { email: 'khachhang@gmail.com' },
-    update: {},
+    update: {
+      passwordHash: userPassword,
+    },
     create: {
       email: 'khachhang@gmail.com',
       passwordHash: userPassword,
@@ -61,7 +67,9 @@ async function main() {
 
   const customer2 = await prisma.user.upsert({
     where: { email: 'hoangnam@gmail.com' },
-    update: {},
+    update: {
+      passwordHash: userPassword,
+    },
     create: {
       email: 'hoangnam@gmail.com',
       passwordHash: userPassword,
@@ -73,7 +81,9 @@ async function main() {
 
   const customer3 = await prisma.user.upsert({
     where: { email: 'lethu@gmail.com' },
-    update: {},
+    update: {
+      passwordHash: userPassword,
+    },
     create: {
       email: 'lethu@gmail.com',
       passwordHash: userPassword,
@@ -183,13 +193,64 @@ async function main() {
       category: 'Gia dụng & Đời sống',
       stock: 15,
     },
+    // ─── CÁC MẶT HÀNG GIÁ TRỊ NHỎ (<20K) PHỤC VỤ TEST TÍNH NĂNG NHANH ───
+    {
+      name: 'Sticker chống nước Logo ShopQR',
+      description: 'Sticker vinyl cán màng mờ chống trầy xước và kháng nước 100%, dán laptop, mũ bảo hiểm, điện thoại cực chất.',
+      price: 5000,
+      image: 'https://images.unsplash.com/photo-1572375992501-4b0892d50c69?auto=format&fit=crop&w=600&q=80',
+      category: 'Phụ kiện',
+      stock: 200,
+    },
+    {
+      name: 'Móc khóa Mica Acrylic ShopQR',
+      description: 'Móc khóa mica acrylic trong suốt in 2 mặt, khoen kim loại không gỉ, phụ kiện trang trí balo, chìa khóa nhỏ gọn.',
+      price: 10000,
+      image: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80',
+      category: 'Phụ kiện',
+      stock: 150,
+    },
+    {
+      name: 'Khăn lau kính Microfiber chuyên dụng',
+      description: 'Sợi microfiber mật độ cao lau sạch bụi bẩn, dầu mỡ trên mắt kính, màn hình điện thoại, ống kính mà không để lại xơ vải.',
+      price: 12000,
+      image: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=600&q=80',
+      category: 'Phụ kiện',
+      stock: 100,
+    },
+    {
+      name: 'Dây buộc cáp sạc Silicone thông minh',
+      description: 'Chất liệu silicone dẻo dai đàn hồi cao, thiết kế nút bấm gài thông minh thu gọn dây cáp sạc và tai nghe tiện lợi.',
+      price: 15000,
+      image: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=600&q=80',
+      category: 'Phụ kiện',
+      stock: 120,
+    },
+    {
+      name: 'Tất vớ cotton cổ ngắn Unisex thoáng khí',
+      description: 'Chất liệu 95% cotton mềm mại thấm hút mồ hôi, co giãn 4 chiều, đệm gót chống tuột, kháng khuẩn khử mùi, phù hợp đi giày thể thao.',
+      price: 19000,
+      image: 'https://images.unsplash.com/photo-1586350977771-b3b0abd50c82?auto=format&fit=crop&w=600&q=80',
+      category: 'Thời trang',
+      stock: 80,
+    },
   ];
 
   const createdProducts = [];
   for (const prod of sampleProducts) {
     const existing = await prisma.product.findFirst({ where: { name: prod.name } });
     if (existing) {
-      createdProducts.push(existing);
+      const updated = await prisma.product.update({
+        where: { id: existing.id },
+        data: {
+          price: prod.price,
+          description: prod.description,
+          category: prod.category,
+          image: prod.image,
+          stock: prod.stock,
+        },
+      });
+      createdProducts.push(updated);
     } else {
       const p = await prisma.product.create({ data: prod });
       createdProducts.push(p);
@@ -211,7 +272,7 @@ async function main() {
     for (const v of shirtVariants) {
       await prisma.productVariant.upsert({
         where: { sku: v.sku },
-        update: {},
+        update: { price: v.price, stock: v.stock },
         create: { ...v, productId: shirt.id },
       });
     }
@@ -228,11 +289,46 @@ async function main() {
     for (const v of sneakerVariants) {
       await prisma.productVariant.upsert({
         where: { sku: v.sku },
-        update: {},
+        update: { price: v.price, stock: v.stock },
         create: { ...v, productId: sneaker.id },
       });
     }
     console.log('✅ Đã tạo các biến thể kích thước cho Giày Sneaker');
+  }
+
+  // 2.2 TẠO BIẾN THỂ CHO CÁC MẶT HÀNG NHỎ (<20K)
+  const cableTie = createdProducts.find((p) => p.name.includes('Dây buộc cáp sạc Silicone'));
+  if (cableTie) {
+    const cableVariants = [
+      { sku: 'CAP-SILICONE-DEN', title: 'Màu Đen', color: 'Đen', price: 15000, stock: 40 },
+      { sku: 'CAP-SILICONE-TRANG', title: 'Màu Trắng', color: 'Trắng', price: 15000, stock: 40 },
+      { sku: 'CAP-SILICONE-XANH', title: 'Xanh Pastel', color: 'Xanh Pastel', price: 15000, stock: 40 },
+    ];
+    for (const v of cableVariants) {
+      await prisma.productVariant.upsert({
+        where: { sku: v.sku },
+        update: { price: v.price, stock: v.stock },
+        create: { ...v, productId: cableTie.id },
+      });
+    }
+    console.log('✅ Đã tạo biến thể màu sắc cho Dây buộc cáp sạc Silicone');
+  }
+
+  const socks = createdProducts.find((p) => p.name.includes('Tất vớ cotton cổ ngắn'));
+  if (socks) {
+    const sockVariants = [
+      { sku: 'SOCK-COTTON-TRANG', title: 'Trắng / FreeSize', color: 'Trắng', size: 'FreeSize', price: 19000, stock: 30 },
+      { sku: 'SOCK-COTTON-DEN', title: 'Đen / FreeSize', color: 'Đen', size: 'FreeSize', price: 19000, stock: 30 },
+      { sku: 'SOCK-COTTON-XAM', title: 'Xám / FreeSize', color: 'Xám', size: 'FreeSize', price: 19000, stock: 20 },
+    ];
+    for (const v of sockVariants) {
+      await prisma.productVariant.upsert({
+        where: { sku: v.sku },
+        update: { price: v.price, stock: v.stock },
+        create: { ...v, productId: socks.id },
+      });
+    }
+    console.log('✅ Đã tạo biến thể màu sắc cho Tất vớ cotton cổ ngắn');
   }
 
   // 3. TẠO MÃ GIẢM GIÁ (COUPONS)
@@ -653,6 +749,93 @@ async function main() {
     });
   }
 
+  // Đơn 9: Đặt HÔM QUA - COMPLETED + PAID mua hàng giá nhỏ (<20k) (Khách: Lê Thu Trang)
+  const pSticker = createdProducts.find((p) => p.name.includes('Sticker'))!;
+  const pCable = createdProducts.find((p) => p.name.includes('Dây buộc cáp'))!;
+  const pKeychain = createdProducts.find((p) => p.name.includes('Móc khóa'))!;
+
+  const existingOrder9 = await prisma.order.findUnique({ where: { orderCode: 'DH100009' } });
+  let order9 = existingOrder9;
+  if (!order9 && pSticker && pCable) {
+    order9 = await prisma.order.create({
+      data: {
+        orderCode: 'DH100009',
+        userId: customer3.id,
+        customerName: 'Lê Thu Trang',
+        customerPhone: '0977889900',
+        customerAddress: '88 Nguyễn Thị Minh Khai, Quận 3, TP. Hồ Chí Minh',
+        customerEmail: customer3.email,
+        subtotal: 20000,
+        shippingFee: 0,
+        discountAmount: 0,
+        totalAmount: 20000,
+        status: 'COMPLETED',
+        paymentStatus: 'PAID',
+        qrContent: 'https://api.vietqr.io/image/970422-123456789-compact2.jpg?amount=20000&addInfo=DH100009',
+        note: 'Đơn hàng test số tiền nhỏ 20k',
+        expiresAt: new Date(yesterdayMorning.getTime() + 15 * 60 * 1000),
+        createdAt: yesterdayMorning,
+        items: {
+          create: [
+            { productId: pSticker.id, quantity: 1, price: 5000 },
+            { productId: pCable.id, quantity: 1, price: 15000 },
+          ],
+        },
+      },
+    });
+
+    await prisma.transaction.create({
+      data: {
+        bankTransId: 'VCB_TEST_20K_09',
+        orderId: order9.id,
+        amount: 20000,
+        description: 'DH100009 LE THU TRANG TEST QR 20K',
+        bankName: 'VIETCOMBANK',
+        verified: true,
+        createdAt: yesterdayMorning,
+      },
+    });
+
+    await prisma.shipment.create({
+      data: {
+        orderId: order9.id,
+        trackingCode: 'GHN9820009',
+        carrier: 'GHN',
+        shippingFee: 0,
+        status: 'DELIVERED',
+        createdAt: yesterdayMorning,
+      },
+    });
+  }
+
+  // Đơn 10: Đặt HÔM NAY - PENDING + UNPAID mua móc khóa 10k để TEST QUÉT QR HOẶC VÍ NHANH
+  const existingOrder10 = await prisma.order.findUnique({ where: { orderCode: 'DH100010' } });
+  if (!existingOrder10 && pKeychain) {
+    await prisma.order.create({
+      data: {
+        orderCode: 'DH100010',
+        userId: customer1.id,
+        customerName: 'Trần Thị Mai',
+        customerPhone: '0987654321',
+        customerAddress: 'Số 45 Lê Duẩn, Quận 1, TP. Hồ Chí Minh',
+        customerEmail: customer1.email,
+        subtotal: 10000,
+        shippingFee: 0,
+        discountAmount: 0,
+        totalAmount: 10000,
+        status: 'PENDING',
+        paymentStatus: 'UNPAID',
+        qrContent: 'https://api.vietqr.io/image/970422-123456789-compact2.jpg?amount=10000&addInfo=DH100010',
+        note: 'Đơn hàng sẵn sàng để test quét mã VietQR 10.000đ',
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+        createdAt: new Date(),
+        items: {
+          create: [{ productId: pKeychain.id, quantity: 1, price: 10000 }],
+        },
+      },
+    });
+  }
+
   console.log('✅ Đã tạo các đơn hàng mẫu kèm bản ghi đối soát giao dịch ngân hàng');
 
   // 5. TẠO ĐÁNH GIÁ VÀ NHẬN XÉT THỰC TẾ (REVIEWS)
@@ -665,14 +848,18 @@ async function main() {
           orderId: order1.id,
         },
       },
-      update: {},
+      update: {
+        rating: 5,
+        comment: 'Giày Sneaker đi rất êm và nhẹ chân, đế đệm EVA bám đường tốt không trơn trượt. Giao hàng nhanh, quét mã VietQR tự động xác nhận đơn ngay lập tức!',
+        reply: 'Cảm ơn bạn Mai đã ủng hộ ShopQR! Chúc bạn có những buổi chạy bộ thật nhiều năng lượng cùng Sneaker Pro ạ ❤️',
+      },
       create: {
         productId: p3.id,
         userId: customer1.id,
         orderId: order1.id,
         rating: 5,
-        comment: 'Giày rất êm, nhẹ và đi ôm chân. Giao hàng cực nhanh, quét mã VietQR cái là hệ thống báo thanh toán thành công ngay lập tức!',
-        reply: 'Cảm ơn bạn Mai đã ủng hộ ShopQR! Chúc bạn có những buổi chạy bộ thật nhiều năng lượng ạ ❤️',
+        comment: 'Giày Sneaker đi rất êm và nhẹ chân, đế đệm EVA bám đường tốt không trơn trượt. Giao hàng nhanh, quét mã VietQR tự động xác nhận đơn ngay lập tức!',
+        reply: 'Cảm ơn bạn Mai đã ủng hộ ShopQR! Chúc bạn có những buổi chạy bộ thật nhiều năng lượng cùng Sneaker Pro ạ ❤️',
       },
     });
   }
@@ -686,14 +873,114 @@ async function main() {
           orderId: order2.id,
         },
       },
-      update: {},
+      update: {
+        rating: 5,
+        comment: 'Chất âm tai nghe ANC Pro tuyệt vời trong tầm giá, chống ồn chủ động cách ly tiếng ồn môi trường rất tốt. Pin 40h nghe cả tuần mới phải sạc lại.',
+        reply: 'Shop cảm ơn anh Nam rất nhiều! Tai nghe được bảo hành chính hãng 12 tháng nên anh cứ yên tâm trải nghiệm nhé!',
+      },
       create: {
         productId: p4.id,
         userId: customer2.id,
         orderId: order2.id,
         rating: 5,
-        comment: 'Chất âm tai nghe tuyệt vời trong tầm giá, chống ồn chủ động ANC cách ly môi trường rất tốt. Đóng gói cẩn thận 2 lớp chống sốc.',
+        comment: 'Chất âm tai nghe ANC Pro tuyệt vời trong tầm giá, chống ồn chủ động cách ly tiếng ồn môi trường rất tốt. Pin 40h nghe cả tuần mới phải sạc lại.',
         reply: 'Shop cảm ơn anh Nam rất nhiều! Tai nghe được bảo hành chính hãng 12 tháng nên anh cứ yên tâm trải nghiệm nhé!',
+      },
+    });
+  }
+
+  if (existingOrder3) {
+    await prisma.review.upsert({
+      where: {
+        productId_userId_orderId: {
+          productId: p1.id,
+          userId: customer3.id,
+          orderId: existingOrder3.id,
+        },
+      },
+      update: {
+        rating: 5,
+        comment: 'Áo thun cotton dệt kim tự nhiên cực kỳ mát mẻ, form suông thời thượng mặc rất thoải mái. Giặt máy không bị xù lông hay bai dão.',
+        reply: 'ShopQR cảm ơn bạn Trang nhiều nha! Shop luôn chú trọng chất liệu vải tự nhiên để mang lại cảm giác dễ chịu nhất ạ ❤️',
+      },
+      create: {
+        productId: p1.id,
+        userId: customer3.id,
+        orderId: existingOrder3.id,
+        rating: 5,
+        comment: 'Áo thun cotton dệt kim tự nhiên cực kỳ mát mẻ, form suông thời thượng mặc rất thoải mái. Giặt máy không bị xù lông hay bai dão.',
+        reply: 'ShopQR cảm ơn bạn Trang nhiều nha! Shop luôn chú trọng chất liệu vải tự nhiên để mang lại cảm giác dễ chịu nhất ạ ❤️',
+      },
+    });
+
+    await prisma.review.upsert({
+      where: {
+        productId_userId_orderId: {
+          productId: p7.id,
+          userId: customer3.id,
+          orderId: existingOrder3.id,
+        },
+      },
+      update: {
+        rating: 5,
+        comment: 'Balo vải Oxford dày dặn chống nước tốt, ngăn laptop có đệm khí êm ái chống sốc. Quai đeo có đệm mút không bị đau vai khi mang nặng.',
+        reply: 'Cảm ơn bạn Trang đã đánh giá chi tiết! Balo được thiết kế đa ngăn tiện dụng cho công việc và học tập hằng ngày đó ạ.',
+      },
+      create: {
+        productId: p7.id,
+        userId: customer3.id,
+        orderId: existingOrder3.id,
+        rating: 5,
+        comment: 'Balo vải Oxford dày dặn chống nước tốt, ngăn laptop có đệm khí êm ái chống sốc. Quai đeo có đệm mút không bị đau vai khi mang nặng.',
+        reply: 'Cảm ơn bạn Trang đã đánh giá chi tiết! Balo được thiết kế đa ngăn tiện dụng cho công việc và học tập hằng ngày đó ạ.',
+      },
+    });
+  }
+
+  if (order9 && pSticker && pCable) {
+    await prisma.review.upsert({
+      where: {
+        productId_userId_orderId: {
+          productId: pSticker.id,
+          userId: customer3.id,
+          orderId: order9.id,
+        },
+      },
+      update: {
+        rating: 5,
+        comment: 'Sticker in hình sắc nét, màu tươi, có lớp màng bóng chống nước tốt. Mình dán mũ bảo hiểm đi mưa mấy hôm vẫn bám rất chắc.',
+        reply: 'Cảm ơn bạn Trang đã yêu thích món quà nhỏ này của ShopQR nhé!',
+      },
+      create: {
+        productId: pSticker.id,
+        userId: customer3.id,
+        orderId: order9.id,
+        rating: 5,
+        comment: 'Sticker in hình sắc nét, màu tươi, có lớp màng bóng chống nước tốt. Mình dán mũ bảo hiểm đi mưa mấy hôm vẫn bám rất chắc.',
+        reply: 'Cảm ơn bạn Trang đã yêu thích món quà nhỏ này của ShopQR nhé!',
+      },
+    });
+
+    await prisma.review.upsert({
+      where: {
+        productId_userId_orderId: {
+          productId: pCable.id,
+          userId: customer3.id,
+          orderId: order9.id,
+        },
+      },
+      update: {
+        rating: 5,
+        comment: 'Dây buộc cáp silicone mềm dẻo, nút cài chắc chắn. Bàn làm việc gọn gàng hẳn vì không còn dây cáp sạc lòng thòng. 15k quá rẻ!',
+        reply: 'Dạ Shop cảm ơn bạn nhiều! Món phụ kiện nhỏ nhưng tiện ích lớn ạ ❤️',
+      },
+      create: {
+        productId: pCable.id,
+        userId: customer3.id,
+        orderId: order9.id,
+        rating: 5,
+        comment: 'Dây buộc cáp silicone mềm dẻo, nút cài chắc chắn. Bàn làm việc gọn gàng hẳn vì không còn dây cáp sạc lòng thòng. 15k quá rẻ!',
+        reply: 'Dạ Shop cảm ơn bạn nhiều! Món phụ kiện nhỏ nhưng tiện ích lớn ạ ❤️',
       },
     });
   }

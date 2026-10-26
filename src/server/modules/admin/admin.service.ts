@@ -124,6 +124,7 @@ export class AdminService {
       include: {
         items: { include: { product: true } },
         transaction: true,
+        shipment: { select: { trackingCode: true } },
         user: { select: { id: true, name: true, email: true } },
       },
       orderBy: { createdAt: 'desc' },
