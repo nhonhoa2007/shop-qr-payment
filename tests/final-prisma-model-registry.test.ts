@@ -32,11 +32,11 @@ describe('Final 34-Model Prisma Schema Registry (M7 Release)', () => {
     assert.equal(TARGET_CEILING, 37, 'Target ceiling must remain strictly 37');
   });
 
-  it('verifies schema.prisma contains exactly the 34 registered models partitioned into 18+8+8', () => {
+  it('verifies the 34 M7 models plus the approved SePay request model', () => {
     const schemaContent = fs.readFileSync(SCHEMA_PATH, 'utf8');
     const parsedModels = parsePrismaModels(schemaContent);
 
-    assert.equal(parsedModels.length, 34, `Expected 34 models in schema, got ${parsedModels.length}`);
+    assert.equal(parsedModels.length, 35, `Expected 35 models in schema, got ${parsedModels.length}`);
 
     // Verify 18 Core Models
     for (const model of CORE_MODELS_18) {
@@ -54,10 +54,10 @@ describe('Final 34-Model Prisma Schema Registry (M7 Release)', () => {
     }
 
     // Exact set equivalence
-    const expectedSet = new Set([...CORE_MODELS_18, ...INTELLIGENCE_MODELS_8, ...OPERATIONS_MODELS_8]);
-    assert.equal(expectedSet.size, 34);
+    const expectedSet = new Set([...CORE_MODELS_18, ...INTELLIGENCE_MODELS_8, ...OPERATIONS_MODELS_8, 'PaymentRequest']);
+    assert.equal(expectedSet.size, 35);
     for (const model of parsedModels) {
-      assert.ok(expectedSet.has(model), `Model ${model} in schema must belong to the approved 34 models`);
+      assert.ok(expectedSet.has(model), `Model ${model} in schema must belong to the approved 35 models`);
     }
   });
 
@@ -79,14 +79,14 @@ describe('Final 34-Model Prisma Schema Registry (M7 Release)', () => {
     }
   });
 
-  it('fails checkModelBudget when lockRegistry is enabled and any 35th model is introduced', () => {
+  it('fails checkModelBudget when lockRegistry is enabled and any unregistered 36th model is introduced', () => {
     const validContent = fs.readFileSync(SCHEMA_PATH, 'utf8');
     const mutatedContent = `${validContent}\n\nmodel ExtraUnauthorizedModel {\n  id String @id\n}\n`;
 
     const result = checkModelBudget({
       schemaContent: mutatedContent,
       lockRegistry: true,
-      expected: 34,
+      expected: 35,
     });
 
     assert.equal(result.valid, false);
@@ -96,16 +96,15 @@ describe('Final 34-Model Prisma Schema Registry (M7 Release)', () => {
     );
   });
 
-  it('verifies docs/architecture/prisma-model-registry.md reflects M7 Final Release (34 Models)', () => {
+  it('verifies docs/architecture/prisma-model-registry.md reflects the SePay 35-model schema', () => {
     const registryContent = fs.readFileSync(REGISTRY_PATH, 'utf8');
     assert.ok(
-      registryContent.includes('Active Registry (M7 Final Release — 34 Models)') ||
-      registryContent.includes('Active Registry (M7 Release — 34 Models)'),
-      'Registry header must reflect M7 Final Release with 34 models'
+      registryContent.includes('Active Registry (SePay — 35 Models)'),
+      'Registry header must reflect SePay with 35 models'
     );
     const registered = parseRegistryModels(registryContent);
-    assert.equal(registered.length, 34, `Expected 34 models in registry, found ${registered.length}`);
-    assert.deepEqual(registered.slice().sort(), FINAL_34_MODELS.slice().sort());
+    assert.equal(registered.length, 35, `Expected 35 models in registry, found ${registered.length}`);
+    assert.deepEqual(registered.slice().sort(), [...FINAL_34_MODELS, 'PaymentRequest'].sort());
   });
 
   it('verifies that ADR on compact Prisma model budget exists and details JSON-vs-relational criteria', () => {

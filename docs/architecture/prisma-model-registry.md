@@ -16,10 +16,11 @@ This registry tracks all Prisma models across project milestones in accordance w
   - **M5 Operations & Procurement (Contract):** 32 models exit (− `StockAdjustment`, `Transaction`, `CouponUsage`, `ChatRoomParticipant`)
   - **M6 Aftersales & RMA:** 34 models final (+ `WarrantyClaim`, `ReturnRequest`)
   - **M7 Hardening & Release:** 34 models final (zero added models)
+  - **SePay payments (2026-10-27):** 35 models (+ `PaymentRequest`)
 
 ---
 
-## 2. Active Registry (M7 Final Release — 34 Models)
+## 2. Active Registry (SePay — 35 Models)
 
 <!-- REGISTRY_MODELS_START -->
 | # | Model | Status | Milestone | Role / Description |
@@ -58,6 +59,7 @@ This registry tracks all Prisma models across project milestones in accordance w
 | 32 | `AdminAuditLog` | ACTIVE | M5 | Immutable redacted administrative and sensitive operations audit log |
 | 33 | `WarrantyClaim` | ACTIVE | M6 | Warranty claim with validated timeline/evidence JSON, versioned FSM and replacement unit tracking |
 | 34 | `ReturnRequest` | ACTIVE | M6 | Partial return request with bounded items/timeline JSON, quarantine FSM and disposition lifecycle |
+| 35 | `PaymentRequest` | ACTIVE | SePay | Durable order and wallet top-up request with QR, expiry, ownership, and idempotency state |
 <!-- REGISTRY_MODELS_END -->
 
 ---

@@ -18,11 +18,11 @@ describe('M1 Electronics Catalog Prisma Schema Contracts', () => {
   const schemaContent = fs.readFileSync(SCHEMA_PATH, 'utf8');
   const models = parsePrismaModels(schemaContent);
 
-  it('contains exactly 34 models for M6 final milestone (with WarrantyClaim and ReturnRequest)', () => {
+  it('contains exactly 35 models after SePay payment persistence', () => {
     assert.equal(
       models.length,
-      34,
-      `Expected exactly 34 models in schema, found ${models.length}: ${models.join(', ')}`
+      35,
+      `Expected exactly 35 models in schema, found ${models.length}: ${models.join(', ')}`
     );
   });
 
@@ -53,7 +53,7 @@ describe('M1 Electronics Catalog Prisma Schema Contracts', () => {
     const budget = checkModelBudget({
       schemaContent,
       registryPath: REGISTRY_PATH,
-      expected: 34,
+      expected: 35,
       lockRegistry: true,
     });
     assert.equal(budget.forbiddenModels.length, 0, `Forbidden models found: ${budget.forbiddenModels.join(', ')}`);
