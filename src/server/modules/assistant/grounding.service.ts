@@ -226,6 +226,22 @@ export function buildDeterministicAnswer(
   bundle: EvidenceBundle,
   reason: string
 ): AssistantAnswerDto {
+  if (bundle.catalogOverview) {
+    const overview = bundle.catalogOverview;
+    const categories = overview.categories.map((category) =>
+      `• **${category.name}** (${category.count} sản phẩm): ${category.examples.map((example) => example.name).join(', ')}`
+    );
+    return {
+      answer: overview.totalProducts > 0
+        ? `Shop hiện có **${overview.totalProducts} sản phẩm** đang bán trong ${categories.length} danh mục:\n\n${categories.join('\n')}`
+        : 'Hiện shop chưa có sản phẩm nào đang bán.',
+      followUpQuestion: overview.totalProducts > 0 ? 'Bạn muốn xem chi tiết danh mục nào?' : undefined,
+      citations: overview.categories.flatMap((category) => category.examples.map((example) => bundle.citations[`src_product_${example.id}`])).filter((citation): citation is EvidenceCitation => Boolean(citation)),
+      claims: [],
+      isGrounded: true,
+      fallbackReason: reason,
+    };
+  }
   if (isGreetingQuery(bundle.query)) {
     return {
       answer:
@@ -276,8 +292,11 @@ export function buildDeterministicAnswer(
 
   const answer = `Dạ, Clawd Chef xin gửi bạn thông tin sản phẩm từ cửa hàng:\n\n${summaries.join('\n\n')}`;
 
+  const productEvidenceIds = new Set(bundle.products.flatMap((product) => product.evidenceIds));
   const defaultCitations = Object.values(bundle.citations).filter(
-    (c) => !bundle.revokedSourceIds.includes(c.id)
+    (citation) => productEvidenceIds.has(citation.id) &&
+      !bundle.revokedSourceIds.includes(citation.id) &&
+      (!citation.sourceId || !bundle.revokedSourceIds.includes(citation.sourceId))
   );
 
   return {

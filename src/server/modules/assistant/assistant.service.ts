@@ -13,7 +13,7 @@ import {
   settleAiBudget,
   releaseAiBudget,
 } from '@server/infrastructure/ai/quota';
-import { buildEvidenceBundle } from './evidence.service';
+import { buildEvidenceBundle, isGreetingQuery } from './evidence.service';
 import {
   validateAssistantAnswer,
   buildDeterministicAnswer,
@@ -292,151 +292,134 @@ export async function answerQuestion(
   let usageToSettle = { promptTokens: 0, completionTokens: 0, totalTokens: 0, latencyMs: 0 };
 
   try {
-    // 4. Build friendly RAG context
-    let productContextText = '';
-    if (bundle.products.length > 0) {
-      productContextText =
-        '\n\n[Dữ liệu sản phẩm thực tế từ hệ thống Shop]:\n' +
-        bundle.products
-          .map((p, idx) => {
-            const priceFormatted = Number(p.livePriceVnd).toLocaleString('vi-VN') + 'đ';
-            const stock = p.liveStock > 0 ? `Còn ${p.liveStock} sản phẩm` : 'Tạm hết hàng';
-            const specsList = Object.entries(p.specs || {})
-              .map(([k, v]) => `${k}: ${v?.value}${v?.unit ? ' ' + v.unit : ''}`)
-              .join(', ');
+    if (bundle.catalogOverview || (!isGreetingQuery(input.content) && bundle.products.length === 0)) {
+      finalAnswerDto = {
+        ...buildDeterministicAnswer(bundle, bundle.catalogOverview ? 'CATALOG_OVERVIEW' : 'NO_MATCH'),
+        conversationId: conv.id,
+      };
+    } else {
+      // 4. Build friendly RAG context
+      let productContextText = '';
+      if (bundle.products.length > 0) {
+        productContextText =
+          '\n\n[Dữ liệu sản phẩm thực tế từ hệ thống Shop]:\n' +
+          bundle.products
+            .map((p, idx) => {
+              const priceFormatted = Number(p.livePriceVnd).toLocaleString('vi-VN') + 'đ';
+              const stock = p.liveStock > 0 ? `Còn ${p.liveStock} sản phẩm` : 'Tạm hết hàng';
+              const specsList = Object.entries(p.specs || {})
+                .map(([k, v]) => `${k}: ${v?.value}${v?.unit ? ' ' + v.unit : ''}`)
+                .join(', ');
 
-            let reviewText = 'Chưa có đánh giá nào từ khách hàng.';
-            if (p.reviews && p.reviews.length > 0) {
-              const ratings = p.reviews.map((r) => r.rating);
-              const avg = (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1);
-              const sampleComments = p.reviews
-                .map((r) => (r.comment ? `"${r.comment}"` : null))
-                .filter(Boolean)
-                .slice(0, 3)
-                .join('; ');
-              reviewText = `Đánh giá trung bình ${avg}/5★ (${p.reviews.length} đánh giá). Nhận xét tiêu biểu: ${sampleComments || 'Khách hàng hài lòng'}`;
+              let reviewText = 'Chưa có đánh giá nào từ khách hàng.';
+              if (p.reviews && p.reviews.length > 0) {
+                const ratings = p.reviews.map((r) => r.rating);
+                const avg = (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1);
+                const sampleComments = p.reviews
+                  .map((r) => (r.comment ? `"${r.comment}"` : null))
+                  .filter(Boolean)
+                  .slice(0, 3)
+                  .join('; ');
+                reviewText = `Đánh giá trung bình ${avg}/5★ (${p.reviews.length} đánh giá).${sampleComments ? ` Nhận xét tiêu biểu: ${sampleComments}` : ''}`;
+              }
+
+              return (
+                `${idx + 1}. ${p.productName} (Hãng: ${p.brand})\n` +
+                `   - Giá niêm yết: ${priceFormatted}\n` +
+                `   - Kho hàng: ${stock}\n` +
+                (specsList ? `   - Thông số kỹ thuật: ${specsList}\n` : '') +
+                `   - Feedback/Đánh giá người mua: ${reviewText}`
+              );
+            })
+            .join('\n\n');
+      }
+
+      const ragSystemInstructions =
+        'Bạn là Clawd Chef, trợ lý mua sắm của Shop QR. Cửa hàng bán nhiều nhóm hàng; chỉ nêu sản phẩm có trong dữ liệu được cung cấp.\n' +
+        'Trả lời đúng câu hỏi của khách, ngắn gọn và cụ thể. Không tự suy đoán hãng, giá, tồn kho, thông số, đánh giá hay ưu điểm. Nếu thiếu bằng chứng, nói rõ chưa có thông tin.\n' +
+        'Mỗi thông tin giá, tồn kho hoặc thông số trong câu trả lời phải có claim tương ứng và citation hợp lệ trong dữ liệu xác minh.\n' +
+        'Trả về JSON gồm answer (Markdown), followUpQuestion (một câu ngắn), citations (mảng ID nguồn) và claims (mảng đối tượng type, subjectProduct, field, claimedValue, claimText). Khi chỉ chào hỏi, để citations và claims là mảng rỗng.';
+
+      const userPromptContent = `Câu hỏi của khách hàng: ${input.content}${productContextText}\n\n[Dữ liệu xác minh]:\n${JSON.stringify(bundle)}`;
+
+      // Call provider-neutral AI
+      const aiResult = await provider.generate(
+        {
+          systemPrompt: ragSystemInstructions,
+          messages: [
+            { role: 'system', content: ragSystemInstructions },
+            {
+              role: 'user',
+              content: userPromptContent,
+            },
+          ],
+          responseFormat: 'json',
+        },
+        { signal }
+      );
+
+      usageToSettle = {
+        promptTokens: aiResult.usage.promptTokens,
+        completionTokens: aiResult.usage.completionTokens,
+        totalTokens: aiResult.usage.totalTokens,
+        latencyMs: aiResult.usage.latencyMs,
+      };
+
+      if (aiResult.finishReason === 'stop' && (aiResult.parsedJson || aiResult.text)) {
+        let candidateAnswer = '';
+        let candidateFollowUp: string | undefined = undefined;
+
+        if (aiResult.parsedJson && typeof aiResult.parsedJson === 'object') {
+          const parsed = aiResult.parsedJson as Record<string, unknown>;
+          if (typeof parsed.answer === 'string' && parsed.answer.trim().length > 0) {
+            candidateAnswer = parsed.answer.trim();
+            if (typeof parsed.followUpQuestion === 'string' && parsed.followUpQuestion.trim().length > 0) {
+              candidateFollowUp = parsed.followUpQuestion.trim();
             }
-
-            return (
-              `${idx + 1}. ${p.productName} (Hãng: ${p.brand})\n` +
-              `   - Giá niêm yết: ${priceFormatted}\n` +
-              `   - Kho hàng: ${stock}\n` +
-              (specsList ? `   - Thông số kỹ thuật: ${specsList}\n` : '') +
-              `   - Feedback/Đánh giá người mua: ${reviewText}`
-            );
-          })
-          .join('\n\n');
-    }
-
-    const ragSystemInstructions =
-      'Bạn là Clawd Chef 🦀👨‍🍳 - trợ lý mua sắm AI thông minh, nhiệt tình và thân thiện của Shop QR.\n' +
-      'Nhiệm vụ của bạn là tư vấn cho khách hàng bằng phong cách giao tiếp ấm áp, tự nhiên, lịch sự và hỗ trợ hết mình.\n\n' +
-      'Nguyên tắc tư vấn:\n' +
-      '1. Nếu khách hàng chỉ chào hỏi (hi, hello, xin chào...): Hãy chào lại niềm nở, tự giới thiệu là Clawd Chef và hỏi khách đang quan tâm đến dòng sản phẩm nào.\n' +
-      '2. Nếu khách hỏi về sản phẩm hoặc nhu cầu mua sắm:\n' +
-      '   - Giới thiệu sản phẩm phù hợp nhất, giá niêm yết chính hãng (VND), tình trạng kho hàng.\n' +
-      '   - Đưa ra tổng quan về feedback của khách hàng đã mua (số sao, ưu/nhược điểm được khen chê).\n' +
-      '   - Nếu sản phẩm chưa có đánh giá: Tập trung tư vấn sâu về thông số kỹ thuật (RAM, CPU, pin, chất liệu...) và giải thích vì sao sản phẩm phù hợp với nhu cầu của khách.\n' +
-      '3. Trình bày bằng định dạng Markdown đẹp mắt (dùng gạch đầu dòng, in đậm tên sản phẩm và giá tiền để khách dễ theo dõi).\n' +
-      '4. Cuối câu trả lời, hãy gợi ý một câu hỏi tiếp theo để giúp khách dễ dàng chọn lựa hơn.\n\n' +
-      'Định dạng trả về (ưu tiên JSON nếu có thể):\n' +
-      '{\n' +
-      '  "answer": "Nội dung câu trả lời tư vấn chi tiết, thân thiện bằng Markdown",\n' +
-      '  "followUpQuestion": "Câu hỏi gợi ý ngắn gọn cho bước tiếp theo"\n' +
-      '}';
-
-    const userPromptContent = `Câu hỏi của khách hàng: ${input.content}${productContextText}\n\n[Dữ liệu xác minh]:\n${JSON.stringify(bundle)}`;
-
-    // Call provider-neutral AI
-    const aiResult = await provider.generate(
-      {
-        systemPrompt: ragSystemInstructions,
-        messages: [
-          { role: 'system', content: ragSystemInstructions },
-          {
-            role: 'user',
-            content: userPromptContent,
-          },
-        ],
-        responseFormat: 'json',
-      },
-      { signal }
-    );
-
-    usageToSettle = {
-      promptTokens: aiResult.usage.promptTokens,
-      completionTokens: aiResult.usage.completionTokens,
-      totalTokens: aiResult.usage.totalTokens,
-      latencyMs: aiResult.usage.latencyMs,
-    };
-
-    if (aiResult.finishReason === 'stop' && (aiResult.parsedJson || aiResult.text)) {
-      let candidateAnswer = '';
-      let candidateFollowUp: string | undefined = undefined;
-
-      if (aiResult.parsedJson && typeof aiResult.parsedJson === 'object') {
-        const parsed = aiResult.parsedJson as Record<string, unknown>;
-        if (typeof parsed.answer === 'string' && parsed.answer.trim().length > 0) {
-          candidateAnswer = parsed.answer.trim();
-          if (typeof parsed.followUpQuestion === 'string' && parsed.followUpQuestion.trim().length > 0) {
-            candidateFollowUp = parsed.followUpQuestion.trim();
           }
         }
-      }
 
-      if (!candidateAnswer && aiResult.text && aiResult.text.trim().length > 0) {
-        candidateAnswer = aiResult.text.trim();
-      }
+        if (!candidateAnswer && aiResult.text && aiResult.text.trim().length > 0) {
+          candidateAnswer = aiResult.text.trim();
+        }
 
-      // Grounding check for verification tests
-      const grounding = aiResult.parsedJson
-        ? validateAssistantAnswer(aiResult.parsedJson, bundle)
-        : null;
+        // Grounding check for verification tests
+        const grounding = aiResult.parsedJson
+          ? validateAssistantAnswer(aiResult.parsedJson, bundle)
+          : null;
 
-      if (grounding && grounding.valid && !grounding.fallbackNeeded) {
-        finalAnswerDto = {
-          conversationId: conv.id,
-          answer: grounding.sanitizedAnswer || candidateAnswer,
-          followUpQuestion:
-            candidateFollowUp ||
-            (aiResult.parsedJson as any)?.followUpQuestion ||
-            'Bạn ưu tiên mức giá tiết kiệm hay hiệu năng xử lý cao hơn cho nhu cầu của mình?',
-          citations: grounding.validatedCitations,
-          claims: grounding.groundedClaims,
-          isGrounded: true,
-        };
-      } else if (candidateAnswer) {
-        // Natural LLM response: friendly and grounded on live products
-        const validCitations = Object.values(bundle.citations || {}).filter(
-          (c) => !bundle.revokedSourceIds?.includes(c.id)
-        );
-        finalAnswerDto = {
-          conversationId: conv.id,
-          answer: candidateAnswer,
-          followUpQuestion:
-            candidateFollowUp ||
-            'Bạn có cần mình hỗ trợ thêm thông tin chi tiết gì về sản phẩm này không?',
-          citations: validCitations,
-          claims: [],
-          isGrounded: true,
-        };
+        if (grounding && grounding.valid && !grounding.fallbackNeeded &&
+            (isGreetingQuery(input.content) ||
+              (grounding.groundedClaims.length > 0 && grounding.validatedCitations.length > 0))) {
+          finalAnswerDto = {
+            conversationId: conv.id,
+            answer: grounding.sanitizedAnswer || candidateAnswer,
+            followUpQuestion:
+              candidateFollowUp ||
+              (aiResult.parsedJson as any)?.followUpQuestion ||
+              'Bạn ưu tiên mức giá tiết kiệm hay hiệu năng xử lý cao hơn cho nhu cầu của mình?',
+            citations: grounding.validatedCitations,
+            claims: grounding.groundedClaims,
+            isGrounded: true,
+          };
+        } else {
+          finalAnswerDto = {
+            ...buildDeterministicAnswer(
+              bundle,
+              grounding?.fallbackReason || 'GROUNDING_FAILED'
+            ),
+            conversationId: conv.id,
+          };
+        }
       } else {
         finalAnswerDto = {
           ...buildDeterministicAnswer(
             bundle,
-            grounding?.fallbackReason || 'GROUNDING_FAILED'
+            aiResult.finishReason === 'refusal' ? 'PROVIDER_REFUSAL' : 'PROVIDER_ERROR'
           ),
           conversationId: conv.id,
         };
       }
-    } else {
-      finalAnswerDto = {
-        ...buildDeterministicAnswer(
-          bundle,
-          aiResult.finishReason === 'refusal' ? 'PROVIDER_REFUSAL' : 'PROVIDER_ERROR'
-        ),
-        conversationId: conv.id,
-      };
     }
   } catch (err) {
     console.warn('[Assistant Orchestration] Generation error, applying fallback:', err);

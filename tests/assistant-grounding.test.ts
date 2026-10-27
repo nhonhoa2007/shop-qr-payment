@@ -6,6 +6,7 @@ import {
 } from '../src/server/modules/assistant/grounding.service.ts';
 import {
   buildEvidenceBundle,
+  isCatalogOverviewQuery,
   type AssistantEvidenceDb,
 } from '../src/server/modules/assistant/evidence.service.ts';
 import type { EvidenceBundle } from '../src/shared/types/assistant.ts';
@@ -333,6 +334,18 @@ describe('Commerce Intelligence: Assistant Evidence Bundle & Grounding Validator
     assert.ok(fallback.citations.length > 0);
   });
 
+  it('cites only evidence attached to the returned products', () => {
+    const bundle: EvidenceBundle = {
+      ...sampleBundle,
+      citations: {
+        ...sampleBundle.citations,
+        src_unrelated: { id: 'src_unrelated', type: 'PRODUCT_SPEC', title: 'Unrelated item' },
+      },
+    };
+    const fallback = buildDeterministicAnswer(bundle, 'GROUNDING_FAILED');
+    assert.equal(fallback.citations.some((citation) => citation.id === 'src_unrelated'), false);
+  });
+
   it('builds an evidence bundle from active data sources and live products', async () => {
     const mockDb: AssistantEvidenceDb = {
       product: {
@@ -530,5 +543,99 @@ describe('Commerce Intelligence: Assistant Evidence Bundle & Grounding Validator
       'Greeting must not be a product comparison table'
     );
     assert.equal(answer.isGrounded, true);
+  });
+
+  it('summarizes every active category for a shop inventory question instead of matching filler words', async () => {
+    const catalog = [
+      ...Array.from({ length: 6 }, (_, i) => ({ id: `sticker_${i}`, name: `Sticker ShopQR ${i}`, category: 'Phụ kiện' })),
+      { id: 'laptop', name: 'Laptop Dell XPS', category: 'Công nghệ' },
+      { id: 'shirt', name: 'Áo sơ mi linen', category: 'Thời trang' },
+      { id: 'lamp', name: 'Đèn bàn LED', category: 'Đồ gia dụng' },
+      { id: 'hidden', name: 'Sản phẩm ẩn', category: 'Bí mật', isActive: false },
+    ];
+    const db = {
+      product: {
+        findMany: async ({ where, take }: any) => {
+          assert.deepEqual(where, { isActive: true });
+          assert.equal(take, undefined);
+          return catalog.filter((p) => p.isActive !== false);
+        },
+      },
+      dataSource: { findMany: async () => [] },
+    };
+
+    const bundle = await buildEvidenceBundle({ query: 'shop có những sản phẩm gì?' }, db as any);
+    const answer = buildDeterministicAnswer(bundle, 'CATALOG_OVERVIEW');
+
+    assert.equal(bundle.catalogOverview?.totalProducts, 9);
+    assert.deepEqual(bundle.catalogOverview?.categories.map((c) => c.name), [
+      'Công nghệ', 'Đồ gia dụng', 'Phụ kiện', 'Thời trang',
+    ]);
+    assert.match(answer.answer, /Công nghệ.*Laptop Dell XPS/s);
+    assert.match(answer.answer, /Thời trang.*Áo sơ mi linen/s);
+    assert.doesNotMatch(answer.answer, /Bí mật|Sản phẩm ẩn/);
+  });
+
+  it('distinguishes whole-shop inventory questions from requests for a specific product type', () => {
+    assert.equal(isCatalogOverviewQuery('Cửa hàng hiện bán những mặt hàng nào?'), true);
+    assert.equal(isCatalogOverviewQuery('Shop bán gì?'), true);
+    assert.equal(isCatalogOverviewQuery('Shop có sản phẩm laptop nào?'), false);
+    assert.equal(isCatalogOverviewQuery('Shop có những sản phẩm đèn bàn nào?'), false);
+  });
+
+  it('retrieves a requested category and omits conversational filler from product search', async () => {
+    const queries: any[] = [];
+    const db = {
+      product: {
+        findMany: async ({ where }: any) => {
+          queries.push(where);
+          return [{ id: 'lamp', name: 'Đèn bàn LED', category: 'Đồ gia dụng', price: BigInt(329000), stock: 7 }];
+        },
+      },
+      dataSource: { findMany: async () => [] },
+    };
+
+    await buildEvidenceBundle({ query: 'Shop có sản phẩm đèn bàn nào?' }, db as any);
+    const search = JSON.stringify(queries[0]);
+    assert.match(search, /đèn bàn/);
+    assert.doesNotMatch(search, /"contains":"shop|"contains":"có|"contains":"sản|"contains":"phẩm|"contains":"nào/);
+
+    queries.length = 0;
+    await buildEvidenceBundle({ query: 'Thời trang' }, db as any);
+    assert.match(JSON.stringify(queries[0]), /"category"/);
+    assert.match(JSON.stringify(queries[0]), /"categoryRef"/);
+  });
+
+  it('reads published specs from Product.specs.values and excludes unknown values', async () => {
+    const db = {
+      product: { findMany: async () => [{
+        id: 'phone', name: 'Điện thoại A', category: 'Công nghệ',
+        price: BigInt(12000000), stock: 3,
+        specs: { schemaVersion: 1, values: {
+          ram: { state: 'KNOWN', value: 8, unit: 'GB' },
+          battery: { state: 'UNKNOWN' },
+        } },
+      }] },
+      dataSource: { findMany: async () => [] },
+    };
+
+    const bundle = await buildEvidenceBundle({ query: 'Điện thoại A' }, db as any);
+    assert.deepEqual(bundle.products[0].specs, { ram: { value: 8, unit: 'GB' } });
+  });
+
+  it('does not substitute loosely matching products for a requested model', async () => {
+    let productQueries = 0;
+    const db = {
+      product: { findMany: async () => {
+        productQueries++;
+        if (productQueries === 1) return [];
+        return [{ id: 'other', name: 'Máy ảnh khác', price: BigInt(5000000), stock: 1 }];
+      } },
+      dataSource: { findMany: async () => [] },
+    };
+
+    const bundle = await buildEvidenceBundle({ query: 'Máy ảnh Fujifilm X100VI' }, db as any);
+    assert.equal(productQueries, 1);
+    assert.deepEqual(bundle.products, []);
   });
 });

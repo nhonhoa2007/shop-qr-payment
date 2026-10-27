@@ -59,6 +59,14 @@ export interface EvidenceBundle {
   generatedAt: string;
   query: string;
   products: GroundedProductEvidence[];
+  catalogOverview?: {
+    totalProducts: number;
+    categories: Array<{
+      name: string;
+      count: number;
+      examples: Array<{ id: string; name: string }>;
+    }>;
+  };
   citations: Record<string, EvidenceCitation>;
   activeSourceIds: string[];
   revokedSourceIds: string[];

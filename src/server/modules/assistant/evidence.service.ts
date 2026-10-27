@@ -21,6 +21,7 @@ export interface AssistantEvidenceDb {
     findMany(args: {
       where?: Record<string, unknown>;
       include?: Record<string, unknown>;
+      select?: Record<string, unknown>;
       take?: number;
     }): Promise<any[]>;
   };
@@ -147,6 +148,15 @@ export function isGreetingQuery(query?: string | null): boolean {
   return false;
 }
 
+export function isCatalogOverviewQuery(query?: string | null): boolean {
+  if (!query) return false;
+  const normalized = query.toLowerCase().normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd')
+    .replace(/[!?.,:;]+/g, '').replace(/\s+/g, ' ').trim();
+  return /^(?:shop|cua hang|ben minh)\s+(?:(?:hien|dang|hien dang)\s+)?(?:co|ban)\s+(?:(?:nhung|cac|loai)\s+)?(?:san pham|mat hang|loai hang|danh muc|gi)(?:\s+(?:gi|nao|vay))?$/.test(normalized) ||
+    /^(?:nhung|cac)\s+(?:san pham|mat hang)\s+(?:shop|cua hang)\s+(?:dang|hien dang)\s+ban$/.test(normalized);
+}
+
 export async function buildEvidenceBundle(
   input: EvidenceBundleInput,
   db: AssistantEvidenceDb = globalPrisma as unknown as AssistantEvidenceDb
@@ -209,11 +219,51 @@ export async function buildEvidenceBundle(
 
   // 2. Fetch target products
   const isGreeting = isGreetingQuery(input.query);
+  const isOverview = !input.productIds?.length && !input.categoryId && isCatalogOverviewQuery(input.query);
+  if (isOverview) {
+    const catalog = await db.product.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true, category: true, categoryRef: { select: { name: true } } },
+    });
+    const grouped = new Map<string, { name: string; count: number; examples: Array<{ id: string; name: string }> }>();
+    for (const product of catalog) {
+      const name = product.categoryRef?.name || product.category || 'Chưa phân loại';
+      const group = grouped.get(name) || { name, count: 0, examples: [] as Array<{ id: string; name: string }> };
+      group.count++;
+      if (group.examples.length < 2) {
+        group.examples.push({ id: product.id, name: product.name });
+        const citationId = `src_product_${product.id}`;
+        citations[citationId] = {
+          id: citationId,
+          type: 'PRODUCT_SPEC',
+          title: `${product.name} - thông tin niêm yết tại Shop QR`,
+          publisher: 'Shop QR',
+        };
+        activeSourceIds.push(citationId);
+      }
+      grouped.set(name, group);
+    }
+    return {
+      bundleId,
+      generatedAt: now,
+      query: input.query,
+      products: [],
+      catalogOverview: {
+        totalProducts: catalog.length,
+        categories: [...grouped.values()].sort((a, b) => a.name.localeCompare(b.name, 'vi')),
+      },
+      citations,
+      activeSourceIds,
+      revokedSourceIds,
+      systemInstructions: 'Trả lời tổng quan danh mục bằng dữ liệu sản phẩm đang bán.',
+    };
+  }
   const productWhere: Record<string, unknown> = {
     isActive: true,
   };
 
   let rawProducts: any[] = [];
+  let hasSearchTerms = false;
 
   if (!isGreeting) {
     if (input.productIds && input.productIds.length > 0) {
@@ -221,18 +271,28 @@ export async function buildEvidenceBundle(
     } else if (input.categoryId) {
       productWhere.categoryId = input.categoryId;
     } else if (input.query && input.query.trim().length > 0) {
-      const trimmedQuery = input.query.trim();
-      const words = trimmedQuery.split(/\s+/).filter((w) => w.length >= 2);
+      const stopWords = new Set([
+        'shop', 'cửa', 'hàng', 'có', 'bán', 'những', 'các', 'sản', 'phẩm',
+        'gì', 'nào', 'cho', 'tôi', 'mình', 'xem', 'muốn', 'giá', 'bao', 'nhiêu',
+        'hiện', 'đang', 'loại', 'không', 'vậy',
+      ]);
+      const words = input.query.toLowerCase().replace(/[!?.,:;]+/g, ' ')
+        .split(/\s+/).filter((word) => word.length >= 2 && !stopWords.has(word));
       if (words.length > 0) {
+        const phrase = words.join(' ');
         productWhere.OR = [
-          { name: { contains: trimmedQuery, mode: 'insensitive' } },
-          { description: { contains: trimmedQuery, mode: 'insensitive' } },
-          ...words.map((w) => ({ name: { contains: w, mode: 'insensitive' } })),
+          { name: { contains: phrase, mode: 'insensitive' } },
+          { description: { contains: phrase, mode: 'insensitive' } },
+          { category: { contains: phrase, mode: 'insensitive' } },
+          { categoryRef: { is: { name: { contains: phrase, mode: 'insensitive' } } } },
         ];
+        hasSearchTerms = true;
       }
     }
 
-    rawProducts = await db.product.findMany({
+    rawProducts = !hasSearchTerms && !input.productIds?.length && !input.categoryId
+      ? []
+      : await db.product.findMany({
       where: productWhere,
       include: {
         brand: true,
@@ -254,14 +314,25 @@ export async function buildEvidenceBundle(
 
   for (const p of rawProducts) {
     const brandName = p.brand?.name || 'Chính hãng';
-    const specValues = (p.specValues as Record<string, unknown>) || {};
+    const specValues = (p.specs?.values as Record<string, unknown>) ||
+      (p.specValues as Record<string, unknown>) || {};
     const specsMap: Record<string, { value: string | number | boolean | null; unit?: string | null }> = {};
 
     for (const [k, v] of Object.entries(specValues)) {
+      if (v === null || v === undefined) continue;
       if (typeof v === 'object' && v !== null && 'value' in v) {
-        specsMap[k] = v as any;
+        if ('state' in v && v.state !== 'KNOWN') continue;
+        const value = v.value;
+        if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+          specsMap[k] = {
+            value,
+            ...('unit' in v && typeof v.unit === 'string' ? { unit: v.unit } : {}),
+          };
+        }
       } else {
-        specsMap[k] = { value: v as any };
+        if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+          specsMap[k] = { value: v };
+        }
       }
     }
 
@@ -345,7 +416,7 @@ export async function buildEvidenceBundle(
       'Hỏi khách hàng đang quan tâm đến dòng sản phẩm nào. ' +
       'Không bịa đặt hay liệt kê bảng so sánh sản phẩm khi khách chưa hỏi cụ thể. ' +
       'Trả lời dưới dạng JSON với cấu trúc: {"answer": "...", "followUpQuestion": "...", "citations": [], "claims": []}.'
-    : 'Bạn là trợ lý tư vấn công nghệ chuyên nghiệp của cửa hàng điện tử Shop QR. ' +
+    : 'Bạn là trợ lý mua sắm của Shop QR. ' +
       'CHỈ ĐƯỢC PHÉP trả lời dựa trên BẰNG CHỨNG (evidence bundle) được cung cấp. ' +
       'TUYỆT ĐỐI KHÔNG đoán hoặc bịa đặt giá cả, số lượng tồn kho, dung lượng RAM/ổ cứng, hoặc điểm số. ' +
       'Mặc định so sánh tổng quan ngắn gọn trước, sau đó hỏi đúng một câu về nhu cầu chính. ' +

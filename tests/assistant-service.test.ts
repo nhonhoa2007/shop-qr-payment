@@ -290,4 +290,91 @@ describe('Commerce Intelligence: Assistant Service & Orchestration', () => {
     assert.ok(answer.answer.includes('MacBook Air M2'));
     assert.ok(answer.fallbackReason !== undefined);
   });
+
+  it('answers a general shop inventory question from active categories without AI invention', async () => {
+    const user: Principal = { userId: 'u_catalog', role: 'CUSTOMER', ip: '1.1.1.1' };
+    const conv = await createConversation(user, {}, mockDb);
+    mockDb.product.findMany = async () => [
+      { id: 'p_laptop', name: 'Laptop Dell', category: 'Công nghệ' },
+      { id: 'p_shirt', name: 'Áo sơ mi', category: 'Thời trang' },
+    ];
+    const provider = new FakeAiProvider();
+    let providerCalled = false;
+    const generate = provider.generate.bind(provider);
+    provider.generate = async (request, options) => {
+      providerCalled = true;
+      return generate(request, options);
+    };
+
+    const answer = await answerQuestion(
+      { conversationId: conv.id, content: 'shop có những sản phẩm gì?' },
+      user, provider, new AbortController().signal, mockDb
+    );
+
+    assert.match(answer.answer, /Công nghệ.*Laptop Dell/s);
+    assert.match(answer.answer, /Thời trang.*Áo sơ mi/s);
+    assert.equal(answer.isGrounded, true);
+    assert.equal(answer.citations.length, 2);
+    assert.equal(providerCalled, false);
+  });
+
+  it('uses verified product data when AI returns an unsupported price', async () => {
+    const user: Principal = { userId: 'u_bad_price', role: 'CUSTOMER', ip: '1.1.1.1' };
+    const conv = await createConversation(user, {}, mockDb);
+    const provider = new FakeAiProvider();
+    provider.enqueueResponse({ text: JSON.stringify({
+      answer: 'MacBook Air M2 chỉ có giá 15.000.000đ.',
+      citations: ['src_apple'],
+      claims: [{ type: 'PRICE', subjectProduct: 'prod_mba_m2', field: 'livePriceVnd', claimedValue: '15000000' }],
+    }) });
+
+    const answer = await answerQuestion(
+      { conversationId: conv.id, content: 'MacBook Air M2 giá bao nhiêu?', productIds: ['prod_mba_m2'] },
+      user, provider, new AbortController().signal, mockDb
+    );
+
+    assert.match(answer.answer, /24\.990\.000/);
+    assert.doesNotMatch(answer.answer, /15\.000\.000/);
+    assert.equal(answer.fallbackReason?.startsWith('PRICE_MISMATCH'), true);
+  });
+
+  it('does not invent a product when search returns no evidence', async () => {
+    const user: Principal = { userId: 'u_no_match', role: 'CUSTOMER', ip: '1.1.1.1' };
+    const conv = await createConversation(user, {}, mockDb);
+    mockDb.product.findMany = async () => [];
+    const provider = new FakeAiProvider();
+    let providerCalled = false;
+    const generate = provider.generate.bind(provider);
+    provider.generate = async (request, options) => {
+      providerCalled = true;
+      return generate(request, options);
+    };
+
+    const answer = await answerQuestion(
+      { conversationId: conv.id, content: 'Shop có máy ảnh Fujifilm X100VI không?' },
+      user, provider, new AbortController().signal, mockDb
+    );
+
+    assert.match(answer.answer, /chưa tìm thấy sản phẩm/i);
+    assert.equal(answer.fallbackReason, 'NO_MATCH');
+    assert.equal(providerCalled, false);
+  });
+
+  it('rejects a product answer without verifiable claims or citations', async () => {
+    const user: Principal = { userId: 'u_no_claims', role: 'CUSTOMER', ip: '1.1.1.1' };
+    const conv = await createConversation(user, {}, mockDb);
+    const provider = new FakeAiProvider();
+    provider.enqueueResponse({ text: JSON.stringify({
+      answer: 'MacBook Air M2 có giá 15.000.000đ.', citations: [], claims: [],
+    }) });
+
+    const answer = await answerQuestion(
+      { conversationId: conv.id, content: 'MacBook Air M2 giá bao nhiêu?', productIds: ['prod_mba_m2'] },
+      user, provider, new AbortController().signal, mockDb
+    );
+
+    assert.match(answer.answer, /24\.990\.000/);
+    assert.doesNotMatch(answer.answer, /15\.000\.000/);
+    assert.equal(answer.fallbackReason, 'GROUNDING_FAILED');
+  });
 });
