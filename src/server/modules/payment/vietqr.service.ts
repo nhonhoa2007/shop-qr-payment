@@ -1,3 +1,5 @@
+import { generateSePayQrUrl } from './sepay.service';
+
 interface QRPaymentParams {
   bankId: string;
   accountNo: string;
@@ -7,15 +9,18 @@ interface QRPaymentParams {
 }
 
 export function generateVietQRUrl(params: QRPaymentParams): string {
-  const template = 'compact2';
-  const addInfo = `Thanh toan don hang ${params.orderId}`;
+  if (!params.bankId.trim() || !params.accountNo.trim() || !params.accountName.trim()) {
+    return '';
+  }
 
-  return (
-    `https://img.vietqr.io/image/${params.bankId}-${params.accountNo}-${template}.png` +
-    `?amount=${params.amount}` +
-    `&addInfo=${encodeURIComponent(addInfo)}` +
-    `&accountName=${encodeURIComponent(params.accountName)}`
-  );
+  return generateSePayQrUrl({
+    bankId: params.bankId,
+    accountNo: params.accountNo,
+    accountName: params.accountName,
+    amount: params.amount,
+    paymentCode: params.orderId,
+    memoPrefix: process.env.SEPAY_QR_MEMO_PREFIX,
+  });
 }
 
 export function getBankInfo() {
