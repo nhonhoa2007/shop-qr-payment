@@ -13,8 +13,13 @@ import {
   parseTopupCodeFromDescription,
   evaluateWebhookDecision,
 } from '@server/modules/payment/vietqr-parser.service';
-import { processWalletTopup, getWalletTopupSession } from '@server/modules/wallet/wallet-topup.service';
+import {
+  completeLegacyWalletTopupSession,
+  processWalletTopup,
+  getWalletTopupSession,
+} from '@server/modules/wallet/wallet-topup.service';
 import { applyCassoOrderPayment } from '@server/modules/payment/casso-order-payment.service';
+import { OrderPaymentStateError } from '@server/modules/payment/bank-order-payment.service';
 import { scheduleTelegramOutboxFastPath } from '@server/modules/telegram/telegram-outbox.fast-path';
 
 interface CassoWebhookBody {
@@ -92,22 +97,50 @@ export async function POST(req: Request) {
         }
         if (Number.isFinite(topupAmount) && topupAmount > 0) {
           try {
-            const topupResult = await prisma.$transaction(async (tx) => {
-              return await processWalletTopup(tx, {
+            const topupAttempt = await prisma.$transaction(async (tx) => {
+              const claimed = await tx.bankTransfer.updateMany({
+                where: {
+                  id: ledger.id,
+                  status: 'PENDING_REVIEW',
+                  reviewReason: null,
+                },
+                data: { status: 'APPLIED_TOPUP', reviewReason: null },
+              });
+              if (claimed.count !== 1) {
+                return { claimed: false as const, result: null };
+              }
+
+              const result = await processWalletTopup(tx, {
                 topupCode,
                 amount: Math.round(topupAmount),
                 bankTransId: transactionId,
                 description: txn.description || `Nạp ví qua chuyển khoản ngân hàng ${topupCode}`,
-              }).then(async (result) => {
-                if (result.success && !result.alreadyProcessed) await tx.bankTransfer.update({ where: { id: ledger.id }, data: { status: 'APPLIED_TOPUP', reviewReason: null } });
-                else await tx.bankTransfer.update({ where: { id: ledger.id }, data: { reviewReason: result.alreadyProcessed ? 'Giao dịch nạp ví đã được xử lý; kiểm tra mã ngân hàng' : result.error || 'Không thể nạp ví; cần đối soát' } });
-                return result;
               });
+              if (!result.success || result.alreadyProcessed) {
+                throw new Error(
+                  result.alreadyProcessed
+                    ? 'Giao dịch nạp ví đã được xử lý; kiểm tra mã ngân hàng'
+                    : result.error || 'Không thể nạp ví; cần đối soát'
+                );
+              }
+              return { claimed: true as const, result };
             });
+            if (!topupAttempt.claimed || !topupAttempt.result) continue;
+            const topupResult = topupAttempt.result;
+
+            if (topupResult.success && topupResult.legacySession) {
+              await completeLegacyWalletTopupSession(
+                topupCode,
+                topupResult.alreadyProcessed ? undefined : transactionId
+              );
+            }
 
             if (topupResult.success && !topupResult.alreadyProcessed && topupResult.userId) {
+              const jsonSafeBalance = typeof topupResult.newBalance === 'bigint'
+                ? topupResult.newBalance.toString()
+                : topupResult.newBalance;
               await pusherServer.trigger(`private-user-${topupResult.userId}`, 'wallet-updated', {
-                balance: topupResult.newBalance,
+                balance: jsonSafeBalance,
                 topupAmount: Math.round(topupAmount),
                 topupCode,
               });
@@ -126,7 +159,7 @@ export async function POST(req: Request) {
                 data: {
                   topupCode,
                   amount: Math.round(topupAmount),
-                  balance: topupResult.newBalance,
+                  balance: jsonSafeBalance,
                 },
               });
             }
@@ -142,8 +175,12 @@ export async function POST(req: Request) {
         isDuplicateTransaction: false,
         order,
       });
-      if (!order || decision.action === 'SKIP' || order.expiresAt <= new Date()) {
-        await prisma.bankTransfer.update({ where: { id: ledger.id }, data: { reviewReason: !order ? 'Không tìm thấy đơn hàng' : order.expiresAt <= new Date() ? 'Tiền đến sau hạn thanh toán' : decision.action === 'SKIP' ? decision.reason : 'Cần đối soát' } });
+      const receivedAt = txn.when && !Number.isNaN(Date.parse(txn.when))
+        ? new Date(txn.when)
+        : null;
+      const paymentWasLate = Boolean(order && (!receivedAt || receivedAt >= order.expiresAt));
+      if (!order || decision.action === 'SKIP' || paymentWasLate) {
+        await prisma.bankTransfer.update({ where: { id: ledger.id }, data: { reviewReason: !order ? 'Không tìm thấy đơn hàng' : paymentWasLate ? 'Tiền đến sau hạn thanh toán' : decision.action === 'SKIP' ? decision.reason : 'Cần đối soát' } });
         continue;
       }
 
@@ -157,18 +194,26 @@ export async function POST(req: Request) {
             storedAmount,
             description: txn.description || '',
             bankName: txn.bankSubAccId || null,
-            receivedAt: txn.when ? new Date(txn.when) : new Date(),
+            receivedAt: receivedAt!,
             rawWebhookData: txn,
+            now: receivedAt!,
           });
         });
       } catch (err) {
+        if (err instanceof OrderPaymentStateError) {
+          await prisma.bankTransfer.updateMany({
+            where: { id: ledger.id, status: 'PENDING_REVIEW' },
+            data: { reviewReason: err.message },
+          });
+          continue;
+        }
         if (
           err instanceof Prisma.PrismaClientKnownRequestError &&
           err.code === 'P2002'
         ) {
           // Unique constraint violation (duplicate bankTransId or orderId due to race condition)
           // Gracefully skip to preserve idempotency without failing the webhook request
-          await prisma.bankTransfer.update({ where: { id: ledger.id }, data: { reviewReason: 'Đơn đã được xử lý đồng thời; cần đối soát' } });
+          await prisma.bankTransfer.updateMany({ where: { id: ledger.id, status: 'PENDING_REVIEW' }, data: { reviewReason: 'Đơn đã được xử lý đồng thời; cần đối soát' } });
           continue;
         }
         throw err;
@@ -192,7 +237,7 @@ export async function POST(req: Request) {
         await pusherServer.trigger(
           `private-user-${order.userId}`,
           'payment-success',
-          { orderId: order.orderCode, amount: order.totalAmount }
+          { orderId: order.orderCode, amount: order.totalAmount.toString() }
         );
       }
 

@@ -8,6 +8,7 @@ import { generateSePayQrUrl } from '@server/modules/payment/sepay.service';
 import {
   completePendingPaymentRequest,
   createPendingPaymentRequest,
+  findPaymentRequestByCode,
   paymentRequestToTopupSession,
   type PaymentRequestRecord,
   type PaymentRequestStore,
@@ -31,6 +32,7 @@ export interface WalletTopupProcessResult {
   topupCode?: string;
   amount?: MoneyVnd | number | bigint;
   userId?: string;
+  legacySession?: boolean;
 }
 
 /**
@@ -216,8 +218,23 @@ export async function createWalletTopupPaymentLink(params: {
   };
 }
 
-// Set theo dõi các tiến trình nạp tiền đang chạy để chặn đứng Race Condition
-export const inFlightTopupLocks = new Set<string>();
+/**
+ * Đồng bộ cache legacy sau khi database transaction đã commit.
+ */
+export async function completeLegacyWalletTopupSession(
+  topupCode: string,
+  bankTransId?: string,
+  completedAt = new Date()
+): Promise<void> {
+  const session = await getLegacyWalletTopupSession(topupCode.trim().toUpperCase());
+  if (!session || session.status === 'COMPLETED') return;
+  await saveWalletTopupSession({
+    ...session,
+    status: 'COMPLETED',
+    completedAt: completedAt.toISOString(),
+    bankTransId: bankTransId ?? session.bankTransId,
+  });
+}
 
 /**
  * Xử lý ghi nhận nạp tiền vào ví người dùng một cách nguyên tử (Atomic Balance Accounting)
@@ -232,7 +249,7 @@ export const inFlightTopupLocks = new Set<string>();
  *    - Tạo bản ghi `WalletTransaction` với `type: 'TOPUP'` và số tiền dương.
  */
 export async function processWalletTopup(
-  tx: TransactionClient = prisma,
+  tx: TransactionClient,
   params: {
     topupCode: string;
     amount: number;
@@ -248,9 +265,13 @@ export async function processWalletTopup(
   const requestStore = 'paymentRequest' in tx
     ? tx as unknown as PaymentRequestStore
     : null;
-  const session = requestStore
-    ? await getWalletTopupSession(topupCode, requestStore)
+  const durableRequest = requestStore
+    ? await findPaymentRequestByCode(requestStore, topupCode)
+    : null;
+  const session = durableRequest?.kind === 'WALLET_TOPUP'
+    ? paymentRequestToTopupSession(durableRequest)
     : await getLegacyWalletTopupSession(topupCode);
+  const legacySession = !durableRequest && Boolean(session);
   const targetUserId = params.userId || session?.userId;
 
   if (!targetUserId) {
@@ -272,124 +293,84 @@ export async function processWalletTopup(
       topupCode,
       amount,
       userId: targetUserId,
+      legacySession,
     };
   }
 
-  // Concurrency Guard: Chống Race condition nếu 2 webhook đồng thời cùng mã topupCode
-  // Sử dụng kết hợp In-memory lock lẫn Distributed Lock trên Redis (hỗ trợ Serverless / Multi-instance)
-  if (inFlightTopupLocks.has(topupCode)) {
+  // 3. Khử trùng lặp bền vững (Database Idempotency Check)
+  const existingTx = await tx.walletTransaction.findFirst({
+    where: {
+      walletId: wallet.id,
+      type: 'TOPUP',
+      OR: [
+        { orderId: topupCode },
+        { description: { contains: topupCode } },
+        ...(bankTransId ? [{ description: { contains: bankTransId } }] : []),
+      ],
+    },
+  });
+
+  if (existingTx) {
     return {
       success: true,
       alreadyProcessed: true,
       newBalance: wallet.balance,
+      transactionId: existingTx.id,
       topupCode,
-      amount,
+      amount: existingTx.amount,
       userId: targetUserId,
+      legacySession,
     };
   }
 
-  const redisLockKey = `lock:wallet:topup:${topupCode}`;
-  const acquiredDistributedLock = await redis.setNx(redisLockKey, '1', 15);
-  if (!acquiredDistributedLock) {
-    return {
-      success: true,
-      alreadyProcessed: true,
-      newBalance: wallet.balance,
+  if (requestStore && durableRequest?.kind === 'WALLET_TOPUP') {
+    const claimed = await completePendingPaymentRequest(
+      requestStore,
       topupCode,
-      amount,
-      userId: targetUserId,
-    };
-  }
-
-  inFlightTopupLocks.add(topupCode);
-
-  try {
-    // 3. Khử trùng lặp bền vững (Database Idempotency Check)
-    const existingTx = await tx.walletTransaction.findFirst({
-      where: {
-        walletId: wallet.id,
-        type: 'TOPUP',
-        OR: [
-          { orderId: topupCode },
-          { description: { contains: topupCode } },
-          ...(bankTransId ? [{ description: { contains: bankTransId } }] : []),
-        ],
-      },
-    });
-
-    if (existingTx) {
+      params.completedAt ?? new Date()
+    );
+    if (!claimed) {
       return {
-        success: true,
-        alreadyProcessed: true,
-        newBalance: wallet.balance,
-        transactionId: existingTx.id,
+        success: false,
+        error: 'Phiên nạp ví đã hết hạn hoặc không còn chờ thanh toán',
         topupCode,
-        amount: existingTx.amount,
+        amount,
         userId: targetUserId,
+        legacySession,
       };
     }
-
-    if (requestStore) {
-      const claimed = await completePendingPaymentRequest(
-        requestStore,
-        topupCode,
-        params.completedAt ?? new Date()
-      );
-      if (!claimed) {
-        return {
-          success: false,
-          error: 'Phiên nạp ví đã hết hạn hoặc không còn chờ thanh toán',
-          topupCode,
-          amount,
-          userId: targetUserId,
-        };
-      }
-    }
-
-    const amountBigInt = BigInt(amount);
-
-    // 4. Cộng tiền nguyên tử vào ví người dùng
-    const updatedWallet = await tx.userWallet.update({
-      where: { id: wallet.id },
-      data: { balance: { increment: amountBigInt } },
-    });
-
-    // 5. Ghi nhật ký biến động số dư loại TOPUP
-    const txRecord = await tx.walletTransaction.create({
-      data: {
-        walletId: wallet.id,
-        amount: amountBigInt,
-        type: 'TOPUP',
-        orderId: topupCode,
-        description:
-          description ||
-          `Nạp tiền vào ví (${topupCode})${bankTransId ? ` [${bankTransId}]` : ''}`,
-      },
-    });
-
-    // 6. Đồng bộ trạng thái phiên cache legacy. PaymentRequest đã được claim
-    // trước khi cộng tiền và sẽ rollback cùng transaction nếu bước sau lỗi.
-    if (!requestStore && session) {
-      session.status = 'COMPLETED';
-      session.completedAt = new Date().toISOString();
-      session.bankTransId = bankTransId;
-      await saveWalletTopupSession(session);
-    }
-
-    return {
-      success: true,
-      newBalance: updatedWallet.balance,
-      transactionId: txRecord.id,
-      topupCode,
-      amount,
-      userId: targetUserId,
-    };
-  } finally {
-    inFlightTopupLocks.delete(topupCode);
-    try {
-      await redis.del(redisLockKey);
-    } catch (delErr) {
-      console.warn('[Wallet Topup] Xóa distributed lock thất bại:', delErr);
-    }
   }
+
+  const amountBigInt = BigInt(amount);
+
+  // 4. Cộng tiền nguyên tử vào ví người dùng
+  const updatedWallet = await tx.userWallet.update({
+    where: { id: wallet.id },
+    data: { balance: { increment: amountBigInt } },
+  });
+
+  // 5. Ghi nhật ký biến động số dư loại TOPUP. Unique idempotencyKey khiến
+  // transaction thua race rollback cả bước cộng số dư phía trên.
+  const txRecord = await tx.walletTransaction.create({
+    data: {
+      walletId: wallet.id,
+      amount: amountBigInt,
+      type: 'TOPUP',
+      orderId: topupCode,
+      idempotencyKey: `wallet-topup:${topupCode}`,
+      description:
+        description ||
+        `Nạp tiền vào ví (${topupCode})${bankTransId ? ` [${bankTransId}]` : ''}`,
+    },
+  });
+
+  return {
+    success: true,
+    newBalance: updatedWallet.balance,
+    transactionId: txRecord.id,
+    topupCode,
+    amount,
+    userId: targetUserId,
+    legacySession,
+  };
 }

@@ -11,6 +11,13 @@ export class PaymentRequestClaimError extends Error {
   }
 }
 
+export class OrderPaymentStateError extends Error {
+  constructor() {
+    super('Đơn hàng không còn hợp lệ để ghi nhận thanh toán');
+    this.name = 'OrderPaymentStateError';
+  }
+}
+
 export interface BankOrderPaymentClient extends TelegramOutboxEnqueueClient {
   order: {
     updateMany(args: Record<string, unknown>): Promise<{ count: number }>;
@@ -22,7 +29,7 @@ export interface BankOrderPaymentClient extends TelegramOutboxEnqueueClient {
     create(args: Record<string, unknown>): Promise<Record<string, unknown>>;
   };
   bankTransfer: {
-    update(args: Record<string, unknown>): Promise<Record<string, unknown>>;
+    updateMany(args: Record<string, unknown>): Promise<{ count: number }>;
   };
 }
 
@@ -49,6 +56,23 @@ export async function applyBankOrderPayment(
   input: ApplyBankOrderPaymentInput
 ): Promise<Record<string, unknown> | null> {
   const now = input.now ?? new Date();
+  // Claim the bank ledger before touching order or wallet state. This CAS is
+  // the shared serialization point with manual reconciliation.
+  const ledgerClaim = await tx.bankTransfer.updateMany({
+    where: {
+      id: input.ledgerId,
+      status: 'PENDING_REVIEW',
+      reviewReason: null,
+    },
+    data: {
+      status: 'APPLIED_ORDER',
+      reviewReason: null,
+      orderId: input.order.id,
+      rawWebhookData: input.rawWebhookData as Prisma.InputJsonValue,
+    },
+  });
+  if (ledgerClaim.count !== 1) return null;
+
   const changed = await tx.order.updateMany({
     where: {
       id: input.order.id,
@@ -58,7 +82,7 @@ export async function applyBankOrderPayment(
     },
     data: { paymentStatus: 'PAID', status: 'CONFIRMED' },
   });
-  if (changed.count !== 1) return null;
+  if (changed.count !== 1) throw new OrderPaymentStateError();
 
   if (input.paymentRequestCode) {
     if (!tx.paymentRequest) throw new PaymentRequestClaimError();
@@ -66,7 +90,7 @@ export async function applyBankOrderPayment(
       where: {
         code: input.paymentRequestCode.trim().toUpperCase(),
         kind: 'ORDER',
-        status: 'PENDING',
+        status: { in: ['PENDING', 'EXPIRED'] },
         expiresAt: { gt: now },
       },
       data: { status: 'COMPLETED', completedAt: now },
@@ -90,16 +114,6 @@ export async function applyBankOrderPayment(
     });
   }
 
-  const appliedTransfer = await tx.bankTransfer.update({
-    where: { id: input.ledgerId },
-    data: {
-      status: 'APPLIED_ORDER',
-      reviewReason: null,
-      orderId: input.order.id,
-      rawWebhookData: input.rawWebhookData as Prisma.InputJsonValue,
-    },
-  });
-
   await enqueuePaymentReceivedTelegram(tx, {
     id: input.order.id,
     orderCode: input.order.orderCode,
@@ -108,5 +122,5 @@ export async function applyBankOrderPayment(
     paymentMethod: 'Chuyển khoản VietQR',
   });
 
-  return payment ?? appliedTransfer;
+  return payment ?? { id: input.ledgerId };
 }

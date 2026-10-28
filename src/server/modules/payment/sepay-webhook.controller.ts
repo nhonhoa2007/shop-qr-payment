@@ -41,12 +41,14 @@ interface SePayOrderRecord {
 
 interface LedgerRecord {
   id: string;
+  status?: string;
+  reviewReason?: string | null;
   [key: string]: unknown;
 }
 
 interface SePayTransactionClient {
   bankTransfer: {
-    update(args: Record<string, unknown>): Promise<Record<string, unknown>>;
+    updateMany(args: Record<string, unknown>): Promise<{ count: number }>;
   };
   [key: string]: unknown;
 }
@@ -60,7 +62,9 @@ interface SePayWebhookDatabase {
   };
   bankTransfer: {
     create(args: { data: Record<string, unknown> }): Promise<LedgerRecord>;
+    findUnique(args: Record<string, unknown>): Promise<LedgerRecord | null>;
     update(args: Record<string, unknown>): Promise<Record<string, unknown>>;
+    updateMany(args: Record<string, unknown>): Promise<{ count: number }>;
   };
   $transaction<T>(work: (tx: SePayTransactionClient) => Promise<T>): Promise<T>;
 }
@@ -126,10 +130,12 @@ function reviewReasonFor(
   if (BigInt(payload.transferAmount) > BUSINESS_MAX_VND) return 'Số tiền vượt giới hạn nghiệp vụ';
   if (!code) return 'Không tìm thấy mã thanh toán DH/NAP';
   if (!request) return 'Không tìm thấy yêu cầu thanh toán';
-  if (request.status !== 'PENDING') return 'Yêu cầu thanh toán đã được xử lý hoặc hết hạn';
   if (request.amount !== BigInt(payload.transferAmount)) return 'Giao dịch sai số tiền';
   if (!receivedAt) return 'Thời gian giao dịch không hợp lệ';
   if (receivedAt >= request.expiresAt) return 'Tiền đến sau hạn thanh toán';
+  if (request.status !== 'PENDING' && request.status !== 'EXPIRED') {
+    return 'Yêu cầu thanh toán đã được xử lý';
+  }
   if (request.kind === 'ORDER' && !order) return 'Không tìm thấy đơn hàng';
   if (request.kind === 'WALLET_TOPUP' && !request.userId) return 'Phiên nạp ví không có người nhận';
   return null;
@@ -140,8 +146,8 @@ async function keepForReview(
   ledgerId: string,
   reason: string
 ): Promise<void> {
-  await deps.db.bankTransfer.update({
-    where: { id: ledgerId },
+  await deps.db.bankTransfer.updateMany({
+    where: { id: ledgerId, status: 'PENDING_REVIEW' },
     data: { status: 'PENDING_REVIEW', reviewReason: reason },
   });
 }
@@ -195,12 +201,21 @@ export async function handleSePayWebhook(
         rawWebhookData: payload as unknown as Prisma.InputJsonValue,
         orderId: request?.kind === 'ORDER' ? request.orderId : null,
         topupCode: code?.startsWith('NAP') ? code : null,
+        status: 'PENDING_REVIEW',
         reviewReason,
       },
     });
   } catch (error) {
-    if (deps.isUniqueViolation(error)) return acknowledgement();
-    throw error;
+    if (!deps.isUniqueViolation(error)) throw error;
+    const existing = await deps.db.bankTransfer.findUnique({ where: { bankTransId } });
+    if (
+      !existing
+      || existing.status !== 'PENDING_REVIEW'
+      || Boolean(existing.reviewReason)
+    ) {
+      return acknowledgement();
+    }
+    ledger = existing;
   }
 
   if (reviewReason || !code || !request || !receivedAt) return acknowledgement();
@@ -232,7 +247,19 @@ export async function handleSePayWebhook(
     }
 
     if (request.kind === 'WALLET_TOPUP' && request.userId) {
-      const result = await deps.db.$transaction(async (tx) => {
+      const attempt = await deps.db.$transaction(async (tx) => {
+        const ledgerClaim = await tx.bankTransfer.updateMany({
+          where: {
+            id: ledger.id,
+            status: 'PENDING_REVIEW',
+            reviewReason: null,
+          },
+          data: { status: 'APPLIED_TOPUP', reviewReason: null },
+        });
+        if (ledgerClaim.count !== 1) {
+          return { claimed: false as const, result: null };
+        }
+
         const topupResult = await deps.applyWalletTopup(tx, {
           topupCode: code,
           amount: payload.transferAmount,
@@ -241,22 +268,15 @@ export async function handleSePayWebhook(
           description: payload.content || `Nạp ví qua SePay ${code}`,
           completedAt: receivedAt,
         });
-        if (topupResult.success && !topupResult.alreadyProcessed) {
-          await tx.bankTransfer.update({
-            where: { id: ledger.id },
-            data: { status: 'APPLIED_TOPUP', reviewReason: null },
-          });
+        if (!topupResult.success || topupResult.alreadyProcessed) {
+          throw new Error(
+            topupResult.error || 'Giao dịch nạp ví đã được xử lý hoặc không còn hợp lệ'
+          );
         }
-        return topupResult;
+        return { claimed: true as const, result: topupResult };
       });
-      if (!result.success || result.alreadyProcessed) {
-        await keepForReview(
-          deps,
-          ledger.id,
-          result.error || 'Giao dịch nạp ví đã được xử lý hoặc không còn hợp lệ'
-        );
-        return acknowledgement();
-      }
+      if (!attempt.claimed || !attempt.result) return acknowledgement();
+      const result = attempt.result;
       try {
         await deps.afterWalletTopup(result, { topupCode: code, amount: payload.transferAmount });
       } catch (error) {
@@ -283,7 +303,7 @@ async function notifyOrderPayment(order: SePayOrderRecord): Promise<void> {
     });
     await pusherServer.trigger(`private-user-${order.userId}`, 'payment-success', {
       orderId: order.orderCode,
-      amount: order.totalAmount,
+      amount: order.totalAmount.toString(),
     });
   }
 
@@ -326,8 +346,11 @@ async function notifyWalletTopup(
   input: { topupCode: string; amount: number }
 ): Promise<void> {
   if (!result.userId) return;
+  const jsonSafeBalance = typeof result.newBalance === 'bigint'
+    ? result.newBalance.toString()
+    : result.newBalance;
   await pusherServer.trigger(`private-user-${result.userId}`, 'wallet-updated', {
-    balance: result.newBalance,
+    balance: jsonSafeBalance,
     topupAmount: input.amount,
     topupCode: input.topupCode,
   });
@@ -344,7 +367,7 @@ async function notifyWalletTopup(
     data: {
       topupCode: input.topupCode,
       amount: input.amount,
-      balance: result.newBalance,
+      balance: jsonSafeBalance,
     },
   });
 }

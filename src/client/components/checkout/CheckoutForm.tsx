@@ -40,6 +40,7 @@ interface CheckoutFormProps {
 
 interface CreateOrderResponse {
   orderId?: string;
+  paymentRequired?: boolean;
   error?: string;
 }
 
@@ -523,6 +524,13 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
         throw new Error(data.error || 'Lỗi tạo đơn hàng');
       }
 
+      if (data.paymentRequired === false) {
+        toast.success('Đơn hàng miễn phí đã được xác nhận!');
+        clearCart();
+        router.push(`/payment/${data.orderId}`);
+        return;
+      }
+
       // 2. Phân nhánh xử lý theo phương thức thanh toán đã chọn
       if (paymentMethod === 'WALLET') {
         const payRes = await fetch('/api/wallet/pay', {
@@ -541,7 +549,7 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
         return;
       }
 
-      // Mặc định: Chuyển sang trang hiển thị VietQR (Casso)
+      // Mặc định: Chuyển sang trang hiển thị SePay/VietQR.
       toast.success('Đặt hàng thành công! Đang chuyển đến cổng thanh toán QR...');
       clearCart();
       router.push(`/payment/${data.orderId}`);

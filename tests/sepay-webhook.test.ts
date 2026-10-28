@@ -82,6 +82,8 @@ function orderRecord() {
 function createDependencies(options: {
   request?: ReturnType<typeof requestRecord> | null;
   duplicate?: boolean;
+  resumeDuplicate?: boolean;
+  claimLost?: boolean;
 } = {}) {
   const state = {
     ledgers: [] as Array<Record<string, unknown>>,
@@ -92,9 +94,9 @@ function createDependencies(options: {
   const paymentRequest = options.request === undefined ? requestRecord() : options.request;
   const tx = {
     bankTransfer: {
-      update: async (args: Record<string, unknown>) => {
+      updateMany: async (args: Record<string, unknown>) => {
         state.updates.push(args);
-        return { id: 'ledger_1' };
+        return { count: options.claimLost ? 0 : 1 };
       },
     },
   };
@@ -111,11 +113,26 @@ function createDependencies(options: {
           state.ledgers.push(data);
           return { id: 'ledger_1', ...data };
         },
-        update: tx.bankTransfer.update,
+        findUnique: async () => options.resumeDuplicate
+          ? { id: 'ledger_1', status: 'PENDING_REVIEW', reviewReason: null }
+          : { id: 'ledger_1', status: 'APPLIED_ORDER', reviewReason: null },
+        update: async (args: Record<string, unknown>) => {
+          state.updates.push(args);
+          return { id: 'ledger_1' };
+        },
+        updateMany: async (args: Record<string, unknown>) => {
+          state.updates.push(args);
+          return { count: 1 };
+        },
       },
       $transaction: async <T>(work: (client: typeof tx) => Promise<T>) => work(tx),
     },
-    applyOrderPayment: async () => {
+    applyOrderPayment: async (client) => {
+      const claimed = await client.bankTransfer.updateMany({
+        where: { id: 'ledger_1', status: 'PENDING_REVIEW', reviewReason: null },
+        data: { status: 'APPLIED_ORDER' },
+      });
+      if (claimed.count !== 1) return null;
       state.orderPayments += 1;
       return { id: 'payment_1' };
     },
@@ -184,6 +201,36 @@ describe('SePay webhook', () => {
     assert.deepEqual(await response.json(), { success: true });
     assert.equal(state.orderPayments, 0);
     assert.equal(state.topups, 0);
+  });
+
+  it('resumes a valid pending ledger left by an interrupted delivery', async () => {
+    const { dependencies, state } = createDependencies({
+      duplicate: true,
+      resumeDuplicate: true,
+    });
+    const response = await handleSePayWebhook(signedRequest(payload()), dependencies);
+
+    assert.equal(response.status, 200);
+    assert.equal(state.orderPayments, 1);
+    assert.equal(state.topups, 0);
+  });
+
+  it('does not mutate payment state when reconciliation already claimed the ledger', async () => {
+    const { dependencies, state } = createDependencies({ claimLost: true });
+    const response = await handleSePayWebhook(signedRequest(payload()), dependencies);
+
+    assert.equal(response.status, 200);
+    assert.equal(state.orderPayments, 0);
+    assert.equal(state.topups, 0);
+  });
+
+  it('accepts an expired request when the bank received the money before its deadline', async () => {
+    const expiredRequest = requestRecord({ status: 'EXPIRED' });
+    const { dependencies, state } = createDependencies({ request: expiredRequest });
+    const response = await handleSePayWebhook(signedRequest(payload()), dependencies);
+
+    assert.equal(response.status, 200);
+    assert.equal(state.orderPayments, 1);
   });
 
   it('keeps a wrong amount in review and does not apply it', async () => {

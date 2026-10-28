@@ -94,6 +94,36 @@ describe('PaymentRequest persistence contract', () => {
     assert.equal(createCalls, 0);
   });
 
+  it('returns the concurrent winner when two creates race on one idempotency key', async () => {
+    const existing = requestRecord();
+    let findCalls = 0;
+    const store = {
+      paymentRequest: {
+        findUnique: async () => {
+          findCalls += 1;
+          return findCalls === 1 ? null : existing;
+        },
+        create: async () => {
+          throw new Error('unique constraint');
+        },
+        updateMany: async () => ({ count: 0 }),
+      },
+    } as PaymentRequestStore;
+
+    const result = await createPendingPaymentRequest(store, {
+      code: existing.code,
+      kind: existing.kind,
+      amount: existing.amount,
+      qrUrl: existing.qrUrl,
+      userId: existing.userId,
+      idempotencyKey: existing.idempotencyKey,
+      expiresAt: existing.expiresAt,
+    });
+
+    assert.equal(result, existing);
+    assert.equal(findCalls, 2);
+  });
+
   it('rejects reuse of an idempotency key with a different amount', async () => {
     const existing = requestRecord();
     const store = {
@@ -147,7 +177,7 @@ describe('PaymentRequest persistence contract', () => {
     assert.equal(data.amount, 200_000n);
   });
 
-  it('completes only a pending request whose expiry is after the transaction time', async () => {
+  it('completes a pending or expired request when the bank received money before expiry', async () => {
     let updateArgs: Record<string, unknown> | undefined;
     const store = {
       paymentRequest: {
@@ -164,7 +194,7 @@ describe('PaymentRequest persistence contract', () => {
     assert.equal(await completePendingPaymentRequest(store, 'NAP261027001', paidAt), true);
     assert.deepEqual(updateArgs?.where, {
       code: 'NAP261027001',
-      status: 'PENDING',
+      status: { in: ['PENDING', 'EXPIRED'] },
       expiresAt: { gt: paidAt },
     });
     assert.deepEqual(updateArgs?.data, { status: 'COMPLETED', completedAt: paidAt });

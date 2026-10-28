@@ -34,6 +34,7 @@ function dependencies(
   return {
     now: () => new Date('2026-10-27T15:20:00.000Z'),
     findByCode: async () => request,
+    expireByCode: async () => false,
     getCurrentUserId: async () => userId,
   };
 }
@@ -58,13 +59,37 @@ describe('SePay payment status', () => {
     });
   });
 
-  it('reports a pending request as expired once its deadline passes', async () => {
+  it('keeps a request pending during the webhook delivery grace window', async () => {
+    let expiredCode: string | null = null;
+    const deps = dependencies(paymentRequest({
+      expiresAt: new Date('2026-10-27T15:19:00.000Z'),
+    }));
+    deps.expireByCode = async (code) => {
+      expiredCode = code;
+      return true;
+    };
     const response = await getPaymentStatusResponse(
       'DH261027001',
-      dependencies(paymentRequest({ expiresAt: new Date('2026-10-27T15:19:00.000Z') }))
+      deps
     );
     const body = await response.json();
+    assert.equal(body.data.status, 'PENDING');
+    assert.equal(expiredCode, null);
+  });
+
+  it('reports a pending request as expired after the delivery grace window', async () => {
+    let expiredCode: string | null = null;
+    const deps = dependencies(paymentRequest({
+      expiresAt: new Date('2026-10-27T15:14:00.000Z'),
+    }));
+    deps.expireByCode = async (code) => {
+      expiredCode = code;
+      return true;
+    };
+    const response = await getPaymentStatusResponse('DH261027001', deps);
+    const body = await response.json();
     assert.equal(body.data.status, 'EXPIRED');
+    assert.equal(expiredCode, 'DH261027001');
   });
 
   it('requires authentication for a wallet top-up request', async () => {
@@ -89,7 +114,24 @@ describe('SePay payment status', () => {
       'NAP261027001',
       dependencies(topup, 'user_2')
     );
-    assert.equal(response.status, 403);
+    assert.equal(response.status, 404);
+  });
+
+  it('authenticates a NAP code before looking it up', async () => {
+    let lookupCalled = false;
+    const deps: PaymentStatusDependencies = {
+      now: () => new Date('2026-10-27T15:20:00.000Z'),
+      findByCode: async () => {
+        lookupCalled = true;
+        return null;
+      },
+      expireByCode: async () => false,
+      getCurrentUserId: async () => null,
+    };
+
+    const response = await getPaymentStatusResponse('NAP261027999', deps);
+    assert.equal(response.status, 401);
+    assert.equal(lookupCalled, false);
   });
 
   it('lets the owner read a completed wallet top-up state', async () => {
@@ -122,6 +164,12 @@ describe('SePay status polling UI', () => {
 
     assert.match(orderUi, /api\/payments\/\$\{encodeURIComponent\(orderCode\)\}/);
     assert.match(walletUi, /api\/payments\/\$\{encodeURIComponent\(topupData\.topupCode\)\}/);
+    assert.match(walletUi, /x-idempotency-key/);
+    assert.match(walletUi, /topupIdempotencyKeyRef/);
+    assert.match(orderUi, /PAYMENT_EXPIRY_GRACE_MS/);
+    assert.match(orderUi, /confirming/);
+    assert.match(walletUi, /PAYMENT_EXPIRY_GRACE_MS/);
+    assert.match(walletUi, /awaitingSettlement/);
     assert.match(orderUi, /SePay\/VietQR/);
     assert.match(walletUi, /SePay\/VietQR/);
     assert.doesNotMatch(walletUi, /Casso/);

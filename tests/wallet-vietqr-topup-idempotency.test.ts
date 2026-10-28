@@ -224,6 +224,10 @@ describe('VietQR Topup - Concurrency & Persistent Idempotency Guard (Pillar 3)',
     assert.equal((createdTx as Record<string, unknown>).amount, 200000n);
     assert.equal((createdTx as Record<string, unknown>).type, 'TOPUP');
     assert.equal((createdTx as Record<string, unknown>).orderId, 'NAP888999111');
+    assert.equal(
+      (createdTx as Record<string, unknown>).idempotencyKey,
+      'wallet-topup:NAP888999111'
+    );
   });
 
   it('should PREVENT double crediting on replayed webhook (Persistent Idempotency Guard)', async () => {

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { pusherClient } from '@client/infrastructure/pusher-client';
 import { formatVND, formatCountdown } from '@shared/utils';
+import { PAYMENT_EXPIRY_GRACE_MS } from '@shared/constants';
 import { AlertTriangle, CheckCircle, Clock } from 'lucide-react';
 import type { QRPaymentData } from '@shared/types';
 
@@ -23,7 +24,7 @@ export function QRPayment({
   userId,
   initialPaymentStatus = 'waiting',
 }: QRPaymentProps) {
-  const [paymentStatus, setPaymentStatus] = useState<'waiting' | 'paid' | 'expired'>(initialPaymentStatus);
+  const [paymentStatus, setPaymentStatus] = useState<'waiting' | 'confirming' | 'paid' | 'expired'>(initialPaymentStatus);
   const [timeLeft, setTimeLeft] = useState(0);
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -31,17 +32,27 @@ export function QRPayment({
   const transferContent = getQrTransferContent(qrUrl, orderCode);
 
   useEffect(() => {
-    if (paymentStatus === 'paid') return;
+    if (paymentStatus === 'paid' || paymentStatus === 'expired') return;
     const interval = setInterval(() => {
-      const remaining = Math.max(0, new Date(expiresAt).getTime() - Date.now());
-      setTimeLeft(remaining);
-      if (remaining <= 0) setPaymentStatus('expired');
+      const deadline = new Date(expiresAt).getTime();
+      const remaining = deadline - Date.now();
+      const settlementRemaining = deadline + PAYMENT_EXPIRY_GRACE_MS - Date.now();
+      if (remaining > 0) {
+        setTimeLeft(remaining);
+        setPaymentStatus('waiting');
+      } else if (settlementRemaining > 0) {
+        setTimeLeft(settlementRemaining);
+        setPaymentStatus('confirming');
+      } else {
+        setTimeLeft(0);
+        setPaymentStatus('expired');
+      }
     }, 1000);
     return () => clearInterval(interval);
   }, [expiresAt, paymentStatus]);
 
   useEffect(() => {
-    if (!userId || paymentStatus === 'paid') return;
+    if (!userId || paymentStatus === 'paid' || paymentStatus === 'expired') return;
     const channel = pusherClient.subscribe(`private-user-${userId}`);
     channel.bind('payment-success', (data: { orderId?: string; orderCode?: string }) => {
       if (
@@ -58,7 +69,7 @@ export function QRPayment({
   }, [userId, orderCode, orderId, paymentStatus]);
 
   useEffect(() => {
-    if (paymentStatus !== 'waiting') return;
+    if (paymentStatus === 'paid' || paymentStatus === 'expired') return;
     let stopped = false;
 
     const pollStatus = async () => {
@@ -121,6 +132,25 @@ export function QRPayment({
         >
           Quay lại trang chủ
         </Link>
+      </div>
+    );
+  }
+
+  if (paymentStatus === 'confirming') {
+    return (
+      <div className="max-w-md mx-auto p-10 bg-white rounded-[28px] shadow-card text-center">
+        <div className="w-16 h-16 bg-canvas-mist rounded-full flex items-center justify-center mx-auto mb-4 text-ink-black">
+          <div className="w-7 h-7 border-2 border-ink-black border-t-transparent rounded-full animate-spin" />
+        </div>
+        <h2 className="text-xl font-semibold text-ink-black tracking-[-0.05em] mb-1">
+          Đang xác nhận giao dịch
+        </h2>
+        <p className="text-muted-gray text-xs mb-4 tracking-[-0.014em]">
+          Mã QR đã đóng. Hệ thống vẫn kiểm tra giao dịch đã chuyển trước hạn; vui lòng không chuyển thêm.
+        </p>
+        <p className="font-mono text-xl font-semibold text-ink-black tracking-tight-display">
+          {formatCountdown(timeLeft)}
+        </p>
       </div>
     );
   }

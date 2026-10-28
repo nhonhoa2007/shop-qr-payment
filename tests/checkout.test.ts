@@ -141,4 +141,15 @@ describe('Checkout Payment Methods Invariant', () => {
     // Channels are VietQR and Wallet
     assert.match(checkoutSource, /type PaymentMethodType = 'VIETQR' \| 'WALLET'/);
   });
+
+  it('auto-confirms zero-total orders without trying to generate a SePay QR', async () => {
+    const fs = await import('node:fs');
+    const orderSource = fs.readFileSync('src/server/modules/orders/orders.controller.ts', 'utf-8');
+    const checkoutSource = fs.readFileSync('src/client/components/checkout/CheckoutForm.tsx', 'utf-8');
+
+    assert.match(orderSource, /const requiresPayment = finalTotalAmount > 0n/);
+    assert.match(orderSource, /if \(requiresPayment\) \{\s*await createOrderPaymentRequest/);
+    assert.match(orderSource, /paymentRequired: requiresPayment/);
+    assert.match(checkoutSource, /data\.paymentRequired === false/);
+  });
 });

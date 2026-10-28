@@ -4,6 +4,7 @@ import { authOptions } from '@server/modules/auth/auth-options';
 import { checkDistributedRateLimit, getClientIp } from '@server/infrastructure/rate-limit';
 import { prisma } from '@server/database/prisma';
 import {
+  completeLegacyWalletTopupSession,
   createWalletTopupPaymentLink,
   getWalletTopupSession,
   processWalletTopup,
@@ -15,7 +16,7 @@ interface CreateWalletTopupBody {
 }
 
 /**
- * Controller xử lý yêu cầu khởi tạo phiên nạp tiền ví điện tử qua VietQR (Casso)
+ * Controller xử lý yêu cầu khởi tạo phiên nạp tiền ví điện tử qua SePay/VietQR.
  *
  * @endpoint POST /api/wallet/topup
  * @security
@@ -100,7 +101,7 @@ export const POST = HandleCreateWalletTopup;
  * DEV SANDBOX ONLY — mô phỏng "khách đã quét QR & chuyển khoản thành công".
  *
  * @endpoint POST /api/wallet/topup/simulate
- * Chỉ tồn tại để demo/test nạp ví trên máy local (không có Casso webhook gọi về localhost).
+ * Chỉ tồn tại để demo/test nạp ví trên máy local (không có SePay webhook gọi về localhost).
  * Endpoint tự vô hiệu ở production: mọi request đều bị từ chối 404.
  */
 export async function HandleSimulateWalletTopup(req: Request) {
@@ -128,13 +129,21 @@ export async function HandleSimulateWalletTopup(req: Request) {
       );
     }
 
-    const result = await processWalletTopup(prisma, {
+    const bankTransId = `SANDBOX_${Date.now()}`;
+    const result = await prisma.$transaction((tx) => processWalletTopup(tx, {
       topupCode: topupSession.topupCode,
       amount: Number(topupSession.amount),
       userId: topupSession.userId,
-      bankTransId: `SANDBOX_${Date.now()}`,
+      bankTransId,
       description: `Nạp tiền vào ví (${topupSession.topupCode}) [dev sandbox]`,
-    });
+    }));
+
+    if (result.success && result.legacySession) {
+      await completeLegacyWalletTopupSession(
+        topupSession.topupCode,
+        result.alreadyProcessed ? undefined : bankTransId
+      );
+    }
 
     if (!result.success) {
       return NextResponse.json({ message: result.error || 'Mô phỏng nạp tiền thất bại' }, { status: 400 });

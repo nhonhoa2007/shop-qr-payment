@@ -3,7 +3,9 @@ import { getServerSession } from 'next-auth';
 import { prisma } from '@server/database/prisma';
 import { authOptions } from '@server/modules/auth/auth-options';
 import {
+  expirePendingPaymentRequest,
   findPaymentRequestByCode,
+  isPaymentRequestPastGrace,
   type PaymentRequestRecord,
   type PaymentRequestStore,
 } from '@server/modules/payment/payment-request.service';
@@ -11,6 +13,7 @@ import {
 export interface PaymentStatusDependencies {
   now(): Date;
   findByCode(code: string): Promise<PaymentRequestRecord | null>;
+  expireByCode(code: string, now: Date): Promise<boolean>;
   getCurrentUserId(): Promise<string | null>;
 }
 
@@ -30,25 +33,39 @@ export async function getPaymentStatusResponse(
     return json({ error: 'Mã thanh toán không hợp lệ' }, 400);
   }
 
-  const request = await deps.findByCode(code);
+  let currentUserId: string | null = null;
+  if (code.startsWith('NAP')) {
+    currentUserId = await deps.getCurrentUserId();
+    if (!currentUserId) return json({ error: 'Unauthorized' }, 401);
+  }
+
+  let request = await deps.findByCode(code);
   if (!request) return json({ error: 'Không tìm thấy yêu cầu thanh toán' }, 404);
 
   if (request.kind === 'WALLET_TOPUP') {
-    const userId = await deps.getCurrentUserId();
-    if (!userId) return json({ error: 'Unauthorized' }, 401);
-    if (request.userId !== userId) return json({ error: 'Forbidden' }, 403);
+    currentUserId ??= await deps.getCurrentUserId();
+    if (!currentUserId) return json({ error: 'Unauthorized' }, 401);
+    if (request.userId !== currentUserId) {
+      return json({ error: 'Không tìm thấy yêu cầu thanh toán' }, 404);
+    }
   }
 
-  const status = request.status === 'PENDING' && request.expiresAt <= deps.now()
-    ? 'EXPIRED'
-    : request.status;
+  const now = deps.now();
+  if (request.status === 'PENDING' && isPaymentRequestPastGrace(request.expiresAt, now)) {
+    const expired = await deps.expireByCode(code, now);
+    if (expired) {
+      request = { ...request, status: 'EXPIRED' };
+    } else {
+      request = await deps.findByCode(code) ?? request;
+    }
+  }
 
   return json({
     success: true,
     data: {
       code: request.code,
       kind: request.kind,
-      status,
+      status: request.status,
       expiresAt: request.expiresAt.toISOString(),
       completedAt: request.completedAt?.toISOString() ?? null,
     },
@@ -61,6 +78,11 @@ function createDefaultDependencies(): PaymentStatusDependencies {
     findByCode: (code) => findPaymentRequestByCode(
       prisma as unknown as PaymentRequestStore,
       code
+    ),
+    expireByCode: (code, now) => expirePendingPaymentRequest(
+      prisma as unknown as PaymentRequestStore,
+      code,
+      now
     ),
     getCurrentUserId: async () => {
       const session = await getServerSession(authOptions);

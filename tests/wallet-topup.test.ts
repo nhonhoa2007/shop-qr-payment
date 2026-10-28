@@ -4,7 +4,7 @@ import { generateTopupCode } from '../src/shared/utils/index.ts';
 import { parseTopupCodeFromDescription,
   safeCompare,
   evaluateTopupWebhookDecision, } from '@server/modules/payment/vietqr-parser.service';
-import { createWalletTopupSession, getWalletTopupSession, getWalletTopupSessionByIdempotencyToken, processWalletTopup, createWalletTopupPaymentLink, inFlightTopupLocks } from '@server/modules/wallet/wallet-topup.service';
+import { completeLegacyWalletTopupSession, createWalletTopupSession, getWalletTopupSession, getWalletTopupSessionByIdempotencyToken, processWalletTopup, createWalletTopupPaymentLink, inMemoryTopupStore } from '@server/modules/wallet/wallet-topup.service';
 import { createPaymentRequestTestStore, withTestBankEnv } from './helpers/payment-request-store.ts';
 
 type TxClient = Parameters<typeof processWalletTopup>[0];
@@ -193,6 +193,59 @@ describe('Wallet Topup - evaluateTopupWebhookDecision (Decision Matrix)', () => 
 });
 
 describe('Wallet Topup - processWalletTopup Core Engine', () => {
+  it('keeps processing legacy Casso sessions when no PaymentRequest exists', async () => {
+    const topupCode = 'NAP261027622';
+    const legacySession = {
+      topupCode,
+      userId: 'u_legacy',
+      amount: 100_000,
+      status: 'PENDING' as const,
+      idempotencyToken: 'legacy-idempotency-token',
+      createdAt: '2026-10-27T14:00:00.000Z',
+    };
+    inMemoryTopupStore.set(topupCode, legacySession);
+    let requestClaimAttempted = false;
+    const fakeWallet = { id: 'w_legacy', userId: 'u_legacy', balance: 50_000n };
+    const fakeTx = {
+      paymentRequest: {
+        findUnique: async () => null,
+        updateMany: async () => {
+          requestClaimAttempted = true;
+          return { count: 0 };
+        },
+      },
+      userWallet: {
+        findUnique: async () => fakeWallet,
+        update: async ({ data }: { data: { balance: { increment: bigint } } }) => ({
+          ...fakeWallet,
+          balance: fakeWallet.balance + data.balance.increment,
+        }),
+      },
+      walletTransaction: {
+        findFirst: async () => null,
+        create: async ({ data }: { data: Record<string, unknown> }) => ({ id: 'wtx_legacy', ...data }),
+      },
+    } as unknown as TxClient;
+
+    try {
+      const result = await processWalletTopup(fakeTx, {
+        topupCode,
+        amount: 100_000,
+        bankTransId: 'legacy-bank-transaction',
+      });
+
+      assert.equal(result.success, true);
+      assert.equal(result.newBalance, 150_000n);
+      assert.equal(requestClaimAttempted, false);
+      assert.equal(result.legacySession, true);
+      assert.equal(inMemoryTopupStore.get(topupCode)?.status, 'PENDING');
+      await completeLegacyWalletTopupSession(topupCode, 'legacy-bank-transaction');
+      assert.equal(inMemoryTopupStore.get(topupCode)?.status, 'COMPLETED');
+    } finally {
+      inMemoryTopupStore.delete(topupCode);
+    }
+  });
+
   it('does not credit the wallet when the durable request is expired or already claimed', async () => {
     let walletUpdateCalled = false;
     const fakeWallet = { id: 'w_expired', userId: 'u_expired', balance: 50_000n };
@@ -285,6 +338,7 @@ describe('Wallet Topup - processWalletTopup Core Engine', () => {
       amount: 100_000n,
       type: 'TOPUP',
       orderId: 'NAP260924777',
+      idempotencyKey: 'wallet-topup:NAP260924777',
       description: 'Nạp tiền vào ví (NAP260924777) [FT_BANK_777]',
     });
   });
@@ -332,41 +386,11 @@ describe('Wallet Topup - processWalletTopup Core Engine', () => {
     assert.equal(walletUpdateCalled, false, 'Số dư ví tuyệt đối không được cộng lần thứ 2');
   });
 
-  it('should prevent concurrent race conditions when inFlight lock is held', async () => {
-    let walletUpdateCalled = false;
-    const fakeWallet = { id: 'w_101', userId: 'u_user_99', balance: 250_000 };
-    const fakeTx = {
-      userWallet: {
-        findUnique: async () => fakeWallet,
-        update: async () => {
-          walletUpdateCalled = true;
-          return fakeWallet;
-        },
-      },
-      walletTransaction: {
-        findFirst: async () => null,
-        create: async () => {
-          throw new Error('Should not create transaction while locked');
-        },
-      },
-    } as unknown as TxClient;
-
-    const lockKey = 'NAP_LOCK_TEST_01';
-    inFlightTopupLocks.add(lockKey);
-
-    try {
-      const res = await processWalletTopup(fakeTx, {
-        topupCode: lockKey,
-        amount: 200_000,
-        userId: 'u_user_99',
-      });
-
-      assert.equal(res.success, true);
-      assert.equal(res.alreadyProcessed, true);
-      assert.equal(walletUpdateCalled, false, 'Số dư ví không được cộng khi lock đang bị giữ');
-    } finally {
-      inFlightTopupLocks.delete(lockKey);
-    }
+  it('writes a durable unique idempotency key with every top-up ledger entry', async () => {
+    const schema = await import('node:fs/promises').then(({ readFile }) => (
+      readFile(new URL('../prisma/schema.prisma', import.meta.url), 'utf8')
+    ));
+    assert.match(schema, /idempotencyKey\s+String\?\s+@unique/);
   });
 });
 

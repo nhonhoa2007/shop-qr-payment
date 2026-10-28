@@ -1,4 +1,5 @@
 import type { WalletTopupSession } from '@shared/types';
+import { PAYMENT_EXPIRY_GRACE_MS } from '@shared/constants';
 
 export type PaymentRequestKindValue = 'ORDER' | 'WALLET_TOPUP';
 export type PaymentRequestStatusValue = 'PENDING' | 'COMPLETED' | 'EXPIRED';
@@ -73,9 +74,8 @@ export async function createPendingPaymentRequest(
   if (!code) throw new Error('Mã thanh toán không được để trống');
   if (amount <= 0n) throw new Error('Số tiền thanh toán phải lớn hơn 0');
 
-  const existing = await store.paymentRequest.findUnique({
-    where: idempotencyKey ? { idempotencyKey } : { code },
-  });
+  const lookupWhere = idempotencyKey ? { idempotencyKey } : { code };
+  const existing = await store.paymentRequest.findUnique({ where: lookupWhere });
   if (existing) {
     if (!sameRequest(existing, input, amount)) {
       throw new Error('Idempotency key đã được dùng cho yêu cầu khác');
@@ -83,20 +83,28 @@ export async function createPendingPaymentRequest(
     return existing;
   }
 
-  return store.paymentRequest.create({
-    data: {
-      code,
-      kind: input.kind,
-      status: 'PENDING',
-      provider: 'SEPAY',
-      amount,
-      qrUrl: input.qrUrl,
-      userId: input.userId ?? null,
-      orderId: input.orderId ?? null,
-      idempotencyKey,
-      expiresAt: input.expiresAt,
-    },
-  });
+  try {
+    return await store.paymentRequest.create({
+      data: {
+        code,
+        kind: input.kind,
+        status: 'PENDING',
+        provider: 'SEPAY',
+        amount,
+        qrUrl: input.qrUrl,
+        userId: input.userId ?? null,
+        orderId: input.orderId ?? null,
+        idempotencyKey,
+        expiresAt: input.expiresAt,
+      },
+    });
+  } catch (error) {
+    const concurrentWinner = await store.paymentRequest.findUnique({ where: lookupWhere });
+    if (concurrentWinner && sameRequest(concurrentWinner, input, amount)) {
+      return concurrentWinner;
+    }
+    throw error;
+  }
 }
 
 export function createOrderPaymentRequest(
@@ -131,7 +139,7 @@ export async function completePendingPaymentRequest(
   const changed = await store.paymentRequest.updateMany({
     where: {
       code: normalizeCode(code),
-      status: 'PENDING',
+      status: { in: ['PENDING', 'EXPIRED'] },
       expiresAt: { gt: completedAt },
     },
     data: { status: 'COMPLETED', completedAt },
@@ -144,15 +152,20 @@ export async function expirePendingPaymentRequest(
   code: string,
   now = new Date()
 ): Promise<boolean> {
+  const expiryCutoff = new Date(now.getTime() - PAYMENT_EXPIRY_GRACE_MS);
   const changed = await store.paymentRequest.updateMany({
     where: {
       code: normalizeCode(code),
       status: 'PENDING',
-      expiresAt: { lte: now },
+      expiresAt: { lte: expiryCutoff },
     },
     data: { status: 'EXPIRED' },
   });
   return changed.count === 1;
+}
+
+export function isPaymentRequestPastGrace(expiresAt: Date, now = new Date()): boolean {
+  return expiresAt.getTime() + PAYMENT_EXPIRY_GRACE_MS <= now.getTime();
 }
 
 export function paymentRequestToTopupSession(

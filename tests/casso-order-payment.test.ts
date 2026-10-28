@@ -31,7 +31,7 @@ describe('Casso order payment transaction', () => {
     const tx = {
       order: { updateMany: async () => ({ count: 1 }) },
       transaction: { create: async () => ({ id: 'payment_1' }) },
-      bankTransfer: { update: async () => ({ id: 'ledger_1' }) },
+      bankTransfer: { updateMany: async () => ({ count: 1 }) },
       adminAuditLog: {
         findUnique: async () => null,
         create: async ({ data }: { data: Record<string, unknown> }) => {
@@ -50,9 +50,11 @@ describe('Casso order payment transaction', () => {
   it('returns null and does not enqueue when the payment CAS loses', async () => {
     let enqueueCalled = false;
     const tx = {
-      order: { updateMany: async () => ({ count: 0 }) },
+      order: { updateMany: async () => {
+        assert.fail('Order must not change after the ledger claim loses');
+      } },
       transaction: { create: async () => ({ id: 'must_not_create' }) },
-      bankTransfer: { update: async () => ({ id: 'must_not_update' }) },
+      bankTransfer: { updateMany: async () => ({ count: 0 }) },
       adminAuditLog: {
         findUnique: async () => null,
         create: async () => {
@@ -70,7 +72,7 @@ describe('Casso order payment transaction', () => {
     const tx = {
       order: { updateMany: async () => ({ count: 1 }) },
       transaction: { create: async () => ({ id: 'payment_1' }) },
-      bankTransfer: { update: async () => ({ id: 'ledger_1' }) },
+      bankTransfer: { updateMany: async () => ({ count: 1 }) },
       adminAuditLog: {
         findUnique: async () => null,
         create: async () => { throw new Error('outbox unavailable'); },
@@ -93,7 +95,7 @@ describe('Shared bank order payment transaction', () => {
         },
       },
       transaction: { create: async () => ({ id: 'payment_1' }) },
-      bankTransfer: { update: async () => ({ id: 'ledger_1' }) },
+      bankTransfer: { updateMany: async () => ({ count: 1 }) },
       adminAuditLog: {
         findUnique: async () => null,
         create: async ({ data }: { data: Record<string, unknown> }) => ({ id: 'outbox_1', ...data }),
@@ -108,7 +110,7 @@ describe('Shared bank order payment transaction', () => {
     assert.deepEqual(requestUpdate?.where, {
       code: 'DH261027001',
       kind: 'ORDER',
-      status: 'PENDING',
+      status: { in: ['PENDING', 'EXPIRED'] },
       expiresAt: { gt: paymentInput().now },
     });
   });
@@ -118,7 +120,7 @@ describe('Shared bank order payment transaction', () => {
       order: { updateMany: async () => ({ count: 1 }) },
       paymentRequest: { updateMany: async () => ({ count: 0 }) },
       transaction: { create: async () => ({ id: 'must_not_create' }) },
-      bankTransfer: { update: async () => ({ id: 'must_not_update' }) },
+      bankTransfer: { updateMany: async () => ({ count: 1 }) },
       adminAuditLog: {
         findUnique: async () => null,
         create: async () => ({ id: 'must_not_enqueue' }),

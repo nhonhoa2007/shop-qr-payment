@@ -773,14 +773,15 @@ model UserWallet {
 }
 
 model WalletTransaction {
-  id          String       @id @default(cuid())
-  walletId    String
-  wallet      UserWallet   @relation(fields: [walletId], references: [id], onDelete: Cascade)
-  amount      BigInt
-  type        WalletTxType
-  orderId     String?
-  description String
-  createdAt   DateTime     @default(now())
+  id             String       @id @default(cuid())
+  walletId       String
+  wallet         UserWallet   @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  amount         BigInt
+  type           WalletTxType
+  orderId        String?
+  idempotencyKey String?      @unique
+  description    String
+  createdAt      DateTime     @default(now())
 
   @@index([walletId, createdAt])
 }

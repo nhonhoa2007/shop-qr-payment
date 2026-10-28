@@ -131,16 +131,19 @@ export async function POST(req: Request) {
 
     const finalTotalAmountBigInt = validatedSubtotalBigInt + validatedShippingFeeBigInt - discountAmountBigInt;
     const finalTotalAmount = finalTotalAmountBigInt < 0n ? 0n : finalTotalAmountBigInt;
+    const requiresPayment = finalTotalAmount > 0n;
     const orderCode = generateOrderCode();
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
     const bankInfo = getBankInfo();
-    const qrUrl = generateVietQRUrl({
-      bankId: bankInfo.bankId,
-      accountNo: bankInfo.accountNo,
-      accountName: bankInfo.accountName,
-      amount: Number(finalTotalAmount),
-      orderId: orderCode,
-    });
+    const qrUrl = requiresPayment
+      ? generateVietQRUrl({
+          bankId: bankInfo.bankId,
+          accountNo: bankInfo.accountNo,
+          accountName: bankInfo.accountName,
+          amount: Number(finalTotalAmount),
+          orderId: orderCode,
+        })
+      : '';
 
     const order = await prisma.$transaction(async (tx) => {
       const failedId = await reserveOrderStock(tx, validated.orderItems!, `order:${orderCode}:reserve`);
@@ -224,6 +227,8 @@ export async function POST(req: Request) {
           couponId: couponRecord?.id || null,
           couponCode: couponRecord?.code || null,
           totalAmount: finalTotalAmount,
+          status: requiresPayment ? 'PENDING' : 'CONFIRMED',
+          paymentStatus: requiresPayment ? 'UNPAID' : 'PAID',
           packingSnapshot: (validated.packingSnapshot as unknown as Prisma.InputJsonValue) ?? undefined,
           packingRevision: validated.packingRevision || null,
           qrContent: qrUrl,
@@ -236,14 +241,16 @@ export async function POST(req: Request) {
         include: { items: { include: { product: true, variant: true } } },
       });
 
-      await createOrderPaymentRequest(tx as unknown as PaymentRequestStore, {
-        orderId: createdOrder.id,
-        orderCode: createdOrder.orderCode,
-        userId: createdOrder.userId,
-        amount: createdOrder.totalAmount,
-        qrUrl,
-        expiresAt,
-      });
+      if (requiresPayment) {
+        await createOrderPaymentRequest(tx as unknown as PaymentRequestStore, {
+          orderId: createdOrder.id,
+          orderCode: createdOrder.orderCode,
+          userId: createdOrder.userId,
+          amount: createdOrder.totalAmount,
+          qrUrl,
+          expiresAt,
+        });
+      }
 
       if (couponRecord) {
         const claimed = await tx.coupon.updateMany({
@@ -332,7 +339,9 @@ export async function POST(req: Request) {
         userId: session.user.id,
         type: 'ORDER_CREATED',
         title: 'Đơn hàng đã tạo',
-        message: `Đơn hàng ${orderCode} - Vui lòng thanh toán trong 15 phút`,
+        message: requiresPayment
+          ? `Đơn hàng ${orderCode} - Vui lòng thanh toán trong 15 phút`
+          : `Đơn hàng ${orderCode} đã được xác nhận`,
         data: { orderId: order.id, orderCode },
       });
     }
@@ -359,6 +368,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       orderId: order.id,
       orderCode,
+      paymentRequired: requiresPayment,
       qrUrl,
       subtotal: serializeMoneyVnd(validatedSubtotalBigInt),
       shippingFee: serializeMoneyVnd(validatedShippingFeeBigInt),

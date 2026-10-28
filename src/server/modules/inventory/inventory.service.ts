@@ -1,5 +1,6 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { normalizeOrderStockItems } from '@shared/types/inventory';
+import { PAYMENT_EXPIRY_GRACE_MS } from '@shared/constants';
 import { applyInventoryMovement, InsufficientStockError } from '@server/modules/inventory/inventory-ledger.service';
 
 type TransactionClient = Prisma.TransactionClient | PrismaClient;
@@ -210,11 +211,13 @@ export async function quarantineReturnedStock(
  * Tác vụ định kỳ (Cron / Background Worker) tự động quét và hủy các đơn hàng chưa thanh toán đã quá hạn.
  */
 export async function expireUnpaidOrders(prisma: PrismaClient): Promise<number> {
+  const now = new Date();
+  const expiryCutoff = new Date(now.getTime() - PAYMENT_EXPIRY_GRACE_MS);
   const expiredOrders = await prisma.order.findMany({
     where: {
       status: 'PENDING',
       paymentStatus: 'UNPAID',
-      expiresAt: { lt: new Date() },
+      expiresAt: { lt: expiryCutoff },
     },
     include: { items: true },
   });
@@ -226,6 +229,7 @@ export async function expireUnpaidOrders(prisma: PrismaClient): Promise<number> 
           id: order.id,
           status: 'PENDING',
           paymentStatus: 'UNPAID',
+          expiresAt: { lt: expiryCutoff },
         },
         data: {
           status: 'CANCELLED',
@@ -234,6 +238,15 @@ export async function expireUnpaidOrders(prisma: PrismaClient): Promise<number> 
       });
 
       if (updated.count > 0) {
+        await tx.paymentRequest.updateMany({
+          where: {
+            orderId: order.id,
+            status: 'PENDING',
+            expiresAt: { lte: expiryCutoff },
+          },
+          data: { status: 'EXPIRED' },
+        });
+
         await releaseOrderStock(tx, order.items, `order:${order.id}:expire`);
 
         if (order.couponId) {
@@ -260,6 +273,15 @@ export async function expireUnpaidOrders(prisma: PrismaClient): Promise<number> 
       }
     });
   }
+
+  await prisma.paymentRequest.updateMany({
+    where: {
+      kind: 'WALLET_TOPUP',
+      status: 'PENDING',
+      expiresAt: { lte: expiryCutoff },
+    },
+    data: { status: 'EXPIRED' },
+  });
 
   return expiredOrders.length;
 }

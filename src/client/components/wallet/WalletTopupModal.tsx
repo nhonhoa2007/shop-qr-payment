@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import { pusherClient } from '@client/infrastructure/pusher-client';
 import { formatVND, formatCountdown } from '@shared/utils';
+import { PAYMENT_EXPIRY_GRACE_MS } from '@shared/constants';
 import { toast } from 'sonner';
 import {
   QrCode,
@@ -56,12 +57,14 @@ export function WalletTopupModal({
   const [topupData, setTopupData] = useState<WalletTopupResponse | null>(null);
   const [expiresAt, setExpiresAt] = useState<number>(0);
   const [timeLeft, setTimeLeft] = useState<number>(0);
+  const [awaitingSettlement, setAwaitingSettlement] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [successInfo, setSuccessInfo] = useState<{
     newBalance: number | string | bigint;
     amount: number | string | bigint;
     topupCode: string;
   } | null>(null);
+  const topupIdempotencyKeyRef = useRef<string | null>(null);
 
   // Khôi phục trạng thái ban đầu khi đóng modal
   const handleResetAndClose = useCallback(() => {
@@ -72,6 +75,8 @@ export function WalletTopupModal({
     setSimulating(false);
     setTopupData(null);
     setSuccessInfo(null);
+    setAwaitingSettlement(false);
+    topupIdempotencyKeyRef.current = null;
     onClose();
   }, [onClose]);
 
@@ -99,10 +104,19 @@ export function WalletTopupModal({
     if (step !== 'QR_PAYMENT' || !expiresAt) return;
 
     const interval = setInterval(() => {
-      const remaining = Math.max(0, expiresAt - Date.now());
-      setTimeLeft(remaining);
-      if (remaining <= 0) {
+      const remaining = expiresAt - Date.now();
+      const settlementRemaining = expiresAt + PAYMENT_EXPIRY_GRACE_MS - Date.now();
+      if (remaining > 0) {
+        setTimeLeft(remaining);
+        setAwaitingSettlement(false);
+      } else if (settlementRemaining > 0) {
+        setTimeLeft(settlementRemaining);
+        setAwaitingSettlement(true);
+      } else {
+        setTimeLeft(0);
+        setAwaitingSettlement(false);
         toast.error('Phiên nạp tiền đã hết hạn. Vui lòng tạo mã QR mới.');
+        topupIdempotencyKeyRef.current = null;
         setStep('SELECT_AMOUNT');
       }
     }, 1000);
@@ -117,7 +131,7 @@ export function WalletTopupModal({
     const channel = pusherClient.subscribe(`private-user-${userId}`);
 
     const handleWalletUpdated = (data: {
-      balance: number;
+      balance: number | string;
       topupCode?: string;
       topupAmount?: number;
     }) => {
@@ -172,6 +186,8 @@ export function WalletTopupModal({
         const statusBody = await statusResponse.json();
         if (statusBody.data?.status === 'EXPIRED') {
           toast.error('Phiên nạp tiền đã hết hạn. Vui lòng tạo mã QR mới.');
+          topupIdempotencyKeyRef.current = null;
+          setAwaitingSettlement(false);
           setStep('SELECT_AMOUNT');
           return;
         }
@@ -203,12 +219,14 @@ export function WalletTopupModal({
 
   // Xử lý chọn mốc nạp nhanh
   const handleSelectPreset = (value: number) => {
+    topupIdempotencyKeyRef.current = null;
     setSelectedAmount(value);
     setCustomAmountInput(new Intl.NumberFormat('vi-VN').format(value));
   };
 
   // Xử lý gõ số tiền tùy chọn
   const handleCustomAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    topupIdempotencyKeyRef.current = null;
     const rawVal = e.target.value.replace(/\D/g, '');
     if (!rawVal) {
       setSelectedAmount(0);
@@ -233,10 +251,15 @@ export function WalletTopupModal({
 
     setLoading(true);
     try {
+      const idempotencyKey = topupIdempotencyKeyRef.current ?? crypto.randomUUID();
+      topupIdempotencyKeyRef.current = idempotencyKey;
       const res = await fetch('/api/wallet/topup', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: selectedAmount }),
+        headers: {
+          'Content-Type': 'application/json',
+          'x-idempotency-key': idempotencyKey,
+        },
+        body: JSON.stringify({ amount: selectedAmount, idempotencyToken: idempotencyKey }),
       });
 
       const json = await res.json();
@@ -249,6 +272,7 @@ export function WalletTopupModal({
       const expireTime = new Date(json.data.expiresAt).getTime();
       setExpiresAt(expireTime);
       setTimeLeft(Math.max(0, expireTime - Date.now()));
+      setAwaitingSettlement(false);
       setStep('QR_PAYMENT');
     } catch {
       toast.error('Lỗi kết nối máy chủ khi tạo mã nạp ví');
@@ -483,7 +507,9 @@ export function WalletTopupModal({
               <div className="flex items-center justify-between bg-amber-50/80 border border-amber-200/80 rounded-2xl px-4 py-2.5 text-amber-800 text-xs">
                 <div className="flex items-center gap-2">
                   <Clock className="w-4 h-4 text-amber-600 shrink-0" />
-                  <span className="font-medium">Mã QR hết hạn sau:</span>
+                  <span className="font-medium">
+                    {awaitingSettlement ? 'Đang chờ ngân hàng xác nhận:' : 'Mã QR hết hạn sau:'}
+                  </span>
                 </div>
                 <span className="font-mono font-bold text-sm text-amber-900">
                   {formatCountdown(timeLeft)}
@@ -493,7 +519,13 @@ export function WalletTopupModal({
               {/* QR Image Display Container */}
               <div className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-3xl border border-gray-100">
                 <div className="relative p-3 bg-white rounded-2xl shadow-md border border-gray-200/80">
-                  {topupData.qrUrl ? (
+                  {awaitingSettlement ? (
+                    <div className="w-52 h-52 sm:w-56 sm:h-56 bg-gray-100 rounded-xl flex flex-col items-center justify-center text-gray-600 p-5 text-center">
+                      <Loader2 className="w-10 h-10 animate-spin text-shop-violet mb-3" />
+                      <span className="text-xs font-semibold text-gray-800">Đang xác nhận giao dịch đã chuyển</span>
+                      <span className="text-[11px] text-gray-500 mt-1">Không quét hoặc chuyển thêm tiền bằng mã này.</span>
+                    </div>
+                  ) : topupData.qrUrl ? (
                     <Image
                       src={topupData.qrUrl}
                       alt="VietQR Topup"
@@ -529,6 +561,7 @@ export function WalletTopupModal({
               </div>
 
               {/* Transfer Details Card */}
+              {!awaitingSettlement && (
               <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200/80 space-y-3 text-xs">
                 {/* Bank Name */}
                 <div className="flex items-center justify-between">
@@ -627,17 +660,22 @@ export function WalletTopupModal({
                   </button>
                 </div>
               </div>
+              )}
 
               {/* Realtime Waiting Pulse Banner */}
               <div className="flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-2xl bg-purple-50 text-shop-violet text-xs font-medium border border-purple-100">
                 <div className="w-3 h-3 rounded-full bg-shop-violet animate-ping shrink-0" />
-                <span>Đang chờ chuyển tiền... Số dư tự động cộng sau 1-3 giây</span>
+                <span>
+                  {awaitingSettlement
+                    ? 'Đang đối chiếu giao dịch đã chuyển trước hạn...'
+                    : 'Đang chờ chuyển tiền... Số dư tự động cộng sau 1-3 giây'}
+                </span>
               </div>
 
               {/* Actions Footer */}
               <div className="space-y-2 pt-1">
                 {/* Sandbox / Dev Test Helper Button — chỉ render ở môi trường dev */}
-                {isDevSandbox && (
+                {isDevSandbox && !awaitingSettlement && (
                   <button
                     type="button"
                     onClick={handleSimulatePayment}
@@ -658,14 +696,19 @@ export function WalletTopupModal({
                   </button>
                 )}
 
+                {!awaitingSettlement && (
                 <button
                   type="button"
-                  onClick={() => setStep('SELECT_AMOUNT')}
+                  onClick={() => {
+                    topupIdempotencyKeyRef.current = null;
+                    setStep('SELECT_AMOUNT');
+                  }}
                   className="w-full text-center text-xs text-gray-500 hover:text-gray-800 py-1 transition flex items-center justify-center gap-1"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
                   <span>Chọn lại số tiền khác</span>
                 </button>
+                )}
               </div>
             </div>
           )}

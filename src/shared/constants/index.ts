@@ -12,6 +12,9 @@ export const STEP_SHIPPING_WEIGHT = 500;
 
 // Order & Cart Limits
 export const ORDER_EXPIRATION_MINUTES = 15;
+// Keep payment requests claimable briefly after the displayed deadline so a
+// bank transfer made on time is not lost while its webhook is in transit.
+export const PAYMENT_EXPIRY_GRACE_MS = 5 * 60 * 1000;
 export const MAX_QUANTITY_PER_ITEM = 99;
 
 // Pagination Defaults
