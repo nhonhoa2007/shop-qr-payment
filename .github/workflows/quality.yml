@@ -37,8 +37,8 @@ jobs:
       - name: Validate Prisma Schema
         run: npx prisma validate
 
-      - name: Enforce 34-Model Schema Registry & Budget
-        run: npm run schema:budget -- --expected=34 --lock-registry
+      - name: Enforce 35-Model Schema Registry & Budget
+        run: npm run schema:budget -- --expected=35 --lock-registry
 
       - name: Lint codebase
         run: npm run lint
