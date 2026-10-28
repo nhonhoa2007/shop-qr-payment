@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ProductGrid } from '@client/components/product/ProductGrid';
-import { HeroFloatingConstellation } from '@client/components/home/HeroFloatingConstellation';
+import { HeroShowcase } from '@client/components/home/HeroShowcase';
 import type { Product } from '@shared/types';
 import { Search, ChevronRight, ArrowRight, ArrowDownWideNarrow } from 'lucide-react';
 
@@ -57,40 +57,14 @@ export function HomeView({
 
   return (
     <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-10 space-y-16">
-      {/* Hero Section — Floating constellation on canvas mist */}
+      {/* Hero Section */}
       {!currentCategory && !searchQuery && (
         <section className="text-center pt-2 pb-4">
-          {/* 3D Interactive Floating Constellation & Dynamic Wordmark */}
-          <HeroFloatingConstellation products={products} />
-
-          <p className="text-muted-gray text-base sm:text-lg max-w-md mx-auto mb-8 tracking-[-0.031em] leading-relaxed">
-            Khám phá những món đồ tuyển chọn. Tự động sinh mã VietQR thanh toán tức thì.
-          </p>
-
-          {/* Hero Search Bar — 9999px radius with violet submit */}
-          <form action="/" method="GET" className="max-w-xl mx-auto mb-10">
-            <div className="relative flex items-center bg-white rounded-full border border-ink-black/10 shadow-soft-sm pl-5 pr-1.5 py-1.5 transition focus-within:border-shop-violet/50">
-              <Search className="w-5 h-5 text-muted-gray mr-3 shrink-0" />
-              <input
-                type="text"
-                name="search"
-                defaultValue={searchQuery || ''}
-                placeholder="Bạn đang tìm sản phẩm nào hôm nay?"
-                className="w-full bg-transparent text-sm sm:text-base tracking-[-0.031em] text-ink-black placeholder:text-muted-gray focus:outline-none"
-              />
-              <button
-                type="submit"
-                className="w-11 h-11 rounded-full bg-shop-violet text-white flex items-center justify-center hover:bg-shop-violet-deep transition shadow-violet shrink-0 ml-2"
-                aria-label="Tìm kiếm"
-              >
-                <ArrowRight className="w-5 h-5" />
-              </button>
-            </div>
-          </form>
+          <HeroShowcase />
 
           {/* Category Pills Row */}
           {allCategories.length > 0 && (
-            <div className="flex justify-center flex-wrap gap-2 pt-2">
+            <div className="flex justify-center flex-wrap gap-2 pt-8">
               <Link
                 href="/"
                 className="px-4 py-2 rounded-full text-xs font-medium tracking-[-0.017em] transition bg-ink-black text-white"
