@@ -42,6 +42,7 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "images.unsplash.com",
       },
+      // Giữ Cloudinary để các ảnh cũ trong DB không bị lỗi hiển thị
       {
         protocol: "https",
         hostname: "res.cloudinary.com",
@@ -49,6 +50,10 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "lh3.googleusercontent.com",
+      },
+      {
+        protocol: "https",
+        hostname: "media.nhonhoadev.id.vn",
       },
     ],
   },

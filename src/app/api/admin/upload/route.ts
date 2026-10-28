@@ -8,7 +8,9 @@ import { validateImageFile,
   verifyImageMagicBytes,
   getCloudinaryConfig,
   generateCloudinarySignature,
-  generateSafeUploadFilename, } from '@server/modules/upload/upload.service';
+  generateSafeUploadFilename,
+  getR2Config,
+  uploadToR2, } from '@server/modules/upload/upload.service';
 
 export const runtime = 'nodejs';
 
@@ -53,7 +55,38 @@ export async function POST(req: Request) {
       );
     }
 
-    // 4. Check Cloudinary Configuration
+    // 4. Check Cloudflare R2 Configuration (Priority 1)
+    const r2Config = getR2Config();
+    const filename = generateSafeUploadFilename(file.name || 'image', file.type);
+
+    if (r2Config) {
+      try {
+        const imageUrl = await uploadToR2(
+          {
+            fileBuffer,
+            filename,
+            contentType: file.type,
+            folder: 'products',
+          },
+          r2Config
+        );
+
+        return NextResponse.json({
+          url: imageUrl,
+          success: true,
+        });
+      } catch (r2Error) {
+        console.error('Cloudflare R2 upload error response:', r2Error);
+        if (!getCloudinaryConfig()) {
+          return NextResponse.json(
+            { error: 'Tải ảnh lên Cloudflare R2 thất bại' },
+            { status: 502 }
+          );
+        }
+      }
+    }
+
+    // 5. Check Cloudinary Configuration (Fallback 1)
     const cloudinaryConfig = getCloudinaryConfig();
 
     if (cloudinaryConfig) {
@@ -102,11 +135,10 @@ export async function POST(req: Request) {
       });
     }
 
-    // 5. Local Storage Fallback (/public/uploads)
+    // 6. Local Storage Fallback (/public/uploads)
     const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
     await fs.mkdir(uploadsDir, { recursive: true });
 
-    const filename = generateSafeUploadFilename(file.name || 'image', file.type);
     const destinationPath = path.join(uploadsDir, filename);
 
     await fs.writeFile(destinationPath, fileBuffer);

@@ -6,6 +6,8 @@ import { validateImageFile,
   getCloudinaryConfig,
   generateCloudinarySignature,
   generateSafeUploadFilename,
+  getR2Config,
+  uploadToR2,
   MAX_UPLOAD_FILE_SIZE, } from '@server/modules/upload/upload.service';
 
 describe('Image Upload Validation Logic', () => {
@@ -147,5 +149,77 @@ describe('Safe Upload Filename Generation', () => {
     assert.ok(!traversalName.includes('/'));
     assert.ok(!traversalName.includes('\\'));
     assert.ok(traversalName.endsWith('.png'));
+  });
+});
+
+describe('Cloudflare R2 Storage Logic', () => {
+  it('should return null when R2 config is not set or partially set', () => {
+    assert.equal(getR2Config({}), null);
+    assert.equal(
+      getR2Config({
+        R2_ACCOUNT_ID: 'acc123',
+        R2_ACCESS_KEY_ID: 'key123',
+        // missing secret, bucket, domain
+      }),
+      null
+    );
+  });
+
+  it('should parse valid R2 config and normalize public domain trailing slashes', () => {
+    const config = getR2Config({
+      R2_ACCOUNT_ID: 'acc_test_123',
+      R2_ACCESS_KEY_ID: 'key_test_456',
+      R2_SECRET_ACCESS_KEY: 'secret_test_789',
+      R2_BUCKET_NAME: 'shop-media',
+      R2_PUBLIC_DOMAIN: 'https://media.nhonhoadev.id.vn///',
+    });
+
+    assert.deepEqual(config, {
+      accountId: 'acc_test_123',
+      accessKeyId: 'key_test_456',
+      secretAccessKey: 'secret_test_789',
+      bucketName: 'shop-media',
+      publicDomain: 'https://media.nhonhoadev.id.vn',
+    });
+  });
+
+  it('should upload buffer to R2 using S3 PutObjectCommand contract', async () => {
+    const fakeConfig = {
+      accountId: 'acc_test',
+      accessKeyId: 'key_test',
+      secretAccessKey: 'secret_test',
+      bucketName: 'shop-media',
+      publicDomain: 'https://media.nhonhoadev.id.vn',
+    };
+
+    let sentCommandInput: Record<string, unknown> | null = null;
+    const mockS3Client = {
+      send: async (command: { input: Record<string, unknown> }) => {
+        sentCommandInput = command.input;
+        return { $metadata: { httpStatusCode: 200 } };
+      },
+    };
+
+    const fileBuffer = Buffer.from('fake-image-bytes');
+    const resultUrl = await uploadToR2(
+      {
+        fileBuffer,
+        filename: 'product-test.webp',
+        contentType: 'image/webp',
+        folder: 'products',
+      },
+      fakeConfig,
+      mockS3Client as never
+    );
+
+    assert.equal(resultUrl, 'https://media.nhonhoadev.id.vn/products/product-test.webp');
+    assert.ok(sentCommandInput);
+    assert.equal((sentCommandInput as Record<string, unknown>).Bucket, 'shop-media');
+    assert.equal((sentCommandInput as Record<string, unknown>).Key, 'products/product-test.webp');
+    assert.equal((sentCommandInput as Record<string, unknown>).ContentType, 'image/webp');
+    assert.equal(
+      (sentCommandInput as Record<string, unknown>).CacheControl,
+      'public, max-age=31536000, immutable'
+    );
   });
 });
