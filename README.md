@@ -1,6 +1,6 @@
 # 🛒 Shop QR Payment
 
-Hệ thống bán hàng thương mại điện tử tích hợp thanh toán tự động qua **VietQR** & Webhook ngân hàng (Casso), xác thực đăng ký bằng mã OTP qua Email, quản lý tồn kho chống race condition, **ví nội bộ** thanh toán 1-chạm & hoàn tiền tự động, vận chuyển qua **GHN**, đánh giá sản phẩm xác thực đơn hàng, chat trực tiếp Realtime qua Pusher và **phân quyền 3 cấp CUSTOMER / STAFF / ADMIN** (kèm Ma trận phân quyền nhân viên vận hành).
+Hệ thống bán hàng thương mại điện tử tích hợp thanh toán tự động qua **SePay/VietQR**, xác thực đăng ký bằng mã OTP qua Email, quản lý tồn kho chống race condition, **ví nội bộ** thanh toán 1-chạm & hoàn tiền tự động, vận chuyển qua **GHN**, đánh giá sản phẩm xác thực đơn hàng, chat trực tiếp Realtime qua Pusher và **phân quyền 3 cấp CUSTOMER / STAFF / ADMIN** (kèm Ma trận phân quyền nhân viên vận hành).
 
 Dự án được xây dựng bằng **Next.js 16 (App Router)**, **React 19**, **Prisma ORM**, **PostgreSQL**, **Redis** và **Tailwind CSS v4**.
 
@@ -161,8 +161,13 @@ BANK_ACCOUNT="0123456789"
 BANK_NAME="NGUYEN VAN A"
 BANK_DISPLAY_NAME="MB Bank"
 
-# 5. Casso Webhook (Bắt giao dịch tự động xác nhận đơn hàng)
-# Lấy mã secure token tại: https://casso.vn
+# 5. SePay Webhook (tự động xác nhận đơn hàng và nạp ví)
+# Secret phải trùng cấu hình HMAC-SHA256 trong SePay Dashboard
+SEPAY_WEBHOOK_SECRET="your-sepay-webhook-secret"
+# Chỉ điền khi SePay cấp tiền tố nhận dạng như SEVQR hoặc TKP123
+SEPAY_QR_MEMO_PREFIX=""
+
+# Endpoint Casso cũ chỉ giữ tạm để đối soát giao dịch legacy
 CASSO_WEBHOOK_SECRET="your-casso-secure-token"
 
 # 6. Pusher (Thông báo realtime & Chat trực tiếp)
@@ -332,9 +337,17 @@ Các nhóm nội dung được kiểm thử:
 
 ## 7. Cấu hình Webhook & Cron Job
 
-### 1. Webhook Thanh toán (Casso)
-- URL nhận Webhook ngân hàng: `https://your-domain.com/api/webhooks/payment` (header xác thực: `secure-token: <CASSO_WEBHOOK_SECRET>`)
-- Tính năng: Tự động khớp mã đơn hàng (`DH…`) và mã nạp ví (`NAP…`) từ nội dung chuyển khoản, kiểm tra trùng lặp (`Idempotency`), cập nhật trạng thái đơn thành `PAID` / cộng số dư ví và thông báo tức thì qua Pusher.
+### 1. Webhook thanh toán SePay
+
+- URL nhận webhook: `https://your-domain.com/api/webhooks/sepay`. Production cần tên miền HTTPS công khai; `localhost` không thể nhận webhook trực tiếp.
+- Cấu hình SePay gửi giao dịch **tiền vào**, nhận dạng mã đơn `DH…` và mã nạp ví `NAP…`.
+- Bật xác thực HMAC-SHA256 và đặt cùng secret vào `SEPAY_WEBHOOK_SECRET`. Server xác thực `X-SePay-Timestamp`, `X-SePay-Signature` trên raw body và từ chối timestamp lệch quá 5 phút.
+- `SEPAY_QR_MEMO_PREFIX` là tùy chọn. Khi SePay cấp tiền tố như `SEVQR` hoặc `TKP123`, giao diện sẽ hiển thị và sao chép đúng toàn bộ nội dung chuyển khoản từ QR.
+- Webhook trùng `id` chỉ được ghi nhận một lần. Sai mã, sai số tiền, tiền ra hoặc tiền đến sau hạn được giữ ở trạng thái chờ đối soát và không tự xác nhận đơn/cộng ví.
+- Khi phát triển local, dùng **SePay Test mode** và một tunnel HTTPS trỏ vào cổng Next.js, sau đó đặt URL tunnel thành `https://<tunnel-domain>/api/webhooks/sepay`.
+- Endpoint Casso cũ `POST /api/webhooks/payment` chỉ được giữ tạm cho giao dịch legacy; không dùng cho yêu cầu thanh toán mới.
+
+Tài liệu SePay: [tích hợp webhook](https://developer.sepay.vn/vi/sepay-webhooks/tich-hop-webhook), [xác thực HMAC](https://developer.sepay.vn/vi/sepay-webhooks/xac-thuc), [tạo VietQR](https://developer.sepay.vn/vi/tien-ich-khac/tao-qr-code), [Test mode](https://developer.sepay.vn/vi/tien-ich-khac/test-mode/mo-phong-giao-dich).
 
 ### 2. Webhook Vận đơn GHN
 - URL: `https://your-domain.com/api/webhooks/ghn` (header xác thực: `token: <GHN_WEBHOOK_TOKEN>`)
@@ -356,7 +369,7 @@ Các nhóm nội dung được kiểm thử:
 
 ## 8. Kiến trúc Compact Schema & Ngân sách Model Database
 
-Hệ thống áp dụng triết lý thiết kế **Compact-Schema JSONB** với giới hạn bất biến **đúng 34 Prisma models** (Hard Cap 40 models, Target Ceiling 37 models) trong [prisma/schema.prisma](prisma/schema.prisma) nhằm tối ưu hiệu năng truy vấn, ngăn chặn sự bùng nổ quan hệ (EAV tables) và duy trì tính toàn vẹn tài chính.
+Hệ thống áp dụng triết lý thiết kế **Compact-Schema JSONB** với giới hạn bất biến **đúng 35 Prisma models** (Hard Cap 40 models, Target Ceiling 37 models) trong [prisma/schema.prisma](prisma/schema.prisma) nhằm tối ưu hiệu năng truy vấn, ngăn chặn sự bùng nổ quan hệ (EAV tables) và duy trì tính toàn vẹn tài chính.
 
 Chi tiết quản lý ngân sách và quyết định kiến trúc:
 - Danh bạ Model: [docs/architecture/prisma-model-registry.md](docs/architecture/prisma-model-registry.md)

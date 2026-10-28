@@ -565,6 +565,7 @@ export interface WalletTopupResponse {
   topupCode: string;
   amount: MoneyVnd | number | bigint;
   qrUrl?: string;
+  expiresAt: string;
   bankInfo?: {
     bankName: string;
     bankId: string;

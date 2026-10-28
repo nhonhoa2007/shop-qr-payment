@@ -1,0 +1,129 @@
+import { readFile } from 'node:fs/promises';
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  getPaymentStatusResponse,
+  type PaymentStatusDependencies,
+} from '@server/modules/payment/payment-status.controller';
+import type { PaymentRequestRecord } from '@server/modules/payment/payment-request.service';
+
+function paymentRequest(overrides: Partial<PaymentRequestRecord> = {}): PaymentRequestRecord {
+  return {
+    id: 'request_1',
+    code: 'DH261027001',
+    kind: 'ORDER',
+    status: 'PENDING',
+    provider: 'SEPAY',
+    amount: 500000n,
+    qrUrl: 'https://vietqr.app/img?test=1',
+    userId: null,
+    orderId: 'order_1',
+    idempotencyKey: null,
+    expiresAt: new Date('2026-10-27T15:30:00.000Z'),
+    completedAt: null,
+    createdAt: new Date('2026-10-27T15:15:00.000Z'),
+    updatedAt: new Date('2026-10-27T15:15:00.000Z'),
+    ...overrides,
+  };
+}
+
+function dependencies(
+  request: PaymentRequestRecord | null,
+  userId: string | null = null
+): PaymentStatusDependencies {
+  return {
+    now: () => new Date('2026-10-27T15:20:00.000Z'),
+    findByCode: async () => request,
+    getCurrentUserId: async () => userId,
+  };
+}
+
+describe('SePay payment status', () => {
+  it('returns only the minimal public state for an order request', async () => {
+    const response = await getPaymentStatusResponse(
+      'dh261027001',
+      dependencies(paymentRequest())
+    );
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      success: true,
+      data: {
+        code: 'DH261027001',
+        kind: 'ORDER',
+        status: 'PENDING',
+        expiresAt: '2026-10-27T15:30:00.000Z',
+        completedAt: null,
+      },
+    });
+  });
+
+  it('reports a pending request as expired once its deadline passes', async () => {
+    const response = await getPaymentStatusResponse(
+      'DH261027001',
+      dependencies(paymentRequest({ expiresAt: new Date('2026-10-27T15:19:00.000Z') }))
+    );
+    const body = await response.json();
+    assert.equal(body.data.status, 'EXPIRED');
+  });
+
+  it('requires authentication for a wallet top-up request', async () => {
+    const topup = paymentRequest({
+      code: 'NAP261027001',
+      kind: 'WALLET_TOPUP',
+      orderId: null,
+      userId: 'user_1',
+    });
+    const response = await getPaymentStatusResponse('NAP261027001', dependencies(topup));
+    assert.equal(response.status, 401);
+  });
+
+  it('forbids a different user from reading a wallet top-up request', async () => {
+    const topup = paymentRequest({
+      code: 'NAP261027001',
+      kind: 'WALLET_TOPUP',
+      orderId: null,
+      userId: 'user_1',
+    });
+    const response = await getPaymentStatusResponse(
+      'NAP261027001',
+      dependencies(topup, 'user_2')
+    );
+    assert.equal(response.status, 403);
+  });
+
+  it('lets the owner read a completed wallet top-up state', async () => {
+    const completedAt = new Date('2026-10-27T15:19:00.000Z');
+    const topup = paymentRequest({
+      code: 'NAP261027001',
+      kind: 'WALLET_TOPUP',
+      status: 'COMPLETED',
+      orderId: null,
+      userId: 'user_1',
+      completedAt,
+    });
+    const response = await getPaymentStatusResponse(
+      'NAP261027001',
+      dependencies(topup, 'user_1')
+    );
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.data.status, 'COMPLETED');
+    assert.equal(body.data.completedAt, completedAt.toISOString());
+  });
+});
+
+describe('SePay status polling UI', () => {
+  it('polls the status endpoint from both order and wallet QR screens', async () => {
+    const [orderUi, walletUi] = await Promise.all([
+      readFile(new URL('../src/client/components/payment/QRPayment.tsx', import.meta.url), 'utf8'),
+      readFile(new URL('../src/client/components/wallet/WalletTopupModal.tsx', import.meta.url), 'utf8'),
+    ]);
+
+    assert.match(orderUi, /api\/payments\/\$\{encodeURIComponent\(orderCode\)\}/);
+    assert.match(walletUi, /api\/payments\/\$\{encodeURIComponent\(topupData\.topupCode\)\}/);
+    assert.match(orderUi, /SePay\/VietQR/);
+    assert.match(walletUi, /SePay\/VietQR/);
+    assert.doesNotMatch(walletUi, /Casso/);
+  });
+});

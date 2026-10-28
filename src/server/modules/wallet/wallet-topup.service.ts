@@ -204,6 +204,7 @@ export async function createWalletTopupPaymentLink(params: {
       topupCode: request.code,
       amount: Number(request.amount),
       qrUrl: request.qrUrl,
+      expiresAt: request.expiresAt.toISOString(),
       bankInfo: {
         bankName: bankInfo.displayName,
         bankId: bankInfo.bankId,

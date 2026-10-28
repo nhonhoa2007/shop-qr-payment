@@ -28,6 +28,7 @@ export function QRPayment({
   const [copied, setCopied] = useState<string | null>(null);
 
   const isBankConfigured = bankInfo.bankName && bankInfo.accountNo && bankInfo.accountName;
+  const transferContent = getQrTransferContent(qrUrl, orderCode);
 
   useEffect(() => {
     if (paymentStatus === 'paid') return;
@@ -55,6 +56,32 @@ export function QRPayment({
       pusherClient.unsubscribe(`private-user-${userId}`);
     };
   }, [userId, orderCode, orderId, paymentStatus]);
+
+  useEffect(() => {
+    if (paymentStatus !== 'waiting') return;
+    let stopped = false;
+
+    const pollStatus = async () => {
+      try {
+        const response = await fetch(`/api/payments/${encodeURIComponent(orderCode)}`, {
+          cache: 'no-store',
+        });
+        if (!response.ok || stopped) return;
+        const body = await response.json();
+        if (body.data?.status === 'COMPLETED') setPaymentStatus('paid');
+        if (body.data?.status === 'EXPIRED') setPaymentStatus('expired');
+      } catch {
+        // Pusher và lần poll kế tiếp tiếp tục làm cơ chế dự phòng.
+      }
+    };
+
+    void pollStatus();
+    const interval = setInterval(pollStatus, 3500);
+    return () => {
+      stopped = true;
+      clearInterval(interval);
+    };
+  }, [orderCode, paymentStatus]);
 
   const copyToClipboard = async (text: string, field: string) => {
     await navigator.clipboard.writeText(text);
@@ -101,7 +128,7 @@ export function QRPayment({
   return (
     <div className="max-w-md mx-auto p-6 sm:p-8 bg-white rounded-[28px] shadow-card">
       <h2 className="text-lg font-semibold text-center text-ink-black tracking-[-0.05em] mb-1">
-        Quét mã VietQR để thanh toán
+        Quét mã SePay/VietQR để thanh toán
       </h2>
       <p className="text-muted-gray text-center text-xs mb-6 tracking-[-0.014em]">Đơn hàng: {orderCode}</p>
 
@@ -148,8 +175,8 @@ export function QRPayment({
         </div>
         <InfoRow
           label="Nội dung CK"
-          value={`Thanh toan don hang ${orderCode}`}
-          onCopy={() => copyToClipboard(`Thanh toan don hang ${orderCode}`, 'content')}
+          value={transferContent}
+          onCopy={() => copyToClipboard(transferContent, 'content')}
           copied={copied === 'content'}
         />
       </div>
@@ -173,6 +200,14 @@ export function QRPayment({
       )}
     </div>
   );
+}
+
+function getQrTransferContent(qrUrl: string, fallback: string): string {
+  try {
+    return new URL(qrUrl).searchParams.get('des')?.trim() || fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 function InfoRow({

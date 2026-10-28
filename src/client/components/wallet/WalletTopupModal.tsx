@@ -161,27 +161,32 @@ export function WalletTopupModal({
     channel.bind('wallet-updated', handleWalletUpdated);
     channel.bind('payment-success', handlePaymentSuccess);
 
-    // Polling dự phòng mỗi 3.5 giây kiểm tra biến động giao dịch
+    // Polling dự phòng mỗi 3.5 giây đọc trạng thái PaymentRequest bền vững.
     const pollInterval = setInterval(async () => {
       try {
-        const r = await fetch('/api/wallet');
-        const d = await r.json();
-        if (d.success && d.data) {
-          const hasTx = d.data.transactions?.some(
-            (tx: { orderId?: string; description?: string }) =>
-              tx.orderId === topupData.topupCode ||
-              (tx.description && tx.description.includes(topupData.topupCode))
-          );
-          if (hasTx) {
-            setSuccessInfo({
-              newBalance: d.data.balance,
-              amount: topupData.amount,
-              topupCode: topupData.topupCode,
-            });
-            setStep('SUCCESS');
-            onTopupSuccess?.(d.data.balance);
-            toast.success('Nạp tiền vào ví thành công!');
-          }
+        const statusResponse = await fetch(
+          `/api/payments/${encodeURIComponent(topupData.topupCode)}`,
+          { cache: 'no-store' }
+        );
+        if (!statusResponse.ok) return;
+        const statusBody = await statusResponse.json();
+        if (statusBody.data?.status === 'EXPIRED') {
+          toast.error('Phiên nạp tiền đã hết hạn. Vui lòng tạo mã QR mới.');
+          setStep('SELECT_AMOUNT');
+          return;
+        }
+        if (statusBody.data?.status === 'COMPLETED') {
+          const walletResponse = await fetch('/api/wallet', { cache: 'no-store' });
+          const walletBody = await walletResponse.json();
+          const newBalance = walletBody.data?.balance ?? topupData.amount;
+          setSuccessInfo({
+            newBalance,
+            amount: topupData.amount,
+            topupCode: topupData.topupCode,
+          });
+          setStep('SUCCESS');
+          onTopupSuccess?.(newBalance);
+          toast.success('Nạp tiền vào ví thành công!');
         }
       } catch {
         // im lặng bỏ qua lỗi polling
@@ -215,7 +220,7 @@ export function WalletTopupModal({
     setCustomAmountInput(new Intl.NumberFormat('vi-VN').format(num));
   };
 
-  // Tạo phiên nạp tiền và nhận thông tin VietQR (Casso)
+  // Tạo phiên nạp tiền và nhận thông tin SePay/VietQR.
   const handleCreateTopup = async () => {
     if (selectedAmount < 10_000) {
       toast.error('Số tiền nạp tối thiểu là 10.000đ');
@@ -241,9 +246,9 @@ export function WalletTopupModal({
       }
 
       setTopupData(json.data);
-      const expireTime = Date.now() + 15 * 60 * 1000;
+      const expireTime = new Date(json.data.expiresAt).getTime();
       setExpiresAt(expireTime);
-      setTimeLeft(15 * 60 * 1000);
+      setTimeLeft(Math.max(0, expireTime - Date.now()));
       setStep('QR_PAYMENT');
     } catch {
       toast.error('Lỗi kết nối máy chủ khi tạo mã nạp ví');
@@ -301,6 +306,9 @@ export function WalletTopupModal({
   if (!isOpen) return null;
 
   const isAmountValid = selectedAmount >= 10_000 && selectedAmount <= 50_000_000;
+  const transferContent = topupData
+    ? getQrTransferContent(topupData.qrUrl, topupData.topupCode)
+    : '';
 
   return (
     <div
@@ -329,11 +337,11 @@ export function WalletTopupModal({
                 className="text-base font-bold text-gray-900 tracking-tight"
               >
                 {step === 'SELECT_AMOUNT' && 'Nạp tiền vào ví'}
-                {step === 'QR_PAYMENT' && 'Quét mã VietQR để nạp'}
+                {step === 'QR_PAYMENT' && 'Quét mã SePay/VietQR để nạp'}
                 {step === 'SUCCESS' && 'Nạp tiền thành công'}
               </h2>
               <p className="text-[11px] text-gray-500">
-                {step === 'SELECT_AMOUNT' && 'Cộng số dư tự động qua VietQR 24/7'}
+                {step === 'SELECT_AMOUNT' && 'Cộng số dư tự động qua SePay/VietQR 24/7'}
                 {step === 'QR_PAYMENT' && `Mã giao dịch: ${topupData?.topupCode}`}
                 {step === 'SUCCESS' && 'Giao dịch đã được xác nhận nguyên tử'}
               </p>
@@ -453,7 +461,7 @@ export function WalletTopupModal({
                 {loading ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Đang khởi tạo mã VietQR...</span>
+                    <span>Đang khởi tạo mã SePay/VietQR...</span>
                   </>
                 ) : (
                   <>
@@ -499,7 +507,7 @@ export function WalletTopupModal({
                     <div className="w-52 h-52 sm:w-56 sm:h-56 bg-gray-100 rounded-xl flex flex-col items-center justify-center text-gray-400 p-4 text-center">
                       <QrCode className="w-16 h-16 text-gray-500 mb-2" />
                       <span className="text-xs font-semibold text-gray-700">
-                        Mã VietQR Napas 24/7
+                        Mã SePay/VietQR 24/7
                       </span>
                       <span className="text-[11px] text-gray-500 mt-1">
                         Quét bằng app ngân hàng
@@ -510,7 +518,7 @@ export function WalletTopupModal({
                   <div className="mt-2 text-center">
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold">
                       <Sparkles className="w-3 h-3" />
-                      VietQR Napas 24/7
+                      SePay/VietQR 24/7
                     </span>
                   </div>
                 </div>
@@ -529,7 +537,7 @@ export function WalletTopupModal({
                     Ngân hàng:
                   </span>
                   <span className="font-semibold text-gray-900">
-                    {topupData.bankInfo?.bankName || 'MB Bank (Napas 247)'}
+                    {topupData.bankInfo?.bankName || '(Chưa cấu hình)'}
                   </span>
                 </div>
 
@@ -538,13 +546,13 @@ export function WalletTopupModal({
                   <span className="text-gray-500">Số tài khoản:</span>
                   <div className="flex items-center gap-1.5">
                     <span className="font-mono font-bold text-gray-900">
-                      {topupData.bankInfo?.accountNo || '970422123456789'}
+                      {topupData.bankInfo?.accountNo || '(Chưa cấu hình)'}
                     </span>
                     <button
                       type="button"
                       onClick={() =>
                         handleCopy(
-                          topupData.bankInfo?.accountNo || '970422123456789',
+                          topupData.bankInfo?.accountNo || '',
                           'Số tài khoản'
                         )
                       }
@@ -564,7 +572,7 @@ export function WalletTopupModal({
                 <div className="flex items-center justify-between">
                   <span className="text-gray-500">Chủ tài khoản:</span>
                   <span className="font-semibold text-gray-900">
-                    {topupData.bankInfo?.accountName || 'SHOP QR PAYMENT'}
+                    {topupData.bankInfo?.accountName || '(Chưa cấu hình)'}
                   </span>
                 </div>
 
@@ -597,12 +605,12 @@ export function WalletTopupModal({
                       Nội dung CK (bắt buộc):
                     </span>
                     <span className="font-mono font-extrabold text-sm text-amber-950">
-                      {topupData.topupCode}
+                      {transferContent}
                     </span>
                   </div>
                   <button
                     type="button"
-                    onClick={() => handleCopy(topupData.topupCode, 'Nội dung chuyển khoản')}
+                    onClick={() => handleCopy(transferContent, 'Nội dung chuyển khoản')}
                     className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-200/70 hover:bg-amber-300 text-amber-900 font-semibold text-[11px] transition shadow-2xs"
                   >
                     {copiedField === 'Nội dung chuyển khoản' ? (
@@ -724,3 +732,12 @@ export function WalletTopupModal({
 }
 
 export default WalletTopupModal;
+
+function getQrTransferContent(qrUrl: string | undefined, fallback: string): string {
+  if (!qrUrl) return fallback;
+  try {
+    return new URL(qrUrl).searchParams.get('des')?.trim() || fallback;
+  } catch {
+    return fallback;
+  }
+}
