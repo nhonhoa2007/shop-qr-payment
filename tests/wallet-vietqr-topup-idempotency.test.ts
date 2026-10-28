@@ -5,6 +5,7 @@ import { parseTopupCodeFromDescription,
   safeCompare,
   evaluateTopupWebhookDecision, } from '@server/modules/payment/vietqr-parser.service';
 import { createWalletTopupSession, getWalletTopupSession, processWalletTopup } from '@server/modules/wallet/wallet-topup.service';
+import { createPaymentRequestTestStore, withTestBankEnv } from './helpers/payment-request-store.ts';
 
 type TxClient = Parameters<typeof processWalletTopup>[0];
 
@@ -29,10 +30,12 @@ describe('VietQR Topup - Session Lifecycle & Payload Boundaries (Pillar 1 & 2)',
   });
 
   it('should create valid session with unique idempotencyToken and PENDING state', async () => {
-    const session = await createWalletTopupSession({
-      userId: 'user_alpha_01',
-      amount: 250000,
-    });
+    const store = createPaymentRequestTestStore();
+    await withTestBankEnv(async () => {
+      const session = await createWalletTopupSession({
+        userId: 'user_alpha_01',
+        amount: 250000,
+      }, store);
 
     assert.equal(session.userId, 'user_alpha_01');
     assert.equal(session.amount, 250000);
@@ -42,8 +45,9 @@ describe('VietQR Topup - Session Lifecycle & Payload Boundaries (Pillar 1 & 2)',
     assert.ok(session.idempotencyToken.length >= 32);
 
     // Retrieve via topupCode
-    const byCode = await getWalletTopupSession(session.topupCode);
-    assert.deepEqual(byCode, session);
+      const byCode = await getWalletTopupSession(session.topupCode, store);
+      assert.deepEqual(byCode, session);
+    });
   });
 });
 

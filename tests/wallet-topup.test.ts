@@ -5,6 +5,7 @@ import { parseTopupCodeFromDescription,
   safeCompare,
   evaluateTopupWebhookDecision, } from '@server/modules/payment/vietqr-parser.service';
 import { createWalletTopupSession, getWalletTopupSession, getWalletTopupSessionByIdempotencyToken, processWalletTopup, createWalletTopupPaymentLink, inFlightTopupLocks } from '@server/modules/wallet/wallet-topup.service';
+import { createPaymentRequestTestStore, withTestBankEnv } from './helpers/payment-request-store.ts';
 
 type TxClient = Parameters<typeof processWalletTopup>[0];
 
@@ -69,10 +70,12 @@ describe('Wallet Topup - Session Management', () => {
   });
 
   it('should create valid topup session with idempotencyToken and PENDING status', async () => {
-    const session = await createWalletTopupSession({
-      userId: 'u_test_1',
-      amount: 100_000,
-    });
+    const store = createPaymentRequestTestStore();
+    await withTestBankEnv(async () => {
+      const session = await createWalletTopupSession({
+        userId: 'u_test_1',
+        amount: 100_000,
+      }, store);
 
     assert.equal(session.userId, 'u_test_1');
     assert.equal(session.amount, 100_000);
@@ -82,21 +85,22 @@ describe('Wallet Topup - Session Management', () => {
     assert.ok(session.idempotencyToken.length > 20);
 
     // Truy vấn lại theo topupCode
-    const retrievedByCode = await getWalletTopupSession(session.topupCode);
+    const retrievedByCode = await getWalletTopupSession(session.topupCode, store);
     assert.deepEqual(retrievedByCode, session);
 
     // Truy vấn lại theo idempotencyToken
-    const retrievedByIdempotency = await getWalletTopupSessionByIdempotencyToken(session.idempotencyToken!);
+    const retrievedByIdempotency = await getWalletTopupSessionByIdempotencyToken(session.idempotencyToken!, store);
     assert.deepEqual(retrievedByIdempotency, session);
 
     // Tái sử dụng phiên khi gửi cùng idempotencyToken (Idempotent creation)
-    const duplicateSession = await createWalletTopupSession({
-      userId: 'u_test_1',
-      amount: 100_000,
-      idempotencyToken: session.idempotencyToken,
+      const duplicateSession = await createWalletTopupSession({
+        userId: 'u_test_1',
+        amount: 100_000,
+        idempotencyToken: session.idempotencyToken,
+      }, store);
+      assert.equal(duplicateSession.topupCode, session.topupCode);
+      assert.equal(duplicateSession.idempotencyToken, session.idempotencyToken);
     });
-    assert.equal(duplicateSession.topupCode, session.topupCode);
-    assert.equal(duplicateSession.idempotencyToken, session.idempotencyToken);
   });
 });
 
@@ -319,23 +323,20 @@ describe('Wallet Topup - processWalletTopup Core Engine', () => {
 
 describe('Wallet Topup - Payment Link Creation', () => {
   it('should generate VietQR topup QR parameters with valid topupCode', async () => {
-    const origEnv = process.env.NODE_ENV;
-    try {
-      process.env.NODE_ENV = 'test';
+    const store = createPaymentRequestTestStore();
+    await withTestBankEnv(async () => {
       const res = await createWalletTopupPaymentLink({
         userId: 'u_pay_user',
         amount: 500_000,
-      });
+      }, store);
 
       assert.equal(res.success, true);
       assert.ok(res.data);
       assert.match(res.data!.topupCode, /^NAP/);
       assert.equal(res.data!.amount, 500_000);
       assert.ok(res.data!.qrUrl);
-      assert.match(res.data!.qrUrl!, /img\.vietqr\.io/);
+      assert.match(res.data!.qrUrl!, /vietqr\.app\/img/);
       assert.ok(res.data!.idempotencyToken);
-    } finally {
-      process.env.NODE_ENV = origEnv;
-    }
+    });
   });
 });

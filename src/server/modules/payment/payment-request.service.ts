@@ -39,6 +39,15 @@ export interface CreatePendingPaymentRequestInput {
   idempotencyKey?: string | null;
 }
 
+export interface CreateOrderPaymentRequestInput {
+  orderId: string;
+  orderCode: string;
+  userId?: string | null;
+  amount: number | bigint;
+  qrUrl: string;
+  expiresAt: Date;
+}
+
 function normalizeCode(code: string): string {
   return code.trim().toUpperCase();
 }
@@ -87,6 +96,21 @@ export async function createPendingPaymentRequest(
       idempotencyKey,
       expiresAt: input.expiresAt,
     },
+  });
+}
+
+export function createOrderPaymentRequest(
+  store: PaymentRequestStore,
+  input: CreateOrderPaymentRequestInput
+): Promise<PaymentRequestRecord> {
+  return createPendingPaymentRequest(store, {
+    code: input.orderCode,
+    kind: 'ORDER',
+    amount: input.amount,
+    qrUrl: input.qrUrl,
+    expiresAt: input.expiresAt,
+    userId: input.userId ?? null,
+    orderId: input.orderId,
   });
 }
 
@@ -141,8 +165,8 @@ export function paymentRequestToTopupSession(
     topupCode: request.code,
     userId: request.userId,
     amount: Number(request.amount),
-    status: request.status === 'COMPLETED' ? 'COMPLETED' : 'PENDING',
-    idempotencyToken: request.idempotencyKey ?? undefined,
+    status: request.status,
+    idempotencyToken: request.idempotencyKey ?? request.code,
     createdAt: request.createdAt.toISOString(),
   };
 }

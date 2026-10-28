@@ -4,6 +4,14 @@ import { prisma } from '@server/database/prisma';
 import { redis } from '@server/infrastructure/redis';
 import { generateTopupCode } from '@shared/utils';
 import { getBankInfo } from '@server/modules/payment/vietqr.service';
+import { generateSePayQrUrl } from '@server/modules/payment/sepay.service';
+import {
+  completePendingPaymentRequest,
+  createPendingPaymentRequest,
+  paymentRequestToTopupSession,
+  type PaymentRequestRecord,
+  type PaymentRequestStore,
+} from '@server/modules/payment/payment-request.service';
 import { getOrCreateWallet } from './wallet.service';
 import type { WalletTopupSession, WalletTopupResponse } from '@shared/types';
 
@@ -41,21 +49,34 @@ export async function saveWalletTopupSession(session: WalletTopupSession): Promi
     console.warn('[Wallet Topup] Lưu cache Redis thất bại, dùng in-memory fallback:', err);
   }
 }
-
 /**
  * Truy vấn phiên nạp tiền ví theo topupCode (NAPxxxxx)
  */
 export async function getWalletTopupSession(
-  identifier: string | number
+  identifier: string | number,
+  store: PaymentRequestStore = prisma as unknown as PaymentRequestStore
 ): Promise<WalletTopupSession | null> {
-  const key = String(identifier).trim();
+  const key = String(identifier).trim().toUpperCase();
   if (!key) return null;
 
-  // 1. Kiểm tra In-memory trước (nhanh nhất)
+  try {
+    const request = await store.paymentRequest.findUnique({ where: { code: key } });
+    if (request?.kind === 'WALLET_TOPUP') {
+      const session = paymentRequestToTopupSession(request);
+      inMemoryTopupStore.set(session.topupCode, session);
+      return session;
+    }
+  } catch (err) {
+    console.warn('[Wallet Topup] Đọc PaymentRequest thất bại, thử cache legacy:', err);
+  }
+
+  return getLegacyWalletTopupSession(key);
+}
+
+async function getLegacyWalletTopupSession(key: string): Promise<WalletTopupSession | null> {
   const memoryHit = inMemoryTopupStore.get(key);
   if (memoryHit) return memoryHit;
 
-  // 2. Kiểm tra Redis
   try {
     const session = await redis.get<WalletTopupSession>(`wallet:topup:${key}`);
     if (session) {
@@ -74,10 +95,18 @@ export async function getWalletTopupSession(
  * Truy vấn phiên nạp tiền ví theo Idempotency Token
  */
 export async function getWalletTopupSessionByIdempotencyToken(
-  token: string
+  token: string,
+  store: PaymentRequestStore = prisma as unknown as PaymentRequestStore
 ): Promise<WalletTopupSession | null> {
   const key = String(token).trim();
   if (!key) return null;
+
+  try {
+    const request = await store.paymentRequest.findUnique({ where: { idempotencyKey: key } });
+    if (request?.kind === 'WALLET_TOPUP') return paymentRequestToTopupSession(request);
+  } catch (err) {
+    console.warn('[Wallet Topup] Đọc PaymentRequest theo idempotency key thất bại:', err);
+  }
 
   try {
     const session = await redis.get<WalletTopupSession>(`wallet:topup:idempotency:${key}`);
@@ -106,76 +135,82 @@ export async function createWalletTopupSession(params: {
   amount: number;
   topupCode?: string;
   idempotencyToken?: string;
-}): Promise<WalletTopupSession> {
+}, store: PaymentRequestStore = prisma as unknown as PaymentRequestStore): Promise<WalletTopupSession> {
+  const request = await createWalletTopupRequest(params, store);
+  return paymentRequestToTopupSession(request);
+}
+
+async function createWalletTopupRequest(params: {
+  userId: string;
+  amount: number;
+  topupCode?: string;
+  idempotencyToken?: string;
+}, store: PaymentRequestStore): Promise<PaymentRequestRecord> {
   const amount = Math.round(Number(params.amount));
-  if (!Number.isFinite(amount) || amount < 10_000) {
+  if (!Number.isSafeInteger(amount) || amount < 10_000) {
     throw new Error('Số tiền nạp tối thiểu là 10.000đ');
   }
-
-  // Khử trùng lặp theo Idempotency Token nếu client gửi lên
-  if (params.idempotencyToken) {
-    const existing = await getWalletTopupSessionByIdempotencyToken(params.idempotencyToken);
-    if (existing && existing.userId === params.userId && existing.amount === amount) {
-      return existing;
-    }
+  if (amount > 50_000_000) {
+    throw new Error('Số tiền nạp tối đa là 50.000.000đ');
   }
 
   const topupCode = params.topupCode || generateTopupCode();
   const idempotencyToken = params.idempotencyToken || crypto.randomUUID();
-
-  const session: WalletTopupSession = {
-    topupCode,
-    userId: params.userId,
+  const bankInfo = getBankInfo();
+  const qrUrl = generateSePayQrUrl({
+    bankId: bankInfo.bankId,
+    accountNo: bankInfo.accountNo,
+    accountName: bankInfo.accountName,
     amount,
-    status: 'PENDING',
-    idempotencyToken,
-    createdAt: new Date().toISOString(),
-  };
-
-  await saveWalletTopupSession(session);
-  return session;
+    paymentCode: topupCode,
+    memoPrefix: process.env.SEPAY_QR_MEMO_PREFIX,
+  });
+  const request = await createPendingPaymentRequest(store, {
+    code: topupCode,
+    kind: 'WALLET_TOPUP',
+    amount,
+    qrUrl,
+    userId: params.userId,
+    idempotencyKey: idempotencyToken,
+    expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+  });
+  inMemoryTopupStore.set(request.code, paymentRequestToTopupSession(request));
+  return request;
 }
 
 /**
- * Tạo phiên nạp tiền ví kèm mã VietQR tĩnh (img.vietqr.io) — nội dung chuyển khoản
- * chứa mã NAPxxxxx để Casso webhook tự khớp tiền và cộng ví qua processWalletTopup.
+ * Tạo phiên nạp tiền ví bền vững kèm QR SePay/VietQR.
  */
 export async function createWalletTopupPaymentLink(params: {
   userId: string;
   amount: number;
   idempotencyToken?: string;
-}): Promise<{
+}, store: PaymentRequestStore = prisma as unknown as PaymentRequestStore): Promise<{
   success: boolean;
   data?: WalletTopupResponse;
   error?: string;
 }> {
-  const session = await createWalletTopupSession({
+  const request = await createWalletTopupRequest({
     userId: params.userId,
     amount: params.amount,
     idempotencyToken: params.idempotencyToken,
-  });
+  }, store);
 
   const bankInfo = getBankInfo();
-  const bankAccount = bankInfo.accountNo || '970422123456789';
-  const bankName = bankInfo.displayName || 'MB Bank';
-  const bankId = bankInfo.bankId || 'mbbank';
-  const accountName = bankInfo.accountName || 'SHOP QR PAYMENT';
-
-  const qrUrl = `https://img.vietqr.io/image/${bankId}-${bankAccount}-compact2.png?amount=${session.amount}&addInfo=${encodeURIComponent(session.topupCode)}&accountName=${encodeURIComponent(accountName)}`;
 
   return {
     success: true,
     data: {
-      topupCode: session.topupCode,
-      amount: session.amount,
-      qrUrl,
+      topupCode: request.code,
+      amount: Number(request.amount),
+      qrUrl: request.qrUrl,
       bankInfo: {
-        bankName,
-        bankId,
-        accountNo: bankAccount,
-        accountName,
+        bankName: bankInfo.displayName,
+        bankId: bankInfo.bankId,
+        accountNo: bankInfo.accountNo,
+        accountName: bankInfo.accountName,
       },
-      idempotencyToken: session.idempotencyToken,
+      idempotencyToken: request.idempotencyKey ?? undefined,
     },
   };
 }
@@ -208,7 +243,12 @@ export async function processWalletTopup(
   const { topupCode, amount, bankTransId, description } = params;
 
   // 1. Tìm thông tin session nạp tiền nếu chưa có userId trực tiếp
-  const session = await getWalletTopupSession(topupCode);
+  const requestStore = 'paymentRequest' in tx
+    ? tx as unknown as PaymentRequestStore
+    : null;
+  const session = requestStore
+    ? await getWalletTopupSession(topupCode, requestStore)
+    : await getLegacyWalletTopupSession(topupCode);
   const targetUserId = params.userId || session?.userId;
 
   if (!targetUserId) {
@@ -308,8 +348,10 @@ export async function processWalletTopup(
       },
     });
 
-    // 6. Cập nhật trạng thái session sang COMPLETED
-    if (session) {
+    // 6. Cập nhật trạng thái PaymentRequest trong cùng transaction.
+    if (requestStore) {
+      await completePendingPaymentRequest(requestStore, topupCode);
+    } else if (session) {
       session.status = 'COMPLETED';
       session.completedAt = new Date().toISOString();
       session.bankTransId = bankTransId;

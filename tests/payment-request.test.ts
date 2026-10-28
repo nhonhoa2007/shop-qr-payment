@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   completePendingPaymentRequest,
+  createOrderPaymentRequest,
   createPendingPaymentRequest,
   paymentRequestToTopupSession,
   type PaymentRequestRecord,
@@ -29,6 +30,42 @@ function requestRecord(overrides: Partial<PaymentRequestRecord> = {}): PaymentRe
 }
 
 describe('PaymentRequest persistence contract', () => {
+  it('creates an order request linked to the order in the same store', async () => {
+    let createArgs: Record<string, unknown> | undefined;
+    const created = requestRecord({
+      code: 'DH261027001',
+      kind: 'ORDER',
+      userId: null,
+      orderId: 'order_1',
+      idempotencyKey: null,
+    });
+    const store = {
+      paymentRequest: {
+        findUnique: async () => null,
+        create: async (args: Record<string, unknown>) => {
+          createArgs = args;
+          return created;
+        },
+        updateMany: async () => ({ count: 0 }),
+      },
+    } as PaymentRequestStore;
+
+    const result = await createOrderPaymentRequest(store, {
+      orderId: 'order_1',
+      orderCode: 'DH261027001',
+      userId: null,
+      amount: 500_000n,
+      qrUrl: created.qrUrl,
+      expiresAt: created.expiresAt,
+    });
+
+    assert.equal(result, created);
+    const data = createArgs?.data as Record<string, unknown>;
+    assert.equal(data.kind, 'ORDER');
+    assert.equal(data.orderId, 'order_1');
+    assert.equal(data.code, 'DH261027001');
+  });
+
   it('returns an existing request for the same idempotency key and payload', async () => {
     const existing = requestRecord();
     let createCalls = 0;

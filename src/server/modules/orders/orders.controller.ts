@@ -3,6 +3,10 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { prisma } from '@server/database/prisma';
 import { generateVietQRUrl, getBankInfo } from '@server/modules/payment/vietqr.service';
+import {
+  createOrderPaymentRequest,
+  type PaymentRequestStore,
+} from '@server/modules/payment/payment-request.service';
 import { generateOrderCode } from '@shared/utils';
 import { createNotification } from '@server/modules/notifications/notifications.service';
 import { authOptions } from '@server/modules/auth/auth-options';
@@ -128,6 +132,7 @@ export async function POST(req: Request) {
     const finalTotalAmountBigInt = validatedSubtotalBigInt + validatedShippingFeeBigInt - discountAmountBigInt;
     const finalTotalAmount = finalTotalAmountBigInt < 0n ? 0n : finalTotalAmountBigInt;
     const orderCode = generateOrderCode();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
     const bankInfo = getBankInfo();
     const qrUrl = generateVietQRUrl({
       bankId: bankInfo.bankId,
@@ -223,12 +228,21 @@ export async function POST(req: Request) {
           packingRevision: validated.packingRevision || null,
           qrContent: qrUrl,
           note: note || null,
-          expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+          expiresAt,
           items: {
             create: orderItemsCreate,
           },
         },
         include: { items: { include: { product: true, variant: true } } },
+      });
+
+      await createOrderPaymentRequest(tx as unknown as PaymentRequestStore, {
+        orderId: createdOrder.id,
+        orderCode: createdOrder.orderCode,
+        userId: createdOrder.userId,
+        amount: createdOrder.totalAmount,
+        qrUrl,
+        expiresAt,
       });
 
       if (couponRecord) {

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { formatVND, formatCountdown } from '../src/shared/utils/index.ts';
 import { createWalletTopupPaymentLink } from '../src/server/modules/wallet/wallet-topup.service.ts';
 import type { WalletTransaction } from '../src/types/index.ts';
+import { createPaymentRequestTestStore, withTestBankEnv } from './helpers/payment-request-store.ts';
 
 // Cấu hình các mốc nạp nhanh chuẩn UI WalletTopupModal
 export const WALLET_PRESET_AMOUNTS = [
@@ -101,26 +102,23 @@ describe('Wallet Topup UI - Amount Input Validation (Pillar 2)', () => {
 
 describe('Wallet Topup UI - VietQR Link & Response Contract (Pillar 3)', () => {
   it('should generate VietQR URL and BankInfo for topup session', async () => {
-    const origEnv = process.env.NODE_ENV;
-    try {
-      process.env.NODE_ENV = 'test';
+    const store = createPaymentRequestTestStore();
+    await withTestBankEnv(async () => {
       const result = await createWalletTopupPaymentLink({
         userId: 'user_test_ui',
         amount: 200_000,
-      });
+      }, store);
 
       assert.equal(result.success, true);
       assert.ok(result.data);
       assert.match(result.data.topupCode, /^NAP\d{9}$/);
       assert.equal(result.data.amount, 200_000);
       assert.ok(result.data.qrUrl);
-      assert.match(result.data.qrUrl, /img\.vietqr\.io/);
+      assert.match(result.data.qrUrl, /vietqr\.app\/img/);
       assert.ok(result.data.bankInfo);
       assert.ok(result.data.bankInfo.bankName);
       assert.ok(result.data.bankInfo.accountNo);
-    } finally {
-      process.env.NODE_ENV = origEnv;
-    }
+    });
   });
 
   it('should format countdown timer for 15-minute QR expiry properly', () => {
