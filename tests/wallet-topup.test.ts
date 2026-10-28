@@ -193,6 +193,55 @@ describe('Wallet Topup - evaluateTopupWebhookDecision (Decision Matrix)', () => 
 });
 
 describe('Wallet Topup - processWalletTopup Core Engine', () => {
+  it('does not credit the wallet when the durable request is expired or already claimed', async () => {
+    let walletUpdateCalled = false;
+    const fakeWallet = { id: 'w_expired', userId: 'u_expired', balance: 50_000n };
+    const request = {
+      id: 'request_expired',
+      code: 'NAP261027999',
+      kind: 'WALLET_TOPUP',
+      status: 'PENDING',
+      provider: 'SEPAY',
+      amount: 100_000n,
+      qrUrl: 'https://vietqr.app/img?test=1',
+      userId: 'u_expired',
+      orderId: null,
+      idempotencyKey: 'idem_expired',
+      expiresAt: new Date('2026-10-27T15:00:00.000Z'),
+      completedAt: null,
+      createdAt: new Date('2026-10-27T14:45:00.000Z'),
+      updatedAt: new Date('2026-10-27T14:45:00.000Z'),
+    };
+    const fakeTx = {
+      paymentRequest: {
+        findUnique: async () => request,
+        updateMany: async () => ({ count: 0 }),
+      },
+      userWallet: {
+        findUnique: async () => fakeWallet,
+        update: async () => {
+          walletUpdateCalled = true;
+          return fakeWallet;
+        },
+      },
+      walletTransaction: {
+        findFirst: async () => null,
+        create: async () => ({ id: 'must_not_create' }),
+      },
+    } as unknown as TxClient;
+
+    const result = await processWalletTopup(fakeTx, {
+      topupCode: request.code,
+      amount: 100_000,
+      userId: request.userId,
+      completedAt: new Date('2026-10-27T15:20:00.000Z'),
+    });
+
+    assert.equal(result.success, false);
+    assert.match(result.error || '', /hết hạn|không còn/i);
+    assert.equal(walletUpdateCalled, false);
+  });
+
   it('should atomically credit balance and create WalletTransaction with type TOPUP', async () => {
     let walletUpdatedData: unknown = null;
     let txCreatedData: unknown = null;

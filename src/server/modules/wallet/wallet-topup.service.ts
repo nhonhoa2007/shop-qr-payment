@@ -238,6 +238,7 @@ export async function processWalletTopup(
     userId?: string;
     bankTransId?: string;
     description?: string;
+    completedAt?: Date;
   }
 ): Promise<WalletTopupProcessResult> {
   const { topupCode, amount, bankTransId, description } = params;
@@ -327,6 +328,23 @@ export async function processWalletTopup(
       };
     }
 
+    if (requestStore) {
+      const claimed = await completePendingPaymentRequest(
+        requestStore,
+        topupCode,
+        params.completedAt ?? new Date()
+      );
+      if (!claimed) {
+        return {
+          success: false,
+          error: 'Phiên nạp ví đã hết hạn hoặc không còn chờ thanh toán',
+          topupCode,
+          amount,
+          userId: targetUserId,
+        };
+      }
+    }
+
     const amountBigInt = BigInt(amount);
 
     // 4. Cộng tiền nguyên tử vào ví người dùng
@@ -348,10 +366,9 @@ export async function processWalletTopup(
       },
     });
 
-    // 6. Cập nhật trạng thái PaymentRequest trong cùng transaction.
-    if (requestStore) {
-      await completePendingPaymentRequest(requestStore, topupCode);
-    } else if (session) {
+    // 6. Đồng bộ trạng thái phiên cache legacy. PaymentRequest đã được claim
+    // trước khi cộng tiền và sẽ rollback cùng transaction nếu bước sau lỗi.
+    if (!requestStore && session) {
       session.status = 'COMPLETED';
       session.completedAt = new Date().toISOString();
       session.bankTransId = bankTransId;

@@ -1,6 +1,10 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { applyCassoOrderPayment } from '@server/modules/payment/casso-order-payment.service';
+import {
+  applyBankOrderPayment,
+  PaymentRequestClaimError,
+} from '@server/modules/payment/bank-order-payment.service';
 
 function paymentInput() {
   return {
@@ -74,5 +78,59 @@ describe('Casso order payment transaction', () => {
     };
 
     await assert.rejects(applyCassoOrderPayment(tx, paymentInput()), /outbox unavailable/);
+  });
+});
+
+describe('Shared bank order payment transaction', () => {
+  it('completes the SePay request in the same transaction as the order and ledger', async () => {
+    let requestUpdate: Record<string, unknown> | undefined;
+    const tx = {
+      order: { updateMany: async () => ({ count: 1 }) },
+      paymentRequest: {
+        updateMany: async (args: Record<string, unknown>) => {
+          requestUpdate = args;
+          return { count: 1 };
+        },
+      },
+      transaction: { create: async () => ({ id: 'payment_1' }) },
+      bankTransfer: { update: async () => ({ id: 'ledger_1' }) },
+      adminAuditLog: {
+        findUnique: async () => null,
+        create: async ({ data }: { data: Record<string, unknown> }) => ({ id: 'outbox_1', ...data }),
+      },
+    };
+
+    await applyBankOrderPayment(tx, {
+      ...paymentInput(),
+      paymentRequestCode: 'DH261027001',
+    });
+
+    assert.deepEqual(requestUpdate?.where, {
+      code: 'DH261027001',
+      kind: 'ORDER',
+      status: 'PENDING',
+      expiresAt: { gt: paymentInput().now },
+    });
+  });
+
+  it('throws so Prisma rolls back when the SePay request cannot be claimed', async () => {
+    const tx = {
+      order: { updateMany: async () => ({ count: 1 }) },
+      paymentRequest: { updateMany: async () => ({ count: 0 }) },
+      transaction: { create: async () => ({ id: 'must_not_create' }) },
+      bankTransfer: { update: async () => ({ id: 'must_not_update' }) },
+      adminAuditLog: {
+        findUnique: async () => null,
+        create: async () => ({ id: 'must_not_enqueue' }),
+      },
+    };
+
+    await assert.rejects(
+      applyBankOrderPayment(tx, {
+        ...paymentInput(),
+        paymentRequestCode: 'DH261027001',
+      }),
+      PaymentRequestClaimError
+    );
   });
 });
