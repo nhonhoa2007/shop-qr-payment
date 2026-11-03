@@ -2,6 +2,8 @@
 
 Bản xem trước tương tác cho trung tâm quản trị Shop QR Payment, xây bằng skill baoyu-dashboard. Nội dung nằm trong thư mục này, tách khỏi ứng dụng Next.js.
 
+Bản preview được dựng ngày 03/11/2026. Giao diện tương ứng được đưa vào ứng dụng `/admin` ngày 04/11/2026; preview này vẫn dùng dữ liệu mẫu riêng.
+
 Thiết kế hiện tại theo hướng tối giản: nền trắng, chữ và đường phân cách trung tính, một màu nhấn cho dữ liệu đang chọn. Sidebar cố định bên trái trên màn hình rộng để chuyển mục tức thì; trên màn hình nhỏ, menu Animate UI mở cùng các mục đó. Bốn KPI ở đầu trang dẫn tới biểu đồ doanh thu, tỷ trọng thanh toán, việc cần xử lý và bảng đơn hàng.
 
 ## Mở preview
