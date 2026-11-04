@@ -1,0 +1,15 @@
+{
+  "title": "Sample · Đơn hàng",
+  "description": "Dữ liệu mẫu được sinh có thể lặp lại bằng Random(20261103), bao phủ 05/09–03/11/2026. Mã đơn và khách hàng là giả lập. Giá và tên sản phẩm lấy từ 8 sản phẩm trong prisma/data/electronics-catalog.json; đơn hàng, ngày, trạng thái, phương thức, khớp giao dịch được mô phỏng bởi src/prepare-data.py. Doanh thu là tổng amount của đơn có payment = Đã thanh toán; chưa trừ hoàn tiền. Không đọc cơ sở dữ liệu hay ngân hàng.",
+  "fixed": true,
+  "updated": {
+    "at": "2026-11-03T11:38:25.893499+00:00",
+    "by": "Agent"
+  },
+  "source": {
+    "kind": "file",
+    "url": "/_blob/c5897009d7dcb5a668b15d917a59d84f",
+    "name": "sample-orders.json",
+    "format": "json"
+  }
+}

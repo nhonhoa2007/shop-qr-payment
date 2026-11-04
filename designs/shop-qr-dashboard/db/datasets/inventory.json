@@ -1,0 +1,15 @@
+{
+  "title": "Sample · Tồn kho",
+  "description": "Dữ liệu mẫu gồm 8 sản phẩm được chọn theo vị trí 0, 5, 12, 19, 25, 32, 39, 46 trong prisma/data/electronics-catalog.json. productId, tên, SKU, loại và giá từ biến thể đầu tiên của catalog. stock và reorderAt do src/prepare-data.py đặt để minh họa tồn kho, không phải tồn kho thực tế.",
+  "fixed": true,
+  "updated": {
+    "at": "2026-11-03T11:38:25.893499+00:00",
+    "by": "Agent"
+  },
+  "source": {
+    "kind": "file",
+    "url": "/_blob/88133fdd35050a577f9dc76c2960bc24",
+    "name": "sample-inventory.json",
+    "format": "json"
+  }
+}

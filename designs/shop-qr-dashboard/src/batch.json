@@ -1,0 +1,75 @@
+[
+  {
+    "op": "set",
+    "path": "dash/meta",
+    "data": {
+      "title": "shop. — Trung tâm điều hành"
+    }
+  },
+  {
+    "op": "set",
+    "path": "dash/params",
+    "data": {
+      "range": "7days",
+      "search": "",
+      "status": "",
+      "sort": "recent"
+    }
+  },
+  {
+    "op": "set",
+    "path": "datasets/orders",
+    "data": {
+      "title": "Sample · Đơn hàng",
+      "description": "Dữ liệu mẫu được sinh có thể lặp lại bằng Random(20261103), bao phủ 05/09–03/11/2026. Mã đơn và khách hàng là giả lập. Giá và tên sản phẩm lấy từ 8 sản phẩm trong prisma/data/electronics-catalog.json; đơn hàng, ngày, trạng thái, phương thức, khớp giao dịch được mô phỏng bởi src/prepare-data.py. Doanh thu là tổng amount của đơn có payment = Đã thanh toán; chưa trừ hoàn tiền. Không đọc cơ sở dữ liệu hay ngân hàng.",
+      "fixed": true,
+      "updated": {
+        "at": "2026-11-03T11:38:25.893499+00:00",
+        "by": "Agent"
+      },
+      "source": {
+        "kind": "file",
+        "url": "/_blob/c5897009d7dcb5a668b15d917a59d84f",
+        "name": "sample-orders.json",
+        "format": "json"
+      }
+    }
+  },
+  {
+    "op": "set",
+    "path": "datasets/inventory",
+    "data": {
+      "title": "Sample · Tồn kho",
+      "description": "Dữ liệu mẫu gồm 8 sản phẩm được chọn theo vị trí 0, 5, 12, 19, 25, 32, 39, 46 trong prisma/data/electronics-catalog.json. productId, tên, SKU, loại và giá từ biến thể đầu tiên của catalog. stock và reorderAt do src/prepare-data.py đặt để minh họa tồn kho, không phải tồn kho thực tế.",
+      "fixed": true,
+      "updated": {
+        "at": "2026-11-03T11:38:25.893499+00:00",
+        "by": "Agent"
+      },
+      "source": {
+        "kind": "file",
+        "url": "/_blob/88133fdd35050a577f9dc76c2960bc24",
+        "name": "sample-inventory.json",
+        "format": "json"
+      }
+    }
+  },
+  {
+    "op": "set",
+    "path": "files/index.html",
+    "data": {
+      "text": {
+        "$file": "/home/nhonhoa/shop-qr-payment/designs/shop-qr-dashboard/src/index.html"
+      }
+    }
+  },
+  {
+    "op": "set",
+    "path": "files/dashboard.js",
+    "data": {
+      "text": {
+        "$file": "/home/nhonhoa/shop-qr-payment/designs/shop-qr-dashboard/src/dashboard.js"
+      }
+    }
+  }
+]

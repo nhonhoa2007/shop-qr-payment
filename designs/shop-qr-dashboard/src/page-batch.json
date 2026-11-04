@@ -1,0 +1,74 @@
+[
+  {
+    "op": "update",
+    "path": "files/index.html",
+    "data": {
+      "text": {
+        "$file": "/home/nhonhoa/shop-qr-payment/designs/shop-qr-dashboard/src/index.html"
+      }
+    }
+  },
+  {
+    "op": "update",
+    "path": "files/animate-preview.css",
+    "data": {
+      "text": {
+        "$file": "/home/nhonhoa/shop-qr-payment/designs/shop-qr-dashboard/src/animate-preview.css"
+      }
+    }
+  },
+  {
+    "op": "update",
+    "path": "files/minimal.css",
+    "data": {
+      "text": {
+        "$file": "/home/nhonhoa/shop-qr-payment/designs/shop-qr-dashboard/src/minimal.css"
+      }
+    }
+  },
+  {
+    "op": "update",
+    "path": "files/react-runtime.js",
+    "data": {
+      "text": {
+        "$file": "/home/nhonhoa/shop-qr-payment/designs/shop-qr-dashboard/src/react-runtime.js"
+      }
+    }
+  },
+  {
+    "op": "update",
+    "path": "files/motion-runtime.js",
+    "data": {
+      "text": {
+        "$file": "/home/nhonhoa/shop-qr-payment/designs/shop-qr-dashboard/src/motion-runtime.js"
+      }
+    }
+  },
+  {
+    "op": "update",
+    "path": "files/radix-runtime.js",
+    "data": {
+      "text": {
+        "$file": "/home/nhonhoa/shop-qr-payment/designs/shop-qr-dashboard/src/radix-runtime.js"
+      }
+    }
+  },
+  {
+    "op": "update",
+    "path": "files/animate-components.js",
+    "data": {
+      "text": {
+        "$file": "/home/nhonhoa/shop-qr-payment/designs/shop-qr-dashboard/src/animate-components.js"
+      }
+    }
+  },
+  {
+    "op": "update",
+    "path": "files/dashboard.js",
+    "data": {
+      "text": {
+        "$file": "/home/nhonhoa/shop-qr-payment/designs/shop-qr-dashboard/src/dashboard.js"
+      }
+    }
+  }
+]

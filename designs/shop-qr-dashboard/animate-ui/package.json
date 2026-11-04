@@ -1,0 +1,15 @@
+{
+  "name": "shop-qr-dashboard-animate-preview",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "build": "node build.mjs" },
+  "dependencies": {
+    "@animate-ui/react": "2.4.1",
+    "motion": "14.7.1",
+    "radix-ui": "^1.6.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": { "esbuild": "^0.25.0" }
+}

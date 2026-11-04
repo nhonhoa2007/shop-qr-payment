@@ -1,0 +1,74 @@
+[
+  {
+    "productId": "prod-mbp14-m3",
+    "product": "MacBook Pro 14\" (Apple M3 Pro)",
+    "sku": "MBP14-M3P-18-512-SG",
+    "price": 49990000,
+    "stock": 3,
+    "reorderAt": 5,
+    "category": "LAPTOP"
+  },
+  {
+    "productId": "prod-dell-xps15",
+    "product": "Dell XPS 15 9530 (i7-13700H / RTX 4050)",
+    "sku": "DELL-XPS15-32-1TB-SL",
+    "price": 54990000,
+    "stock": 18,
+    "reorderAt": 5,
+    "category": "LAPTOP"
+  },
+  {
+    "productId": "prod-ip15promax",
+    "product": "iPhone 15 Pro Max",
+    "sku": "IP15PM-256-NT",
+    "price": 29990000,
+    "stock": 2,
+    "reorderAt": 5,
+    "category": "PHONE"
+  },
+  {
+    "productId": "prod-s24plus",
+    "product": "Samsung Galaxy S24+",
+    "sku": "S24P-12-256-VT",
+    "price": 21990000,
+    "stock": 25,
+    "reorderAt": 5,
+    "category": "PHONE"
+  },
+  {
+    "productId": "prod-anker-735",
+    "product": "Anker 735 GaNPrime 65W Charger",
+    "sku": "ANKER-735-65W-BK",
+    "price": 990000,
+    "stock": 34,
+    "reorderAt": 5,
+    "category": "ACCESSORY"
+  },
+  {
+    "productId": "prod-apple-airpods-pro-2",
+    "product": "Apple AirPods Pro (2nd Gen, USB-C)",
+    "sku": "AIRPODS-PRO2-USBC-WT",
+    "price": 5990000,
+    "stock": 4,
+    "reorderAt": 5,
+    "category": "ACCESSORY"
+  },
+  {
+    "productId": "prod-sony-wh1000xm5",
+    "product": "Sony WH-1000XM5 Wireless Headphones",
+    "sku": "SONY-WHXM5-BK",
+    "price": 7990000,
+    "stock": 16,
+    "reorderAt": 5,
+    "category": "ACCESSORY"
+  },
+  {
+    "productId": "prod-logitech-mxmaster3s",
+    "product": "Logitech MX Master 3S Wireless Performance Mouse",
+    "sku": "MX-MASTER-3S-GR",
+    "price": 2390000,
+    "stock": 22,
+    "reorderAt": 5,
+    "category": "ACCESSORY"
+  }
+]
