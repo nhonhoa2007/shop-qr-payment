@@ -1,5 +1,6 @@
 import { prisma } from '@server/database/prisma';
 import type { ChatRoom, Message } from '@shared/types';
+import { staffChatRoomWhere } from './chat-room-scope';
 
 /**
  * Chat Service - Xử lý nghiệp vụ hội thoại realtime và hỗ trợ khách hàng
@@ -8,10 +9,11 @@ export class ChatService {
   /**
    * Lấy danh sách các phòng chat đang hoạt động dành cho Quản trị viên
    */
-  static async getAdminChatRooms(adminUserId: string): Promise<ChatRoom[]> {
+  static async getAdminChatRooms(adminUserId: string, staffOnly = false): Promise<ChatRoom[]> {
     try {
       const hasParticipants = 'chatRoomParticipant' in prisma;
       const rooms = await (prisma as any).chatRoom.findMany({
+        ...(staffOnly ? { where: staffChatRoomWhere(adminUserId, hasParticipants) } : {}),
         include: {
           order: { select: { orderCode: true } },
           customer: { select: { id: true, name: true, avatar: true } },

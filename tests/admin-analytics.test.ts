@@ -426,6 +426,7 @@ describe('Pusher channel authorization', () => {
     assert.equal(await canSubscribeToChannel('private-chat-room-1', { id: 'staff-1', role: 'STAFF', permissions: ['chat'] }, findRoom), true);
     assert.equal(await canSubscribeToChannel('private-chat-room-1', { id: 'other', role: 'CUSTOMER' }, findRoom), false);
     assert.equal(await canSubscribeToChannel('private-chat-missing', customer, async () => null), false);
+    assert.equal(await canSubscribeToChannel('private-chat-room-1', { id: 'staff-2', role: 'STAFF', permissions: ['chat'] }, findRoom), false);
   });
 });
 

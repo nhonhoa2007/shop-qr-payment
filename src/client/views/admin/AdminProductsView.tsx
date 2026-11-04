@@ -51,9 +51,9 @@ type ProductConfirmState =
   | { type: 'matrixMode'; generated: VariantFormItem[]; count: number }
   | null;
 
-export function AdminProductsView({ initialProducts }: { initialProducts: Product[] }) {
+export function AdminProductsView({ initialProducts, initialQuery = '', canDelete = true }: { initialProducts: Product[]; initialQuery?: string; canDelete?: boolean }) {
   const [products, setProducts] = useState<Product[]>(initialProducts);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [filterCategory, setFilterCategory] = useState('ALL');
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -733,13 +733,13 @@ export function AdminProductsView({ initialProducts }: { initialProducts: Produc
                             >
                               Sửa
                             </button>
-                            <button
+                            {canDelete && <button
                               type="button"
                               onClick={() => setConfirmState({ type: 'deleteProduct', id: p.id, name: p.name })}
                               className="px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 transition text-xs font-semibold"
                             >
                               Xóa
-                            </button>
+                            </button>}
                           </div>
                         </div>
 
@@ -1185,7 +1185,7 @@ export function AdminProductsView({ initialProducts }: { initialProducts: Produc
                         <span>Thêm biến thể</span>
                       </button>
 
-                      {variants.length > 0 && (
+                      {variants.length > 0 && (canDelete || variants.every((variant) => !variant.id)) && (
                         <button
                           type="button"
                           onClick={handleClearAllVariants}
@@ -1475,14 +1475,14 @@ export function AdminProductsView({ initialProducts }: { initialProducts: Produc
 
                                   {/* Nút Xóa */}
                                   <td className="px-3 py-2 text-center">
-                                    <button
+                                    {(canDelete || !v.id) && <button
                                       type="button"
                                       onClick={() => handleRemoveVariant(idx)}
                                       className="p-1 rounded-lg text-red-500 hover:bg-red-50 hover:text-red-700 transition cursor-pointer"
                                       title="Xóa biến thể này"
                                     >
                                       <Trash2 className="w-4 h-4" />
-                                    </button>
+                                    </button>}
                                   </td>
                                 </tr>
                               );
@@ -1720,7 +1720,9 @@ export function AdminProductsView({ initialProducts }: { initialProducts: Produc
             : confirmState?.type === 'deleteProduct'
               ? 'Sản phẩm và toàn bộ biến thể của nó sẽ bị xóa vĩnh viễn.'
               : confirmState?.type === 'matrixMode'
-                ? 'Chọn "Thêm vào" để nối vào danh sách hiện có, hoặc "Thay thế" để ghi đè toàn bộ.'
+                ? canDelete || !editingProduct
+                  ? 'Chọn "Thêm vào" để nối vào danh sách hiện có, hoặc "Thay thế" để ghi đè toàn bộ.'
+                  : 'Thêm các biến thể mới vào danh sách hiện có.'
                 : undefined
         }
         confirmLabel={
@@ -1729,7 +1731,7 @@ export function AdminProductsView({ initialProducts }: { initialProducts: Produc
         cancelLabel="Giữ lại"
         variant={confirmState?.type === 'matrixMode' ? 'default' : 'danger'}
         secondaryAction={
-          confirmState?.type === 'matrixMode'
+          confirmState?.type === 'matrixMode' && (canDelete || !editingProduct)
             ? {
                 label: 'Thay thế toàn bộ',
                 onClick: () => {

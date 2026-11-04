@@ -58,6 +58,7 @@ export interface AdminAnalyticsSummary {
   todayRevenueGrowth: number;
   totalOrders: number;
   todayOrders: number;
+  periodOrdersCount?: number;
   pendingOrdersCount: number;
   processingOrdersCount: number;
   lowStockCount: number;
@@ -79,13 +80,35 @@ export interface AdminAnalyticsResponse {
   summary: AdminAnalyticsSummary;
   ordersByStatus: Record<string, number>;
   revenueTrend: RevenueTrendItem[];
+  previousRevenueTrend?: RevenueTrendItem[];
   /** Số khách hàng mới đăng ký theo 12 tháng gần nhất (bucket tháng hiện tại ở cuối) */
   newCustomersTrend: CustomerTrendItem[];
   paymentMethodDistribution: PaymentMethodDistribution;
+  paymentDistributionSampleCount?: number;
   urgentActions: UrgentAction[];
   recentOrders: RecentOrderDto[];
   topProducts: TopProductDto[];
   range?: AnalyticsRange;
+}
+
+export function getPreviousRevenueStart(currentStart: Date, range: AnalyticsRange): Date {
+  const previousStart = new Date(currentStart);
+  previousStart.setDate(previousStart.getDate() - (range === 'today' ? 1 : range === '7days' ? 7 : 30));
+  return previousStart;
+}
+
+export function buildRevenueComparison(
+  range: AnalyticsRange,
+  currentStart: Date,
+  paidOrders: Array<{ totalAmount: number; createdAt: Date }>
+): { current: RevenueTrendItem[]; previous: RevenueTrendItem[] } {
+  const previousStart = getPreviousRevenueStart(currentStart, range);
+  const currentOrders = paidOrders.filter((order) => order.createdAt >= currentStart);
+  const previousOrders = paidOrders.filter((order) => order.createdAt >= previousStart && order.createdAt < currentStart);
+  return {
+    current: buildRevenueTrend(currentStart, currentOrders, range),
+    previous: buildRevenueTrend(previousStart, previousOrders, range),
+  };
 }
 
 /**

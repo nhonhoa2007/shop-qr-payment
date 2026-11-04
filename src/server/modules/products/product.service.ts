@@ -1,4 +1,5 @@
 import type { Prisma, PrismaClient, ProductKind, ProductSegment } from '@prisma/client';
+import { assertVariantRemovalAllowed } from './variant-removal-policy.ts';
 import {
   adaptLegacyColorSizeToOptionValues,
   upsertElectronicsProduct,
@@ -55,6 +56,7 @@ export interface CreateProductInput {
 
 export interface UpdateProductInput {
   id: string;
+  actorRole?: string;
   name?: string;
   description?: string | null;
   price?: number;
@@ -326,6 +328,7 @@ export async function updateProductWithVariants(
   // Khi có truyền trường variants (kể cả mảng rỗng)
   if (input.variants !== undefined) {
     const incomingList = input.variants;
+    assertVariantRemovalAllowed(input.actorRole ?? 'ADMIN', existingProduct.variants, incomingList);
     const existingVariantMap = new Map(existingProduct.variants.map((v) => [v.id, v]));
 
     // 1. Cập nhật biến thể cũ hoặc tạo biến thể mới

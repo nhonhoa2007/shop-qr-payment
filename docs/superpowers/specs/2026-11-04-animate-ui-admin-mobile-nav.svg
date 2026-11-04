@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 660" role="img" aria-labelledby="title desc">
+  <title id="title">Trạng thái sidebar mobile đóng và mở</title>
+  <desc id="desc">Khi đóng, dashboard có nút menu trong topbar. Khi mở, sidebar trượt từ trái và nội dung phía sau có lớp phủ, với nút đóng rõ ràng.</desc>
+  <defs><style>
+    .bg{fill:#f4f5f6}.panel{fill:#fff;stroke:#d9dde2;stroke-width:1.5}.soft{fill:#f0f2f4}.shade{fill:#1d2329;opacity:.45}.line{stroke:#d9dde2;stroke-width:1.3}.ink{fill:#1d2329;font:600 15px system-ui,sans-serif}.body{fill:#48515a;font:13px system-ui,sans-serif}.muted{fill:#79838d;font:12px system-ui,sans-serif}.heading{fill:#1d2329;font:700 21px system-ui,sans-serif}.accent{fill:#345c78}.accentbg{fill:#e8eff4}.bar{fill:#7e9aab}
+  </style></defs>
+  <rect width="920" height="660" class="bg"/>
+  <text x="36" y="40" class="heading">Điều hướng trên mobile</text>
+  <text x="36" y="64" class="body">Menu chỉ xuất hiện khi chiều rộng màn hình dưới 1024 px</text>
+  <text x="78" y="103" class="ink">ĐÓNG</text><text x="530" y="103" class="ink">MỞ</text>
+  <rect x="76" y="116" width="322" height="507" rx="16" class="panel"/>
+  <line x1="76" y1="171" x2="398" y2="171" class="line"/>
+  <rect x="91" y="128" width="35" height="31" rx="7" class="soft"/>
+  <text x="100" y="150" class="ink">☰</text><text x="139" y="150" class="ink">Tổng quan</text>
+  <text x="96" y="215" class="heading">Tổng quan</text><text x="96" y="236" class="muted">Hôm nay · Cập nhật 10:42</text>
+  <rect x="96" y="263" width="282" height="41" rx="8" class="soft"/>
+  <text x="111" y="289" class="body">Hôm nay</text><text x="206" y="289" class="body">7 ngày</text><text x="302" y="289" class="body">30 ngày</text>
+  <rect x="96" y="326" width="130" height="96" rx="9" class="panel"/><rect x="242" y="326" width="136" height="96" rx="9" class="panel"/>
+  <text x="110" y="350" class="muted">Doanh thu</text><text x="110" y="388" class="heading">48,2tr</text>
+  <text x="256" y="350" class="muted">Đơn hàng</text><text x="256" y="388" class="heading">124</text>
+  <rect x="96" y="441" width="282" height="151" rx="9" class="panel"/><text x="111" y="469" class="ink">Doanh thu</text>
+  <line x1="112" y1="567" x2="364" y2="567" class="line"/>
+  <rect x="123" y="529" width="19" height="38" rx="3" class="bar"/><rect x="161" y="507" width="19" height="60" rx="3" class="bar"/><rect x="199" y="517" width="19" height="50" rx="3" class="bar"/><rect x="237" y="493" width="19" height="74" rx="3" class="bar"/><rect x="275" y="509" width="19" height="58" rx="3" class="bar"/><rect x="313" y="485" width="19" height="82" rx="3" class="bar"/>
+
+  <rect x="523" y="116" width="322" height="507" rx="16" class="panel"/>
+  <line x1="523" y1="171" x2="845" y2="171" class="line"/>
+  <text x="541" y="150" class="ink">☰  Tổng quan</text>
+  <text x="541" y="215" class="heading">Tổng quan</text>
+  <rect x="523" y="116" width="322" height="507" rx="16" class="shade"/>
+  <rect x="523" y="116" width="267" height="507" rx="16" class="panel"/>
+  <rect x="777" y="116" width="13" height="507" fill="#fff"/>
+  <text x="543" y="151" class="heading">shop.</text>
+  <rect x="739" y="128" width="32" height="30" rx="6" class="soft"/>
+  <text x="748" y="149" class="ink">×</text>
+  <line x1="539" y1="171" x2="771" y2="171" class="line"/>
+  <text x="543" y="196" class="muted">QUẢN TRỊ</text>
+  <rect x="539" y="207" width="232" height="38" rx="7" class="accentbg"/>
+  <rect x="539" y="207" width="3" height="38" rx="1.5" class="accent"/>
+  <text x="554" y="231" class="ink">▣  Tổng quan</text>
+  <text x="554" y="276" class="body">□  Đơn hàng</text>
+  <text x="554" y="312" class="body">□  Vận đơn</text>
+  <text x="554" y="348" class="body">□  Sản phẩm</text>
+  <line x1="541" y1="372" x2="771" y2="372" class="line"/>
+  <text x="543" y="398" class="muted">TÀI CHÍNH</text>
+  <text x="554" y="430" class="body">□  Đối soát QR</text>
+  <text x="554" y="466" class="body">□  Mã giảm giá</text>
+  <text x="554" y="502" class="body">□  Khách hàng</text>
+  <text x="554" y="538" class="body">□  Tin nhắn</text>
+  <line x1="541" y1="576" x2="771" y2="576" class="line"/>
+  <text x="544" y="602" class="body">◯  Tài khoản</text>
+  <text x="36" y="642" class="muted">Panel trượt từ trái · đóng bằng ×, Esc, nền phủ hoặc sau khi chọn mục · trả focus về nút menu</text>
+</svg>

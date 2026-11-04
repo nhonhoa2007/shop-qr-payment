@@ -333,6 +333,7 @@ export async function PUT(req: Request) {
     const product = await prisma.$transaction(async (tx) => {
       return await updateProductWithVariants(tx, {
         id,
+        actorRole: session.user.role,
         name: name ?? undefined,
         description: body.description !== undefined ? normalizeText(body.description) : undefined,
         price,

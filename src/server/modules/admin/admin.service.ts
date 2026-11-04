@@ -1,6 +1,7 @@
 import { prisma } from '@server/database/prisma';
 import { Role } from '@prisma/client';
 import { updateUserRbac } from './admin-rbac.service.ts';
+import { toAdminOrderListItem } from './admin-order-list';
 import { getCachedAnalytics, setCachedAnalytics } from '@server/infrastructure/redis';
 import { bigIntJsonReplacer } from '@server/modules/money/money-serialization';
 import {
@@ -11,9 +12,8 @@ import {
   calculatePaymentMethodDistribution,
   buildUrgentActions,
   formatItemsSummary,
-  buildRevenueTrend,
-  buildHourlyRevenueTrend,
-  buildMonthlyRevenueTrend,
+  buildRevenueComparison,
+  getPreviousRevenueStart,
   buildNewCustomersTrend,
 } from './admin-analytics.service.ts';
 
@@ -123,36 +123,31 @@ export class AdminService {
 
   static async getAdminOrders() {
     const orders = await prisma.order.findMany({
-      include: {
-        items: { include: { product: true } },
-        bankTransfers: true,
-        shipment: { select: { trackingCode: true } },
-        user: { select: { id: true, name: true, email: true } },
+      select: {
+        id: true,
+        orderCode: true,
+        customerName: true,
+        customerPhone: true,
+        customerEmail: true,
+        customerAddress: true,
+        totalAmount: true,
+        status: true,
+        paymentStatus: true,
+        note: true,
+        createdAt: true,
+        items: {
+          select: {
+            id: true,
+            quantity: true,
+            price: true,
+            product: { select: { name: true, image: true } },
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
 
-    return orders.map((order) => ({
-      ...order,
-      subtotal: Number(order.subtotal),
-      shippingFee: Number(order.shippingFee),
-      discountAmount: Number(order.discountAmount),
-      totalAmount: Number(order.totalAmount),
-      customerEmail: order.customerEmail || undefined,
-      note: order.note || undefined,
-      createdAt: order.createdAt.toISOString(),
-      status: order.status,
-      paymentStatus: order.paymentStatus,
-      items: order.items.map((item) => ({
-        id: item.id,
-        quantity: item.quantity,
-        price: Number(item.price),
-        product: {
-          name: item.product.name,
-          image: item.product.image || undefined,
-        },
-      })),
-    }));
+    return orders.map(toAdminOrderListItem);
   }
 
   static async getAdminProducts() {
@@ -296,6 +291,7 @@ export class AdminService {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
 
     const trendStartDate = range === 'today' ? startOfToday : range === 'month' ? thirtyDaysAgo : sevenDaysAgo;
+    const previousTrendStartDate = getPreviousRevenueStart(trendStartDate, range);
     // Đầu tháng cách đây 11 tháng (để trend khách hàng mới đủ 12 bucket tháng)
     const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1, 0, 0, 0, 0);
 
@@ -309,6 +305,7 @@ export class AdminService {
       todayPaidAgg,
       yesterdayPaidAgg,
       todayOrders,
+      periodOrdersCount,
       pendingOrdersCount,
       processingOrdersCount,
       activeShipmentsCount,
@@ -370,6 +367,9 @@ export class AdminService {
       prisma.order.count({
         where: { createdAt: { gte: startOfToday } },
       }),
+      prisma.order.count({
+        where: { createdAt: { gte: trendStartDate } },
+      }),
       // 10. Pending orders
       prisma.order.count({
         where: { status: 'PENDING' },
@@ -406,7 +406,7 @@ export class AdminService {
       prisma.order.findMany({
         where: {
           paymentStatus: 'PAID',
-          createdAt: { gte: trendStartDate },
+          createdAt: { gte: previousTrendStartDate },
         },
         select: {
           totalAmount: true,
@@ -425,13 +425,21 @@ export class AdminService {
         },
         take: 5,
       }),
-      // 20. 5 most recent orders with items and products
+      // 20. Recent orders for the compact dashboard table
       prisma.order.findMany({
         orderBy: { createdAt: 'desc' },
-        take: 5,
-        include: {
+        take: 20,
+        select: {
+          id: true,
+          orderCode: true,
+          customerName: true,
+          customerPhone: true,
+          totalAmount: true,
+          paymentStatus: true,
+          status: true,
+          createdAt: true,
           items: {
-            include: { product: true },
+            select: { quantity: true, product: { select: { name: true } } },
           },
         },
       }),
@@ -468,13 +476,8 @@ export class AdminService {
       totalAmount: Number(o.totalAmount),
     }));
 
-    const revenueTrend = range === 'today'
-      ? buildHourlyRevenueTrend(startOfToday, recentPaidOrdersMapped)
-      : range === 'month'
-      ? buildMonthlyRevenueTrend(thirtyDaysAgo, recentPaidOrdersMapped)
-      : buildRevenueTrend(sevenDaysAgo, recentPaidOrdersMapped);
-
-    const periodRevenue = recentPaidOrdersMapped.reduce((sum, o) => sum + o.totalAmount, 0);
+    const { current: revenueTrend, previous: previousRevenueTrend } = buildRevenueComparison(range, trendStartDate, recentPaidOrdersMapped);
+    const periodRevenue = revenueTrend.reduce((sum, point) => sum + point.revenue, 0);
     const paidOrdersForDistributionMapped = paidOrdersForDistribution.map((o) => ({
       bankTransfers: o.bankTransfers,
       shipment: o.shipment ? { codAmount: Number(o.shipment.codAmount) } : null,
@@ -526,6 +529,7 @@ export class AdminService {
         todayRevenueGrowth,
         totalOrders,
         todayOrders,
+        periodOrdersCount,
         pendingOrdersCount,
         processingOrdersCount,
         lowStockCount,
@@ -542,8 +546,10 @@ export class AdminService {
       },
       ordersByStatus,
       revenueTrend,
+      previousRevenueTrend,
       newCustomersTrend: buildNewCustomersTrend(now, recentCustomers),
       paymentMethodDistribution,
+      paymentDistributionSampleCount: paidOrdersForDistribution.length,
       urgentActions,
       recentOrders,
       topProducts,

@@ -1,6 +1,7 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@server/modules/auth/auth-options';
 import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 import { AdminAppShell } from '@client/components/admin/layout/AdminAppShell';
 import type { Metadata } from 'next';
 
@@ -25,5 +26,6 @@ export default async function AdminLayout({
     redirect('/login?callbackUrl=/admin&reason=permission');
   }
 
-  return <AdminAppShell user={session.user}>{children}</AdminAppShell>;
+  const initialCollapsed = (await cookies()).get('admin_sidebar_collapsed')?.value === 'true';
+  return <AdminAppShell user={session.user} initialCollapsed={initialCollapsed}>{children}</AdminAppShell>;
 }

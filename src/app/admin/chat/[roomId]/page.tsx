@@ -3,6 +3,7 @@ import { authOptions } from '@server/modules/auth/auth-options';
 import { redirect, notFound } from 'next/navigation';
 import { ChatService } from '@/server/modules/chat/chat.service';
 import { AdminChatView } from '@client/views/admin/AdminChatView';
+import { canAccessAdminPage } from '@shared/admin-page-access';
 import type { Metadata } from 'next';
 
 export const dynamic = 'force-dynamic';
@@ -26,12 +27,12 @@ export default async function AdminChatRoomPage({
 }) {
   const { roomId } = await params;
   const session = await getServerSession(authOptions);
-  if (!session?.user || session.user.role !== 'ADMIN') {
+  if (!session?.user || !canAccessAdminPage(session.user, '/admin/chat')) {
     redirect('/');
   }
 
   const [rooms, conversation] = await Promise.all([
-    ChatService.getAdminChatRooms(session.user.id),
+    ChatService.getAdminChatRooms(session.user.id, session.user.role === 'STAFF'),
     ChatService.getRoomConversation(roomId, session.user.id),
   ]);
 
@@ -47,6 +48,7 @@ export default async function AdminChatRoomPage({
       currentUserId={session.user.id}
       otherUserName={conversation.otherName}
       orderInfo={conversation.order || undefined}
+      canViewOrders={canAccessAdminPage(session.user, '/admin/orders')}
     />
   );
 }

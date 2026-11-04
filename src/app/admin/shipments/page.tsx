@@ -3,6 +3,7 @@ import { authOptions } from '@server/modules/auth/auth-options';
 import { redirect } from 'next/navigation';
 import { AdminService } from '@/server/modules/admin/admin.service';
 import { AdminShipmentsView } from '@client/views/admin/AdminShipmentsView';
+import { canAccessAdminPage } from '@shared/admin-page-access';
 import type { Metadata } from 'next';
 
 export const dynamic = 'force-dynamic';
@@ -14,11 +15,11 @@ export const metadata: Metadata = {
 
 export default async function AdminShipmentsPage() {
   const session = await getServerSession(authOptions);
-  if (!session?.user || session.user.role !== 'ADMIN') {
+  if (!session?.user || !canAccessAdminPage(session.user, '/admin/shipments')) {
     redirect('/');
   }
 
   const shipments = await AdminService.getAdminShipments();
 
-  return <AdminShipmentsView initialShipments={shipments} />;
+  return <AdminShipmentsView initialShipments={shipments} canViewOrders={canAccessAdminPage(session.user, '/admin/orders')} />;
 }

@@ -45,7 +45,7 @@ const STATUS_CONFIG: Record<ShipmentStatus, { label: string; bg: string; text: s
   CANCELLED: { label: 'Đã hủy', bg: 'bg-gray-100', text: 'text-gray-600', icon: AlertCircle },
 };
 
-export function AdminShipmentsView({ initialShipments }: { initialShipments: AdminShipment[] }) {
+export function AdminShipmentsView({ initialShipments, canViewOrders = true }: { initialShipments: AdminShipment[]; canViewOrders?: boolean }) {
   const [shipments] = useState<AdminShipment[]>(initialShipments);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -93,12 +93,12 @@ export function AdminShipmentsView({ initialShipments }: { initialShipments: Adm
         </div>
 
         <div className="flex items-center gap-2">
-          <Link
+          {canViewOrders && <Link
             href="/admin/orders"
             className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-semibold rounded-full transition"
           >
             Quản lý Đơn hàng
-          </Link>
+          </Link>}
         </div>
       </div>
 

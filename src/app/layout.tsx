@@ -10,9 +10,18 @@ export const metadata: Metadata = {
   description: 'Cửa hàng trực tuyến phong cách hiện đại - Tự động tạo mã VietQR thanh toán tức thì',
 };
 
+const adminSidebarPreferenceScript = `try {
+  if (location.pathname.startsWith('/admin')) {
+    var saved = localStorage.getItem('admin_sidebar_collapsed');
+    var cookieCollapsed = document.cookie.split('; ').includes('admin_sidebar_collapsed=true');
+    document.documentElement.dataset.adminSidebarCollapsed = String(saved === null ? cookieCollapsed : saved === 'true');
+  }
+} catch (_) {}`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="vi">
+    <html lang="vi" suppressHydrationWarning>
+      <head><script dangerouslySetInnerHTML={{ __html: adminSidebarPreferenceScript }} /></head>
       <body className="min-h-screen bg-canvas-mist text-ink-black flex flex-col antialiased">
         <a href="#main-content" className="skip-link">
           Bỏ qua tới nội dung chính

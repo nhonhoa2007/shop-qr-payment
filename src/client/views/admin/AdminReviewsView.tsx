@@ -44,7 +44,7 @@ export interface AdminReviewItem {
   };
 }
 
-export function AdminReviewsView({ initialReviews }: { initialReviews: AdminReviewItem[] }) {
+export function AdminReviewsView({ initialReviews, canDelete = true }: { initialReviews: AdminReviewItem[]; canDelete?: boolean }) {
   const [reviews, setReviews] = useState<AdminReviewItem[]>(initialReviews);
   const [search, setSearch] = useState('');
   const [filterRating, setFilterRating] = useState<string>('ALL');
@@ -394,7 +394,7 @@ export function AdminReviewsView({ initialReviews }: { initialReviews: AdminRevi
                   )}
 
                   {/* Delete Button */}
-                  <button
+                  {canDelete && <button
                     onClick={() => setDeleteTarget(review)}
                     disabled={actionLoading === review.id}
                     title="Xóa đánh giá"
@@ -402,7 +402,7 @@ export function AdminReviewsView({ initialReviews }: { initialReviews: AdminRevi
                     className="flex items-center gap-1 px-2 py-1.5 text-gray-400 hover:text-red-600 rounded-xl text-xs font-medium hover:bg-red-50 transition"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  </button>}
                 </div>
               </div>
             </div>

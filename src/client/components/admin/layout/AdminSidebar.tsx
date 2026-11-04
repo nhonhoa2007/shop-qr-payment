@@ -1,33 +1,16 @@
 'use client';
 
-import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
-import {
-  LayoutDashboard,
-  Package,
-  Truck,
-  Boxes,
-  CreditCard,
-  Tag,
-  Users,
-  Star,
-  MessageSquare,
-  ShieldCheck,
-  RotateCcw,
-  History,
-  ChevronLeft,
-  ChevronRight,
-  ExternalLink,
-  LogOut,
-  X,
-} from 'lucide-react';
+import { ChevronLeft, ChevronRight, ExternalLink, LogOut, X } from 'lucide-react';
+import { Dialog } from '@animate-ui/react/primitives/radix-ui/dialog';
+import * as SidebarPrimitive from '@animate-ui/react/primitives/sidebar';
+import { getVisibleAdminNavGroups, isAdminNavItemActive } from './admin-navigation';
 
 export interface AdminSidebarProps {
   isCollapsed: boolean;
   onToggleCollapse: () => void;
-  isMobileOpen: boolean;
   onCloseMobile: () => void;
   user?: {
     name?: string | null;
@@ -37,359 +20,79 @@ export interface AdminSidebarProps {
   };
 }
 
-interface NavItem {
-  name: string;
-  href: string;
-  icon: React.ComponentType<{ className?: string }>;
-  badge?: string;
-  badgeType?: 'default' | 'alert' | 'count';
-  exact?: boolean;
-  permission?: string;
-  adminOnly?: boolean;
+function initials(name?: string | null): string {
+  const parts = name?.trim().split(/\s+/).filter(Boolean) ?? [];
+  if (parts.length === 0) return 'AD';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
-
-interface NavGroup {
-  title: string;
-  items: NavItem[];
-}
-
-const NAV_GROUPS: NavGroup[] = [
-  {
-    title: 'Tổng quan',
-    items: [
-      {
-        name: 'Bảng điều khiển',
-        href: '/admin',
-        icon: LayoutDashboard,
-        exact: true,
-      },
-    ],
-  },
-  {
-    title: 'Bán hàng & Kho',
-    items: [
-      {
-        name: 'Đơn hàng',
-        href: '/admin/orders',
-        icon: Package,
-        badge: 'Mới',
-        badgeType: 'count',
-        permission: 'orders',
-      },
-      {
-        name: 'Vận đơn GHN',
-        href: '/admin/shipments',
-        icon: Truck,
-        badge: 'GHN',
-        badgeType: 'default',
-        permission: 'shipments',
-      },
-      {
-        name: 'Sản phẩm & Biến thể',
-        href: '/admin/products',
-        icon: Boxes,
-        permission: 'products',
-      },
-    ],
-  },
-  {
-    title: 'Tài chính & Ưu đãi',
-    items: [
-      {
-        name: 'Đối soát VietQR',
-        href: '/admin/transactions',
-        icon: CreditCard,
-        badge: 'Khớp',
-        badgeType: 'alert',
-        adminOnly: true,
-      },
-      {
-        name: 'Mã giảm giá (Coupon)',
-        href: '/admin/coupons',
-        icon: Tag,
-        adminOnly: true,
-      },
-    ],
-  },
-  {
-    title: 'Khách hàng & CSKH',
-    items: [
-      {
-        name: 'Khách hàng & RBAC',
-        href: '/admin/customers',
-        icon: Users,
-        adminOnly: true,
-      },
-      {
-        name: 'Tin nhắn trực tuyến',
-        href: '/admin/chat',
-        icon: MessageSquare,
-        badge: 'Live',
-        badgeType: 'count',
-        permission: 'chat',
-      },
-      {
-        name: 'Đánh giá sản phẩm',
-        href: '/admin/reviews',
-        icon: Star,
-        permission: 'reviews',
-      },
-    ],
-  },
-  {
-    title: 'Hậu mãi & Kiểm định',
-    items: [
-      {
-        name: 'Hồ sơ bảo hành',
-        href: '/admin/warranties',
-        icon: ShieldCheck,
-        permission: 'warranties',
-      },
-      {
-        name: 'Yêu cầu đổi trả',
-        href: '/admin/returns',
-        icon: RotateCcw,
-        permission: 'warranties',
-      },
-      {
-        name: 'Nhật ký kiểm toán',
-        href: '/admin/audit-logs',
-        icon: History,
-        adminOnly: true,
-      },
-    ],
-  },
-];
 
 export function AdminSidebar({
   isCollapsed,
   onToggleCollapse,
-  isMobileOpen,
   onCloseMobile,
   user,
 }: AdminSidebarProps) {
   const pathname = usePathname();
+  const groups = getVisibleAdminNavGroups(user?.role, user?.permissions);
 
-  const isItemActive = (item: NavItem) => {
-    if (item.exact) {
-      return pathname === item.href;
-    }
-    return pathname === item.href || pathname.startsWith(item.href + '/');
-  };
-
-  const getInitials = (name?: string | null) => {
-    if (!name) return 'AD';
-    const parts = name.trim().split(/\s+/);
-    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  };
-
-  const userRole = user?.role;
-  const userPermissions = (user?.permissions || []) as string[];
-
-  const visibleGroups = NAV_GROUPS.map((group) => {
-    const items = group.items.filter((item) => {
-      if (userRole === 'ADMIN') return true;
-      if (item.adminOnly) return false;
-      if (!item.permission) return true;
-      return userPermissions.includes(item.permission);
-    });
-    return { ...group, items };
-  }).filter((group) => group.items.length > 0);
-
-  const sidebarContent = (
-    <div className="flex flex-col h-full justify-between select-none">
-      {/* Top section: Logo & Nav */}
-      <div className="space-y-5">
-        {/* Header / Brand */}
-        <div className={`flex items-center pt-2 pb-1 ${isCollapsed ? 'justify-center px-1' : 'justify-between px-3'}`}>
-          <div className="flex items-center gap-2.5 min-w-0">
-            <Link
-              href="/admin"
-              className="w-9 h-9 rounded-xl bg-[#5433eb] flex items-center justify-center text-white font-black text-lg shadow-sm shadow-[#5433eb]/30 shrink-0 hover:scale-105 transition-transform"
-              title="Shop Admin"
-            >
-              S
-            </Link>
-            {!isCollapsed && (
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-extrabold text-base tracking-tight text-slate-900">shop.</span>
-                  <span
-                    className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold tracking-wider ${
-                      userRole === 'STAFF'
-                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                        : 'bg-[#5433eb]/10 text-[#5433eb]'
-                    }`}
-                  >
-                    {userRole === 'STAFF' ? 'STAFF' : 'ADMIN'}
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-400 font-medium truncate">
-                  {userRole === 'STAFF' ? 'Nhân viên vận hành' : 'Trung tâm điều hành'}
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Desktop collapse toggle button */}
-          <button
-            type="button"
-            onClick={onToggleCollapse}
-            aria-label={isCollapsed ? 'Mở rộng menu' : 'Thu gọn menu'}
-            className="hidden lg:flex p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition"
-            title={isCollapsed ? 'Mở rộng sidebar' : 'Thu gọn sidebar'}
-          >
-            {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-          </button>
-
-          {/* Mobile close button */}
-          <button
-            type="button"
-            onClick={onCloseMobile}
-            aria-label="Đóng menu"
-            className="lg:hidden p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition"
-          >
-            <X className="w-5 h-5" />
-          </button>
+  const content = (collapsed: boolean, mobile: boolean) => (
+    <div className="flex min-h-full flex-col justify-between gap-8 select-none">
+      <div>
+        <div className={`mb-7 flex items-center gap-2 px-2 pt-1 ${collapsed ? 'justify-center' : 'justify-between'}`}>
+          <Link href="/admin" onClick={mobile ? onCloseMobile : undefined} className="flex min-w-0 items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-700">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-slate-800 text-sm font-semibold text-white">S</span>
+            {!collapsed && <span data-admin-expanded-only className="truncate text-lg font-semibold tracking-tight text-slate-900">shop.</span>}
+          </Link>
+          {mobile ? (
+            <Dialog.Close aria-label="Đóng danh mục quản trị" className="rounded-md p-2 text-slate-600 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-slate-700">
+              <X className="size-4" />
+            </Dialog.Close>
+          ) : (
+            !collapsed && <button data-admin-expanded-only type="button" onClick={onToggleCollapse} aria-label="Thu gọn sidebar" className="rounded-md p-2 text-slate-600 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-slate-700"><ChevronLeft className="size-4" /></button>
+          )}
         </div>
 
-        {/* Navigation list */}
-        <nav className="space-y-4 text-[13px] px-1">
-          {visibleGroups.map((group) => (
-            <div key={group.title} className="space-y-1">
-              {!isCollapsed ? (
-                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 mb-1.5">
-                  {group.title}
-                </div>
-              ) : (
-                <div className="h-px bg-slate-100 my-2 mx-2" />
-              )}
-
-              <div className="space-y-0.5">
+        <SidebarPrimitive.Highlight className="space-y-5" animateOnHover={!mobile}>
+          <nav aria-label="Điều hướng quản trị" className="space-y-5">
+            {groups.map((group) => (
+              <div key={group.title} className="space-y-1">
+                {collapsed ? <div className="mx-3 h-px bg-slate-200" /> : <h2 data-admin-expanded-only className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">{group.title}</h2>}
                 {group.items.map((item) => {
-                  const active = isItemActive(item);
+                  const active = isAdminNavItemActive(pathname, item.href, item.exact);
                   const Icon = item.icon;
-
                   return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      onClick={onCloseMobile}
-                      title={isCollapsed ? item.name : undefined}
-                      className={`flex items-center rounded-xl transition group relative ${
-                        isCollapsed
-                          ? 'justify-center p-2.5'
-                          : 'justify-between px-3 py-2.5'
-                      } ${
-                        active
-                          ? 'bg-[#5433eb] text-white font-semibold shadow-sm shadow-[#5433eb]/25'
-                          : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
-                      }`}
-                    >
-                      <div className={`flex items-center gap-2.5 ${isCollapsed ? 'justify-center' : ''}`}>
-                        <Icon
-                          className={`w-4 h-4 shrink-0 transition-transform group-hover:scale-110 ${
-                            active ? 'text-white' : 'text-slate-500 group-hover:text-slate-700'
-                          }`}
-                        />
-                        {!isCollapsed && <span className="truncate">{item.name}</span>}
-                      </div>
-
-                      {/* Expanded state right badge/dot */}
-                      {!isCollapsed && (
-                        <div>
-                          {active ? (
-                            <span className="w-2 h-2 rounded-full bg-white/90 block" />
-                          ) : item.badge ? (
-                            item.badgeType === 'alert' ? (
-                              <span
-                                className="w-2 h-2 rounded-full bg-rose-500 block"
-                                title="Cần lưu ý"
-                              />
-                            ) : item.badgeType === 'count' ? (
-                              <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold">
-                                {item.badge}
-                              </span>
-                            ) : (
-                              <span className="px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 text-[10px] font-semibold">
-                                {item.badge}
-                              </span>
-                            )
-                          ) : null}
-                        </div>
-                      )}
-
-                      {/* Collapsed state active indicator */}
-                      {isCollapsed && active && (
-                        <span className="absolute right-1 w-1.5 h-1.5 rounded-full bg-white" />
-                      )}
-                    </Link>
+                    <div key={item.href} className="relative">
+                      <Link
+                        data-sidebar="menu-button"
+                        href={item.href}
+                        onClick={mobile ? onCloseMobile : undefined}
+                        aria-current={active ? 'page' : undefined}
+                        aria-label={collapsed ? item.name : undefined}
+                        title={collapsed ? item.name : undefined}
+                        className={`relative z-10 flex min-h-10 items-center gap-3 overflow-hidden rounded-md px-3 text-[13px] font-medium focus-visible:outline-2 focus-visible:outline-slate-700 ${collapsed ? 'justify-center' : ''} ${active ? 'bg-slate-200/80 text-slate-900' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
+                      >
+                        <Icon className="size-4 shrink-0" />
+                        {!collapsed && <span data-admin-expanded-only className="min-w-0 flex-1 truncate">{item.name}</span>}
+                      </Link>
+                    </div>
                   );
                 })}
               </div>
-            </div>
-          ))}
-        </nav>
+            ))}
+          </nav>
+        </SidebarPrimitive.Highlight>
+        {collapsed && !mobile && <button type="button" onClick={onToggleCollapse} aria-label="Mở rộng sidebar" title="Mở rộng sidebar" className="mx-auto mt-5 flex rounded-md p-2 text-slate-600 hover:bg-slate-100"><ChevronRight className="size-4" /></button>}
       </div>
 
-      {/* Bottom section: Shop link & Admin Profile */}
-      <div className="pt-3 border-t border-slate-200/80 space-y-2.5">
-        {/* Link back to Customer Shop */}
-        <Link
-          href="/"
-          title="Xem Cửa hàng Khách"
-          className={`flex items-center rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/70 text-xs font-semibold text-slate-700 transition group ${
-            isCollapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2'
-          }`}
-        >
-          <span className="flex items-center gap-2 truncate">
-            <ExternalLink className="w-4 h-4 text-[#5433eb] shrink-0 group-hover:scale-110 transition-transform" />
-            {!isCollapsed && <span className="truncate">Xem Cửa hàng Khách</span>}
-          </span>
-          {!isCollapsed && (
-            <span className="text-[10px] text-slate-400 font-normal">shop/</span>
-          )}
+      <div className="space-y-3 border-t border-slate-200 px-2 pt-4">
+        <Link data-admin-sidebar-footer-link href="/" onClick={mobile ? onCloseMobile : undefined} title="Xem cửa hàng" className={`flex min-h-10 items-center gap-3 rounded-md px-2 text-[13px] text-slate-600 hover:bg-slate-100 ${collapsed ? 'justify-center' : ''}`}>
+          <ExternalLink className="size-4 shrink-0" />{!collapsed && <span data-admin-expanded-only>Xem cửa hàng</span>}
         </Link>
-
-        {/* Profile info & Logout */}
-        <div
-          className={`flex items-center pt-1 ${
-            isCollapsed ? 'justify-center flex-col gap-2' : 'justify-between px-1'
-          }`}
-        >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div
-              className="w-8 h-8 rounded-full bg-indigo-100 border border-indigo-200 flex items-center justify-center font-bold text-xs text-[#5433eb] shrink-0"
-              title={user?.name || user?.email || 'Admin'}
-            >
-              {getInitials(user?.name)}
-            </div>
-            {!isCollapsed && (
-              <div className="min-w-0">
-                <p className="text-xs font-bold text-slate-900 leading-tight truncate">
-                  {user?.name || 'Admin Shop'}
-                </p>
-                <p className="text-[10px] text-slate-400 truncate">
-                  {userRole === 'ADMIN'
-                    ? 'Super Admin'
-                    : userRole === 'STAFF'
-                    ? 'Nhân viên vận hành'
-                    : userRole || 'Admin'}
-                </p>
-              </div>
-            )}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => signOut({ callbackUrl: '/login' })}
-            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
-            title="Đăng xuất"
-            aria-label="Đăng xuất khỏi hệ thống"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
+        <div className={`flex items-center gap-2 ${collapsed ? 'flex-col' : ''}`}>
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-800">{initials(user?.name)}</span>
+          {!collapsed && <div data-admin-expanded-only className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-slate-900">{user?.name || 'Quản trị viên'}</p><p className="text-[11px] text-slate-500">{user?.role === 'STAFF' ? 'Nhân viên' : 'Quản trị'}</p></div>}
+          <button type="button" onClick={() => signOut({ callbackUrl: '/login' })} title="Đăng xuất" aria-label="Đăng xuất" className="rounded-md p-2 text-slate-600 hover:bg-slate-100"><LogOut className="size-4" /></button>
         </div>
       </div>
     </div>
@@ -397,31 +100,18 @@ export function AdminSidebar({
 
   return (
     <>
-      {/* Desktop Persistent Sidebar */}
-      <aside
-        className={`hidden lg:flex flex-col justify-between bg-white border-r border-slate-200/80 p-3.5 shrink-0 shadow-sm transition-all duration-300 ease-in-out h-screen overflow-y-auto ${
-          isCollapsed ? 'w-20' : 'w-[260px]'
-        }`}
-      >
-        {sidebarContent}
-      </aside>
+      <SidebarPrimitive.Container id="admin-desktop-sidebar" role="complementary" className={`hidden h-screen shrink-0 overflow-y-auto border-r border-slate-200 bg-white p-3 lg:flex lg:flex-col ${isCollapsed ? 'lg:w-[72px]' : 'lg:w-[240px]'}`} aria-label="Sidebar quản trị">
+        {content(isCollapsed, false)}
+      </SidebarPrimitive.Container>
 
-      {/* Mobile Slide-over Drawer */}
-      {isMobileOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"
-            onClick={onCloseMobile}
-            aria-hidden="true"
-          />
-
-          {/* Drawer panel */}
-          <aside className="fixed inset-y-0 left-0 w-[280px] bg-white border-r border-slate-200 p-4 shadow-xl z-10 flex flex-col justify-between overflow-y-auto">
-            {sidebarContent}
-          </aside>
-        </div>
-      )}
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-slate-950/35 lg:hidden" />
+        <Dialog.Content data-side="left" className="fixed inset-y-0 left-0 z-50 w-[min(280px,calc(100vw-32px))] overflow-y-auto border-r border-slate-200 bg-white p-4 shadow-xl lg:hidden" aria-label="Danh mục quản trị">
+          <Dialog.Title className="sr-only">Danh mục quản trị</Dialog.Title>
+          <Dialog.Description className="sr-only">Chọn một trang quản trị</Dialog.Description>
+          {content(false, true)}
+        </Dialog.Content>
+      </Dialog.Portal>
     </>
   );
 }

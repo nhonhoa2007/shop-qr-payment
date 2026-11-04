@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { prisma } from '@server/database/prisma';
 import { authOptions } from '@server/modules/auth/auth-options';
-import { resolveOperatorAccess } from '@server/modules/admin/guards';
+import { canAccessChatRoom } from './chat-room-scope';
 
 export async function POST(req: Request) {
   try {
@@ -24,10 +24,7 @@ export async function POST(req: Request) {
     }
 
     const isCustomer = room.customerId === session.user.id;
-    const isStaff = room.assignedStaffId === session.user.id;
-    const canAccessChat = resolveOperatorAccess(session.user, 'chat');
-
-    if (!isCustomer && !isStaff && !canAccessChat) {
+    if (!canAccessChatRoom(session.user, room)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -47,7 +44,7 @@ export async function POST(req: Request) {
       updateData.customerReadAt = new Date();
     } else {
       updateData.staffReadAt = new Date();
-      if (!room.assignedStaffId) {
+      if (session.user.role === 'ADMIN' && !room.assignedStaffId) {
         updateData.assignedStaffId = session.user.id;
       }
     }

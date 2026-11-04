@@ -4,7 +4,27 @@ import { useState } from 'react';
 import { formatVND, formatDateTime, getStatusLabel, getStatusColor } from '@shared/utils';
 import { toast } from 'sonner';
 import Link from 'next/link';
-import { Coins, Check, User, Phone, Mail, MapPin, FileText } from 'lucide-react';
+import { Check, User, Phone, Mail, MapPin, FileText } from 'lucide-react';
+import { AdminFilterMenu } from '@client/components/admin/AdminFilterMenu';
+import { filterAdminOrders } from '@client/lib/admin-order-filter';
+
+const STATUS_OPTIONS = [
+  { value: 'ALL', label: 'Tất cả tiến độ' },
+  { value: 'PENDING', label: 'Chờ thanh toán' },
+  { value: 'CONFIRMED', label: 'Đã xác nhận' },
+  { value: 'PROCESSING', label: 'Đang xử lý' },
+  { value: 'SHIPPING', label: 'Đang giao' },
+  { value: 'COMPLETED', label: 'Hoàn thành' },
+  { value: 'CANCELLED', label: 'Đã hủy' },
+];
+
+const PAYMENT_OPTIONS = [
+  { value: 'ALL', label: 'Tất cả thanh toán' },
+  { value: 'UNPAID', label: 'Chưa thanh toán' },
+  { value: 'PAID', label: 'Đã thanh toán' },
+  { value: 'EXPIRED', label: 'Hết hạn' },
+  { value: 'REFUNDED', label: 'Hoàn tiền' },
+];
 
 export interface AdminOrder {
   id: string;
@@ -26,14 +46,14 @@ export interface AdminOrder {
   }[];
 }
 
-export function AdminOrdersView({ initialOrders }: { initialOrders: AdminOrder[] }) {
+export function AdminOrdersView({ initialOrders, initialQuery = '', initialStatus = 'ALL' }: { initialOrders: AdminOrder[]; initialQuery?: string; initialStatus?: string }) {
   const [orders, setOrders] = useState<AdminOrder[]>(initialOrders);
-  const [filterStatus, setFilterStatus] = useState<string>('ALL');
+  const [filterStatus, setFilterStatus] = useState<string>(initialStatus);
   const [filterPayment, setFilterPayment] = useState<string>('ALL');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  const handleUpdate = async (orderId: string, payload: { status?: string; paymentStatus?: string }) => {
+  const handleUpdate = async (orderId: string, payload: { status: string }) => {
     setUpdatingId(orderId);
     try {
       const res = await fetch(`/api/orders/${orderId}`, {
@@ -55,18 +75,7 @@ export function AdminOrdersView({ initialOrders }: { initialOrders: AdminOrder[]
     }
   };
 
-  const filteredOrders = orders.filter((o) => {
-    if (filterStatus !== 'ALL' && o.status !== filterStatus) return false;
-    if (filterPayment !== 'ALL' && o.paymentStatus !== filterPayment) return false;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      const matchCode = o.orderCode.toLowerCase().includes(q);
-      const matchName = o.customerName.toLowerCase().includes(q);
-      const matchPhone = o.customerPhone.toLowerCase().includes(q);
-      if (!matchCode && !matchName && !matchPhone) return false;
-    }
-    return true;
-  });
+  const filteredOrders = filterAdminOrders(orders, { status: filterStatus, payment: filterPayment, query: searchQuery });
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -91,31 +100,8 @@ export function AdminOrdersView({ initialOrders }: { initialOrders: AdminOrder[]
             onChange={(e) => setSearchQuery(e.target.value)}
             className="px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-none w-56"
           />
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-none"
-          >
-            <option value="ALL">Tất cả tiến độ</option>
-            <option value="PENDING">Chờ thanh toán</option>
-            <option value="CONFIRMED">Đã xác nhận</option>
-            <option value="PROCESSING">Đang xử lý</option>
-            <option value="SHIPPING">Đang giao</option>
-            <option value="COMPLETED">Hoàn thành</option>
-            <option value="CANCELLED">Đã hủy</option>
-          </select>
-
-          <select
-            value={filterPayment}
-            onChange={(e) => setFilterPayment(e.target.value)}
-            className="px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-none"
-          >
-            <option value="ALL">Tất cả thanh toán</option>
-            <option value="UNPAID">Chưa thanh toán</option>
-            <option value="PAID">Đã thanh toán</option>
-            <option value="EXPIRED">Hết hạn</option>
-            <option value="REFUNDED">Hoàn tiền</option>
-          </select>
+          <AdminFilterMenu label="Lọc tiến độ" value={filterStatus} options={STATUS_OPTIONS} onValueChange={setFilterStatus} />
+          <AdminFilterMenu label="Lọc thanh toán" value={filterPayment} options={PAYMENT_OPTIONS} onValueChange={setFilterPayment} />
         </div>
       </div>
 
@@ -241,24 +227,14 @@ export function AdminOrdersView({ initialOrders }: { initialOrders: AdminOrder[]
                   </button>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  {order.paymentStatus !== 'PAID' ? (
-                    <button
-                      type="button"
-                      disabled={updatingId === order.id}
-                      onClick={() => handleUpdate(order.id, { paymentStatus: 'PAID', status: 'CONFIRMED' })}
-                      className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-semibold transition flex items-center gap-1.5 shadow-sm"
-                    >
-                      <Coins className="w-3.5 h-3.5" />
-                      <span>Xác nhận đã nhận tiền</span>
-                    </button>
-                  ) : (
+                {order.paymentStatus === 'PAID' && (
+                  <div className="flex items-center gap-2">
                     <span className="text-xs text-green-700 font-semibold flex items-center gap-1">
                       <Check className="w-3.5 h-3.5" />
                       <span>Đã thanh toán đầy đủ</span>
                     </span>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             </div>
           ))

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { AdminFilterMenu } from '@client/components/admin/AdminFilterMenu';
 import { formatVND, formatDateTime } from '@shared/utils';
 import { toast } from 'sonner';
 import {
@@ -201,15 +202,16 @@ export function AdminTransactionsView({
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          <select
+          <AdminFilterMenu
+            label="Lọc trạng thái đối soát"
             value={filterVerified}
-            onChange={(e) => setFilterVerified(e.target.value as 'ALL' | 'VERIFIED' | 'UNVERIFIED')}
-            className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-none w-full sm:w-auto"
-          >
-            <option value="ALL">Tất cả trạng thái</option>
-            <option value="VERIFIED">Đã xác thực (Verified)</option>
-            <option value="UNVERIFIED">Chưa xác thực</option>
-          </select>
+            onValueChange={(value) => setFilterVerified(value as 'ALL' | 'VERIFIED' | 'UNVERIFIED')}
+            options={[
+              { value: 'ALL', label: 'Tất cả trạng thái' },
+              { value: 'VERIFIED', label: 'Đã xác thực' },
+              { value: 'UNVERIFIED', label: 'Chưa xác thực' },
+            ]}
+          />
         </div>
       </div>
 

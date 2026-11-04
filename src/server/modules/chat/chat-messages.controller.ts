@@ -4,7 +4,7 @@ import { prisma } from '@server/database/prisma';
 import { pusherServer } from '@server/infrastructure/pusher';
 import { createNotification } from '@server/modules/notifications/notifications.service';
 import { authOptions } from '@server/modules/auth/auth-options';
-import { resolveOperatorAccess } from '@server/modules/admin/guards';
+import { canAccessChatRoom } from './chat-room-scope';
 
 export async function POST(req: Request) {
   try {
@@ -19,12 +19,10 @@ export async function POST(req: Request) {
     });
     if (!room) return NextResponse.json({ error: 'Room not found' }, { status: 404 });
 
-    const isMember = room.customerId === session.user.id || room.assignedStaffId === session.user.id;
-    const canAccessChat = resolveOperatorAccess(session.user, 'chat');
-    if (!isMember && !canAccessChat) {
+    if (!canAccessChatRoom(session.user, room)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
-    if (!isMember && canAccessChat && !room.assignedStaffId) {
+    if (session.user.role === 'ADMIN' && !room.assignedStaffId) {
       await (prisma as any).chatRoom.update({
         where: { id: roomId },
         data: { assignedStaffId: session.user.id },
@@ -84,12 +82,10 @@ export async function GET(req: Request) {
     });
     if (!room) return NextResponse.json({ error: 'Room not found' }, { status: 404 });
 
-    const isMember = room.customerId === session.user.id || room.assignedStaffId === session.user.id;
-    const canAccessChat = resolveOperatorAccess(session.user, 'chat');
-    if (!isMember && !canAccessChat) {
+    if (!canAccessChatRoom(session.user, room)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
-    if (!isMember && canAccessChat && !room.assignedStaffId) {
+    if (session.user.role === 'ADMIN' && !room.assignedStaffId) {
       await (prisma as any).chatRoom.update({
         where: { id: roomId },
         data: { assignedStaffId: session.user.id },

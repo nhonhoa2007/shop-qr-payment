@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { prisma } from '@server/database/prisma';
 import { pusherServer } from '@server/infrastructure/pusher';
 import { authOptions } from '@server/modules/auth/auth-options';
-import { resolveOperatorAccess } from '@server/modules/admin/guards';
+import { canAccessChatRoom } from './chat-room-scope';
 
 interface ChannelUser {
   id: string;
@@ -31,10 +31,7 @@ export async function canSubscribeToChannel(
     const roomId = channelName.slice('private-chat-'.length);
     if (!roomId) return false;
     const room = await findRoom(roomId);
-    return Boolean(
-      (room && (room.customerId === user.id || room.assignedStaffId === user.id)) ||
-      (room && resolveOperatorAccess(user, 'chat'))
-    );
+    return canAccessChatRoom(user, room);
   }
 
   return false;

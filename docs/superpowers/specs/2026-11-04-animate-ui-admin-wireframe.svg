@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 820" role="img" aria-labelledby="title desc">
+  <title id="title">Phác thảo dashboard quản trị desktop và mobile</title>
+  <desc id="desc">Desktop có sidebar cố định bên trái, các KPI, biểu đồ, cơ cấu thanh toán và việc cần xử lý. Mobile có thanh trên cùng và panel điều hướng mở từ trái.</desc>
+  <defs>
+    <style>
+      .bg{fill:#f4f5f6}.panel{fill:#fff;stroke:#d9dde2;stroke-width:1.5}.soft{fill:#f0f2f4}.line{stroke:#d9dde2;stroke-width:1.3}.ink{fill:#1d2329;font:600 15px system-ui,sans-serif}.body{fill:#48515a;font:13px system-ui,sans-serif}.muted{fill:#79838d;font:12px system-ui,sans-serif}.small{fill:#59636d;font:11px system-ui,sans-serif}.big{fill:#1d2329;font:700 28px system-ui,sans-serif}.heading{fill:#1d2329;font:700 21px system-ui,sans-serif}.accent{fill:#345c78}.accentbg{fill:#e8eff4}.bar{fill:#7e9aab}.bar2{fill:#bac9d2}.num{fill:#fff;font:700 11px system-ui,sans-serif}
+    </style>
+  </defs>
+  <rect width="1500" height="820" class="bg"/>
+  <text x="40" y="42" class="heading">Dashboard · tối giản</text>
+  <text x="40" y="64" class="body">Bản phác thảo bố cục — số liệu và trạng thái chỉ để minh họa</text>
+
+  <text x="40" y="98" class="ink">DESKTOP</text>
+  <rect x="40" y="112" width="1050" height="660" rx="12" class="panel"/>
+  <rect x="40" y="112" width="224" height="660" rx="12" class="panel"/>
+  <rect x="252" y="112" width="12" height="660" fill="#fff"/>
+  <text x="64" y="148" class="heading">shop.</text>
+  <text x="65" y="177" class="muted">QUẢN TRỊ</text>
+  <rect x="56" y="190" width="192" height="35" rx="7" class="accentbg"/>
+  <rect x="56" y="190" width="3" height="35" rx="1.5" class="accent"/>
+  <text x="70" y="213" class="ink">▣  Tổng quan</text>
+  <text x="70" y="260" class="body">□  Đơn hàng</text>
+  <text x="70" y="296" class="body">□  Vận đơn</text>
+  <text x="70" y="332" class="body">□  Sản phẩm</text>
+  <line x1="64" y1="352" x2="241" y2="352" class="line"/>
+  <text x="65" y="377" class="muted">TÀI CHÍNH</text>
+  <text x="70" y="410" class="body">□  Đối soát QR</text>
+  <text x="70" y="446" class="body">□  Mã giảm giá</text>
+  <line x1="64" y1="468" x2="241" y2="468" class="line"/>
+  <text x="65" y="493" class="muted">KHÁCH HÀNG</text>
+  <text x="70" y="526" class="body">□  Khách hàng</text>
+  <text x="70" y="562" class="body">□  Tin nhắn</text>
+  <text x="70" y="598" class="body">□  Đánh giá</text>
+  <line x1="64" y1="708" x2="241" y2="708" class="line"/>
+  <text x="66" y="738" class="body">◯  Tài khoản     ‹</text>
+
+  <line x1="264" y1="164" x2="1089" y2="164" class="line"/>
+  <text x="292" y="145" class="ink">Tổng quan</text>
+  <rect x="716" y="125" width="217" height="27" rx="6" class="soft"/>
+  <text x="731" y="143" class="small">⌕  Tìm đơn hàng, sản phẩm...</text>
+  <text x="960" y="144" class="body">● Online   ♢</text>
+  <text x="291" y="205" class="heading">Tổng quan</text>
+  <text x="291" y="229" class="muted">Hôm nay · Cập nhật 10:42</text>
+  <rect x="791" y="188" width="264" height="36" rx="8" class="soft"/>
+  <rect x="796" y="192" width="83" height="28" rx="6" class="panel"/>
+  <text x="811" y="211" class="small">Hôm nay</text>
+  <text x="897" y="211" class="small">7 ngày</text>
+  <text x="976" y="211" class="small">30 ngày</text>
+
+  <g>
+    <rect x="291" y="251" width="178" height="112" rx="9" class="panel"/>
+    <rect x="481" y="251" width="178" height="112" rx="9" class="panel"/>
+    <rect x="671" y="251" width="178" height="112" rx="9" class="panel"/>
+    <rect x="861" y="251" width="194" height="112" rx="9" class="panel"/>
+    <text x="306" y="276" class="muted">Doanh thu</text><text x="306" y="315" class="big">48,2tr</text><text x="306" y="343" class="small">↑ 8,3% so với trước</text>
+    <text x="496" y="276" class="muted">Đơn hàng</text><text x="496" y="315" class="big">124</text><text x="496" y="343" class="small">18 đơn mới</text>
+    <text x="686" y="276" class="muted">Chờ xử lý</text><text x="686" y="315" class="big">12</text><text x="686" y="343" class="small">Cần xác nhận</text>
+    <text x="876" y="276" class="muted">Thanh toán QR</text><text x="876" y="315" class="big">36,8tr</text><text x="876" y="343" class="small">76% doanh thu</text>
+  </g>
+
+  <rect x="291" y="383" width="501" height="199" rx="9" class="panel"/>
+  <text x="308" y="410" class="ink">Doanh thu theo thời gian</text>
+  <text x="308" y="431" class="muted">Xu hướng trong kỳ đã chọn</text>
+  <line x1="316" y1="550" x2="770" y2="550" class="line"/>
+  <rect x="335" y="510" width="24" height="40" rx="3" class="bar2"/><rect x="378" y="484" width="24" height="66" rx="3" class="bar2"/><rect x="421" y="498" width="24" height="52" rx="3" class="bar2"/><rect x="464" y="462" width="24" height="88" rx="3" class="bar"/><rect x="507" y="478" width="24" height="72" rx="3" class="bar2"/><rect x="550" y="450" width="24" height="100" rx="3" class="bar"/><rect x="593" y="467" width="24" height="83" rx="3" class="bar2"/><rect x="636" y="435" width="24" height="115" rx="3" class="bar"/><rect x="679" y="453" width="24" height="97" rx="3" class="bar2"/><rect x="722" y="443" width="24" height="107" rx="3" class="bar"/>
+  <rect x="806" y="383" width="249" height="199" rx="9" class="panel"/>
+  <text x="823" y="410" class="ink">Cơ cấu thanh toán</text>
+  <text x="823" y="443" class="body">VietQR</text><rect x="901" y="434" width="113" height="9" rx="4" class="bar"/><text x="1020" y="443" class="small">76%</text>
+  <text x="823" y="477" class="body">COD</text><rect x="901" y="468" width="46" height="9" rx="4" class="bar2"/><text x="1020" y="477" class="small">18%</text>
+  <text x="823" y="511" class="body">Khác</text><rect x="901" y="502" width="18" height="9" rx="4" class="bar2"/><text x="1020" y="511" class="small">6%</text>
+
+  <rect x="291" y="597" width="303" height="149" rx="9" class="panel"/>
+  <text x="308" y="625" class="ink">Cần xử lý</text>
+  <line x1="308" y1="637" x2="576" y2="637" class="line"/>
+  <text x="308" y="661" class="body">12 đơn chờ xác nhận</text><text x="555" y="661" class="small">→</text>
+  <text x="308" y="691" class="body">3 giao dịch chưa khớp</text><text x="555" y="691" class="small">→</text>
+  <text x="308" y="721" class="body">5 sản phẩm tồn thấp</text><text x="555" y="721" class="small">→</text>
+  <rect x="609" y="597" width="446" height="149" rx="9" class="panel"/>
+  <text x="626" y="625" class="ink">Đơn hàng gần đây</text>
+  <line x1="626" y1="637" x2="1037" y2="637" class="line"/>
+  <text x="626" y="661" class="body">#DH-1028</text><text x="787" y="661" class="body">1.250.000 đ</text><text x="947" y="661" class="small">Đã thanh toán</text>
+  <text x="626" y="691" class="body">#DH-1027</text><text x="787" y="691" class="body">890.000 đ</text><text x="947" y="691" class="small">Chờ xử lý</text>
+  <text x="626" y="721" class="body">#DH-1026</text><text x="787" y="721" class="body">2.100.000 đ</text><text x="947" y="721" class="small">Đang giao</text>
+
+  <text x="1130" y="98" class="ink">MOBILE</text>
+  <rect x="1130" y="112" width="330" height="660" rx="18" class="panel"/>
+  <line x1="1130" y1="164" x2="1460" y2="164" class="line"/>
+  <text x="1150" y="145" class="ink">☰  Tổng quan</text><text x="1420" y="145" class="body">♢</text>
+  <text x="1152" y="200" class="heading">Tổng quan</text>
+  <text x="1152" y="223" class="muted">Hôm nay · Cập nhật 10:42</text>
+  <rect x="1152" y="245" width="285" height="36" rx="8" class="soft"/>
+  <rect x="1156" y="249" width="91" height="28" rx="6" class="panel"/>
+  <text x="1171" y="268" class="small">Hôm nay</text><text x="1260" y="268" class="small">7 ngày</text><text x="1352" y="268" class="small">30 ngày</text>
+  <rect x="1152" y="299" width="134" height="100" rx="9" class="panel"/><rect x="1302" y="299" width="135" height="100" rx="9" class="panel"/>
+  <text x="1164" y="323" class="muted">Doanh thu</text><text x="1164" y="363" class="big">48,2tr</text>
+  <text x="1314" y="323" class="muted">Đơn hàng</text><text x="1314" y="363" class="big">124</text>
+  <rect x="1152" y="414" width="285" height="170" rx="9" class="panel"/>
+  <text x="1168" y="442" class="ink">Doanh thu</text>
+  <line x1="1168" y1="555" x2="1421" y2="555" class="line"/>
+  <rect x="1181" y="517" width="19" height="38" rx="3" class="bar2"/><rect x="1217" y="489" width="19" height="66" rx="3" class="bar2"/><rect x="1253" y="503" width="19" height="52" rx="3" class="bar2"/><rect x="1289" y="470" width="19" height="85" rx="3" class="bar"/><rect x="1325" y="482" width="19" height="73" rx="3" class="bar2"/><rect x="1361" y="457" width="19" height="98" rx="3" class="bar"/><rect x="1397" y="474" width="19" height="81" rx="3" class="bar2"/>
+  <rect x="1152" y="599" width="285" height="147" rx="9" class="panel"/>
+  <text x="1168" y="627" class="ink">Cần xử lý</text><line x1="1168" y1="640" x2="1421" y2="640" class="line"/>
+  <text x="1168" y="665" class="body">12 đơn chờ xác nhận</text>
+  <text x="1168" y="696" class="body">3 giao dịch chưa khớp</text>
+  <text x="1168" y="727" class="body">5 sản phẩm tồn thấp</text>
+</svg>

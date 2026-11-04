@@ -1,15 +1,20 @@
 'use client';
 
-import React, { useState, useSyncExternalStore } from 'react';
+import React, { useEffect, useLayoutEffect, useState, useSyncExternalStore } from 'react';
+import { AnimateUIProvider } from '@animate-ui/react/provider';
+import { Dialog } from '@animate-ui/react/primitives/radix-ui/dialog';
+import * as SidebarPrimitive from '@animate-ui/react/primitives/sidebar';
 import { AdminSidebar } from './AdminSidebar';
 import { AdminTopbar } from './AdminTopbar';
 
 export interface AdminAppShellProps {
   children: React.ReactNode;
+  initialCollapsed?: boolean;
   user?: {
     name?: string | null;
     email?: string | null;
     role?: string;
+    permissions?: string[];
   };
 }
 
@@ -30,58 +35,71 @@ function subscribeSidebar(callback: () => void) {
   };
 }
 
-function getSidebarSnapshot() {
+function getSidebarSnapshot(fallback: boolean) {
   try {
-    return localStorage.getItem('admin_sidebar_collapsed') === 'true';
+    const stored = localStorage.getItem('admin_sidebar_collapsed');
+    return stored === null ? fallback : stored === 'true';
   } catch {
-    return false;
+    return fallback;
   }
 }
 
-export function AdminAppShell({ children, user }: AdminAppShellProps) {
+export function AdminAppShell({ children, user, initialCollapsed = false }: AdminAppShellProps) {
   const isCollapsed = useSyncExternalStore(
     subscribeSidebar,
-    getSidebarSnapshot,
-    () => false
+    () => getSidebarSnapshot(initialCollapsed),
+    () => initialCollapsed
   );
 
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
-  const handleToggleCollapse = () => {
+  useLayoutEffect(() => {
+    if (isCollapsed === getSidebarSnapshot(initialCollapsed)) {
+      document.documentElement.dataset.adminSidebarCollapsed = String(isCollapsed);
+    }
+  }, [initialCollapsed, isCollapsed]);
+
+  useEffect(() => {
+    const desktop = window.matchMedia('(min-width: 1024px)');
+    const closeOnDesktop = () => { if (desktop.matches) setIsMobileOpen(false); };
+    desktop.addEventListener('change', closeOnDesktop);
+    return () => desktop.removeEventListener('change', closeOnDesktop);
+  }, []);
+
+  const setSidebarOpen = (open: boolean) => {
+    if (window.matchMedia('(max-width: 1023px)').matches) return;
     try {
-      localStorage.setItem('admin_sidebar_collapsed', String(!isCollapsed));
+      localStorage.setItem('admin_sidebar_collapsed', String(!open));
+      document.cookie = `admin_sidebar_collapsed=${!open}; path=/admin; max-age=604800; SameSite=Lax`;
+      document.documentElement.dataset.adminSidebarCollapsed = String(!open);
       emitSidebarChange();
     } catch {
       // Ignore
     }
   };
 
+  const handleToggleCollapse = () => setSidebarOpen(isCollapsed);
+
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-[#f3f4f6] text-slate-900 antialiased font-sans">
-      {/* Sidebar Navigation */}
-      <AdminSidebar
-        isCollapsed={isCollapsed}
-        onToggleCollapse={handleToggleCollapse}
-        isMobileOpen={isMobileOpen}
-        onCloseMobile={() => setIsMobileOpen(false)}
-        user={user}
-      />
-
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-        {/* Topbar Header */}
-        <AdminTopbar
-          onToggleMobileMenu={() => setIsMobileOpen(true)}
-          isCollapsed={isCollapsed}
-          onToggleCollapse={handleToggleCollapse}
-          user={user}
-        />
-
-        {/* Scrollable Viewport */}
-        <main className="flex-1 overflow-y-auto">
-          {children}
-        </main>
-      </div>
-    </div>
+    <AnimateUIProvider tempo={0.85} reducedMotion="user">
+      <SidebarPrimitive.Provider
+        open={!isCollapsed}
+        onOpenChange={setSidebarOpen}
+        className="flex h-screen w-full overflow-hidden bg-[#f5f6f7] font-sans text-slate-900 antialiased"
+      >
+        <Dialog.Root open={isMobileOpen} onOpenChange={setIsMobileOpen}>
+          <AdminSidebar
+            isCollapsed={isCollapsed}
+            onToggleCollapse={handleToggleCollapse}
+            onCloseMobile={() => setIsMobileOpen(false)}
+            user={user}
+          />
+          <div className="flex h-screen min-w-0 flex-1 flex-col overflow-hidden">
+            <AdminTopbar user={user} />
+            <main className="flex-1 overflow-y-auto">{children}</main>
+          </div>
+        </Dialog.Root>
+      </SidebarPrimitive.Provider>
+    </AnimateUIProvider>
   );
 }

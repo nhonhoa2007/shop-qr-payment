@@ -13,6 +13,7 @@ import {
   type DataSourceRecord,
 } from './data-source.service.ts';
 import { resolveOperatorAccess, type GuardUser } from '@server/modules/admin/guards';
+import { assertVariantRemovalAllowed } from '@server/modules/products/variant-removal-policy';
 import type {
   ProductKind,
   ProductSegment,
@@ -533,6 +534,8 @@ export async function upsertElectronicsProduct(
       ? await tx.productVariant.findMany({ where: { productId: prodId } })
       : [];
     const incomingVariantIds = new Set(validatedVariants.map((v) => v.id).filter(Boolean));
+
+    assertVariantRemovalAllowed(actor.role, existingVariants as Array<{ id: string }>, validatedVariants);
 
     // Xóa hoặc soft-delete các variant không còn trong payload
     for (const ev of existingVariants) {

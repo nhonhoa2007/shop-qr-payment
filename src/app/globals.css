@@ -27,6 +27,26 @@
   --foreground: #000000;
 }
 
+/* Apply a legacy localStorage sidebar preference before React hydrates. */
+@media (min-width: 1024px) {
+  html[data-admin-sidebar-collapsed="false"] #admin-desktop-sidebar {
+    width: 240px !important;
+  }
+
+  html[data-admin-sidebar-collapsed="true"] #admin-desktop-sidebar {
+    width: 72px !important;
+  }
+
+  html[data-admin-sidebar-collapsed="true"] #admin-desktop-sidebar [data-admin-expanded-only] {
+    display: none !important;
+  }
+
+  html[data-admin-sidebar-collapsed="true"] #admin-desktop-sidebar [data-sidebar="menu-button"],
+  html[data-admin-sidebar-collapsed="true"] #admin-desktop-sidebar [data-admin-sidebar-footer-link] {
+    justify-content: center;
+  }
+}
+
 body {
   background: var(--background);
   color: var(--foreground);

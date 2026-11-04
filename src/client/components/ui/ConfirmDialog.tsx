@@ -1,7 +1,9 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { AlertTriangle, Loader2 } from 'lucide-react';
+import { useRef, type ReactNode } from 'react';
+import { Dialog } from '@animate-ui/react/primitives/radix-ui/dialog';
+import { Loader2 } from 'lucide-react';
+import { canDismissConfirmDialog } from './confirm-dialog-policy';
 
 export interface ConfirmDialogAction {
   label: string;
@@ -14,20 +16,14 @@ interface ConfirmDialogProps {
   onClose: () => void;
   onConfirm: () => void;
   title: string;
-  description?: React.ReactNode;
+  description?: ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
-  /** danger = nút xác nhận màu đỏ (hành động phá vỡ) */
   variant?: 'danger' | 'default';
   loading?: boolean;
-  /** Hành động phụ thứ hai (thay cho pattern confirm() OK/Cancel 2 lựa chọn) */
   secondaryAction?: ConfirmDialogAction;
 }
 
-/**
- * Dialog xác nhận thống nhất của ứng dụng, theo chuẩn a11y của WalletTopupModal:
- * role=dialog, aria-modal, ESC đóng, khoá scroll, click backdrop đóng, focus vào nút an toàn khi mở.
- */
 export function ConfirmDialog({
   open,
   onClose,
@@ -41,97 +37,45 @@ export function ConfirmDialog({
   secondaryAction,
 }: ConfirmDialogProps) {
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
 
-  useEffect(() => {
-    if (!open) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !loading) onClose();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    document.body.style.overflow = 'hidden';
-
-    // Focus vào nút an toàn (Hủy) để tránh kích hoạt nhầm hành động phá vỡ bằng Enter
-    cancelRef.current?.focus();
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = '';
-    };
-  }, [open, onClose, loading]);
-
-  if (!open) return null;
-
-  const confirmClasses =
-    variant === 'danger'
-      ? 'bg-rose-600 text-white hover:bg-rose-700'
-      : 'bg-ink-black text-white hover:bg-slate-ink';
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="confirm-dialog-title"
-    >
-      <div className="fixed inset-0 -z-10" onClick={loading ? undefined : onClose} aria-hidden="true" />
-      <div className="bg-white rounded-[28px] shadow-2xl p-6 sm:p-8 w-full max-w-sm text-center">
-        <div
-          className={`w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 ${
-            variant === 'danger'
-              ? 'bg-rose-50 border border-rose-100 text-rose-500'
-              : 'bg-slate-50 border border-slate-100 text-slate-500'
-          }`}
-        >
-          <AlertTriangle className="w-7 h-7 stroke-[1.5]" />
-        </div>
-        <h2
-          id="confirm-dialog-title"
-          className="text-lg font-semibold text-ink-black tracking-[-0.03em] mb-2"
-        >
-          {title}
-        </h2>
-        {description && (
-          <div className="text-sm text-muted-gray tracking-[-0.014em] mb-6 leading-relaxed">
-            {description}
-          </div>
-        )}
-        <div className="flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={loading}
-            className={`w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full font-medium tracking-[-0.014em] transition text-sm disabled:opacity-50 cursor-pointer ${confirmClasses}`}
-          >
-            {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+  return <Dialog.Root open={open} onOpenChange={(nextOpen) => {
+    if (!nextOpen && canDismissConfirmDialog(loading)) onClose();
+  }}>
+    <Dialog.Portal>
+      <Dialog.Overlay className="fixed inset-0 z-50 bg-slate-950/45" />
+      <Dialog.Content
+        from="bottom"
+        className="fixed left-1/2 top-1/2 z-50 w-[min(420px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-slate-200 bg-white p-6 shadow-xl focus:outline-none"
+        onOpenAutoFocus={(event) => {
+          previousFocusRef.current = document.activeElement as HTMLElement | null;
+          event.preventDefault();
+          cancelRef.current?.focus();
+        }}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          if (previousFocusRef.current?.isConnected) previousFocusRef.current.focus();
+        }}
+        onEscapeKeyDown={(event) => { if (!canDismissConfirmDialog(loading)) event.preventDefault(); }}
+        onInteractOutside={(event) => { if (!canDismissConfirmDialog(loading)) event.preventDefault(); }}
+      >
+        <Dialog.Title className="text-lg font-semibold text-slate-900">{title}</Dialog.Title>
+        <Dialog.Description className={`mt-2 text-sm leading-6 text-slate-600 ${description ? '' : 'sr-only'}`}>
+          {description || 'Xác nhận hành động này'}
+        </Dialog.Description>
+        <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Dialog.Close asChild>
+            <button ref={cancelRef} type="button" disabled={loading} className="min-h-10 rounded-md border border-slate-200 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-slate-700 disabled:opacity-50">
+              {cancelLabel}
+            </button>
+          </Dialog.Close>
+          {secondaryAction && !loading && <button type="button" onClick={() => { onClose(); secondaryAction.onClick(); }} className={secondaryAction.className ?? 'min-h-10 rounded-md border border-slate-300 px-4 text-sm font-medium text-slate-800 hover:bg-slate-50'}>{secondaryAction.label}</button>}
+          <button type="button" onClick={onConfirm} disabled={loading} className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-md px-4 text-sm font-medium text-white focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50 ${variant === 'danger' ? 'bg-rose-700 hover:bg-rose-800 focus-visible:outline-rose-700' : 'bg-slate-800 hover:bg-slate-700 focus-visible:outline-slate-700'}`}>
+            {loading && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
             {loading ? 'Đang xử lý...' : confirmLabel}
           </button>
-          {secondaryAction && !loading && (
-            <button
-              type="button"
-              onClick={() => {
-                onClose();
-                secondaryAction.onClick();
-              }}
-              className={`w-full px-6 py-3 rounded-full font-medium tracking-[-0.014em] transition text-sm cursor-pointer ${
-                secondaryAction.className ??
-                'bg-shop-violet text-white hover:bg-shop-violet-deep'
-              }`}
-            >
-              {secondaryAction.label}
-            </button>
-          )}
-          <button
-            type="button"
-            ref={cancelRef}
-            onClick={onClose}
-            disabled={loading}
-            className="w-full text-sm text-muted-gray hover:text-ink-black transition py-1.5 tracking-[-0.014em] disabled:opacity-50 cursor-pointer"
-          >
-            {cancelLabel}
-          </button>
         </div>
-      </div>
-    </div>
-  );
+      </Dialog.Content>
+    </Dialog.Portal>
+  </Dialog.Root>;
 }
