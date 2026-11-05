@@ -42,4 +42,4 @@ node /home/nhonhoa/.codex/plugins/cache/baoyu-design/baoyu-dashboard/2.8.2/skill
 
 `sync-page.py` chỉ cập nhật trang, giữ dữ liệu và bộ lọc hiện tại. `prepare-store.py` dùng khi tạo lại toàn bộ dashboard và đặt lại bộ lọc mặc định.
 
-Đây là preview độc lập có dữ liệu đính kèm, chưa tích hợp API analytics vào trang `/admin` của ứng dụng.
+Preview này vẫn dùng dữ liệu mẫu riêng; trang `/admin` của ứng dụng đã dùng API analytics với dữ liệu thật.
