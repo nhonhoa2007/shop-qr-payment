@@ -6,6 +6,8 @@
  * quota lease lifecycle, and data/usage redaction.
  */
 
+import { resolveAssistantCommerce, commerceCitations, readCommerceContext, hydrateAssistantCommerce } from './commerce.service';
+import type { CommerceDb } from './commerce-search.service';
 import { prisma as globalPrisma } from '@server/database/prisma';
 import type { AiProvider } from '@server/infrastructure/ai/provider';
 import {
@@ -13,7 +15,7 @@ import {
   settleAiBudget,
   releaseAiBudget,
 } from '@server/infrastructure/ai/quota';
-import { buildEvidenceBundle, isGreetingQuery } from './evidence.service';
+import { buildEvidenceBundle, isGreetingQuery, isCatalogOverviewQuery } from './evidence.service';
 import {
   validateAssistantAnswer,
   buildDeterministicAnswer,
@@ -42,6 +44,7 @@ export interface AssistantDb {
     findMany(args: {
       where: { conversationId: string };
       orderBy?: Record<string, unknown>;
+      take?: number;
     }): Promise<any[]>;
   };
   product?: any;
@@ -154,14 +157,17 @@ export async function getConversationMessages(
 
   const rawMessages = await db.assistantMessage.findMany({
     where: { conversationId },
-    orderBy: { createdAt: 'asc' },
+    orderBy: { createdAt: 'desc' },
+    take: 50,
   });
+  rawMessages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
-  return rawMessages.map((m) => ({
+  return Promise.all(rawMessages.map(async (m) => ({
     id: m.id,
     conversationId: m.conversationId,
     role: m.role as 'USER' | 'ASSISTANT',
     content: m.content,
+    commerce: await hydrateAssistantCommerce(m.citations, db as unknown as CommerceDb),
     followUpQuestion: m.followUpQuestion,
     citations: Array.isArray(m.citations) ? m.citations : [],
     claims: Array.isArray(m.claims) ? m.claims : [],
@@ -169,7 +175,7 @@ export async function getConversationMessages(
     isGrounded: Boolean(m.isGrounded),
     fallbackReason: m.fallbackReason,
     createdAt: m.createdAt.toISOString ? m.createdAt.toISOString() : String(m.createdAt),
-  }));
+  })));
 }
 
 export async function appendUserMessage(
@@ -275,6 +281,34 @@ export async function answerQuestion(
     });
 
     return rateLimitFallback;
+  }
+
+  // References are read only after ownership and quota checks. Each response writes
+  // its own immutable result context, avoiding conversation metadata lost updates.
+  const recent = await db.assistantMessage.findMany({
+    where: { conversationId: conv.id }, orderBy: { createdAt: 'desc' }, take: 12,
+  });
+  const context = recent.map(m => readCommerceContext(m.citations)).find(Boolean);
+  try {
+    const result = isCatalogOverviewQuery(input.content) ? undefined : await resolveAssistantCommerce(input, context, db as unknown as CommerceDb);
+    if (result) {
+      const citations = commerceCitations(result.commerce);
+      const message = await db.assistantMessage.create({ data: {
+        conversationId: conv.id, role: 'ASSISTANT', content: result.answer,
+        citations, claims: [], isGrounded: true,
+        followUpQuestion: result.commerce.kind === 'search' && result.commerce.products.length >= 2
+          ? 'So sánh hai sản phẩm đầu tiên' : null,
+      } });
+      await settleAiBudget(lease, { promptTokens: 0, completionTokens: 0, totalTokens: 0, latencyMs: 0 });
+      await db.assistantConversation.update({ where: { id: conv.id }, data: { updatedAt: new Date() } });
+      return { conversationId: conv.id, messageId: message.id, answer: result.answer,
+        commerce: result.commerce, citations, claims: [], isGrounded: true,
+        ...(result.commerce.kind === 'search' && !result.commerce.products.length ? { fallbackReason: 'NO_MATCH' } : {}),
+        followUpQuestion: message.followUpQuestion || undefined };
+    }
+  } catch (error) {
+    await releaseAiBudget(lease);
+    throw error;
   }
 
   // 3. Build evidence bundle

@@ -265,8 +265,8 @@ export function DraggablePetWidget() {
           />
 
           {/* Desktop Floating Box & Mobile Bottom Sheet */}
-          <div className="fixed z-[99999] inset-x-0 bottom-0 sm:inset-auto sm:right-6 sm:bottom-24 max-w-md w-full sm:w-[420px] p-2 sm:p-0 animate-in fade-in slide-in-from-bottom-4 duration-200">
-            <div className="shadow-2xl rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-white dark:bg-neutral-900">
+          <div className="fixed z-[99999] inset-x-2 bottom-2 sm:inset-auto sm:right-6 sm:bottom-24 sm:w-[448px] animate-in fade-in slide-in-from-bottom-4 duration-200">
+            <div className="rounded-[26px]">
               <AssistantPanel
                 onLoadingChange={handleLoadingChange}
                 onAnswerSuccess={handleAnswerSuccess}

@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
-import crypto from 'node:crypto';
+import { resolveAssistantIdentity } from './assistant-identity';
+import { validateComparisonRefs } from './commerce.service';
+import type { AssistantProductRef } from '@shared/types/assistant-commerce';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@server/modules/auth/auth-options';
 import { FakeAiProvider } from '@server/infrastructure/ai/fake-provider';
@@ -15,28 +17,8 @@ import {
 } from './assistant.service';
 import type { Principal } from '@shared/types/assistant';
 
-function resolvePrincipal(req: Request, session: any): Principal {
-  const forwarded = req.headers.get('x-forwarded-for');
-  const ip = forwarded ? forwarded.split(',')[0].trim() : '127.0.0.1';
-
-  if (session?.user?.id) {
-    return {
-      userId: session.user.id,
-      role: session.user.role || 'CUSTOMER',
-      ip,
-    };
-  }
-
-  const rawAnon =
-    req.headers.get('x-anonymous-session') ||
-    req.headers.get('x-session-id') ||
-    'anon_default';
-  const anonymousTokenHash = crypto.createHash('sha256').update(rawAnon).digest('hex');
-
-  return {
-    anonymousTokenHash,
-    ip,
-  };
+function resolvePrincipal(req: Request, session: Parameters<typeof resolveAssistantIdentity>[1]): Principal {
+  return resolveAssistantIdentity(req, session).principal;
 }
 
 export function resolveDefaultAiProvider(): AiProvider {
@@ -70,11 +52,12 @@ export function getAssistantProvider(): AiProvider {
 export async function createConversationHandler(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    const principal = resolvePrincipal(req, session);
+    const identity = resolveAssistantIdentity(req, session);
     const body = (await req.json().catch(() => ({}))) as { title?: string };
-
-    const conversation = await createConversation(principal, body);
-    return NextResponse.json({ success: true, conversation }, { status: 201 });
+    const conversation = await createConversation(identity.principal, body);
+    const response = NextResponse.json({ success: true, conversation }, { status: 201 });
+    if (identity.cookie) response.headers.append('Set-Cookie', identity.cookie);
+    return response;
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Lỗi tạo phiên hội thoại';
     return NextResponse.json({ error: message }, { status: 500 });
@@ -131,20 +114,33 @@ export async function sendMessageHandler(
     const { id } = await params;
     const body = (await req.json()) as {
       content: string;
+      comparison?: AssistantProductRef[];
       productIds?: string[];
       variantIds?: string[];
       market?: string;
     };
 
-    if (!body?.content?.trim()) {
+    if (typeof body?.content !== 'string' || !body.content.trim() || body.content.length > 2000) {
       return NextResponse.json({ error: 'Nội dung tin nhắn không được để trống' }, { status: 400 });
     }
 
+    let comparison: AssistantProductRef[] | undefined;
+    try {
+      if (body.comparison !== undefined) comparison = validateComparisonRefs(body.comparison);
+      for (const ids of [body.productIds, body.variantIds]) {
+        if (ids !== undefined && (!Array.isArray(ids) || ids.length > 5 || ids.some(id => typeof id !== 'string' || !/^[a-zA-Z0-9_-]{1,128}$/.test(id)))) {
+          throw new Error('Danh sách sản phẩm không hợp lệ');
+        }
+      }
+    } catch (error) {
+      return NextResponse.json({ error: error instanceof Error ? error.message : 'Dữ liệu không hợp lệ' }, { status: 400 });
+    }
     const controller = new AbortController();
     const answer = await answerQuestion(
       {
         conversationId: id,
         content: body.content.trim(),
+        comparison,
         productIds: body.productIds,
         variantIds: body.variantIds,
         market: body.market,

@@ -1,3 +1,5 @@
+import { canonicalSpecCode } from '@shared/utils/product-specs';
+import { productSpecs, toAssistantCard } from './commerce-search.service';
 /**
  * Assistant Evidence Bundle Builder
  *
@@ -313,7 +315,10 @@ export async function buildEvidenceBundle(
   const productsEvidence: GroundedProductEvidence[] = [];
 
   for (const p of rawProducts) {
-    const brandName = p.brand?.name || 'Chính hãng';
+    const brandName = p.brand?.name || 'Chưa có thông tin hãng';
+    const selectedVariant = input.variantIds?.length ? p.variants?.find((v: { id: string; isActive?: boolean }) => input.variantIds!.includes(v.id) && v.isActive !== false) : undefined;
+    if (input.variantIds?.length && !selectedVariant) continue;
+    const liveCard = toAssistantCard(p, selectedVariant);
     const specValues = (p.specs?.values as Record<string, unknown>) ||
       (p.specValues as Record<string, unknown>) || {};
     const specsMap: Record<string, { value: string | number | boolean | null; unit?: string | null }> = {};
@@ -336,6 +341,13 @@ export async function buildEvidenceBundle(
       }
     }
 
+    for (const [code, cell] of Object.entries(productSpecs(p, selectedVariant))) {
+      if (cell.state === 'KNOWN' && cell.value !== undefined) {
+        const existingKey = Object.keys(specsMap).find(key => canonicalSpecCode(key) === code) || code;
+        specsMap[existingKey] = { value: cell.value, ...(cell.unit ? { unit: cell.unit } : {}) };
+      }
+    }
+
     const reviewsDto = Array.isArray(p.reviews)
       ? p.reviews.map((r: any) => ({
           rating: typeof r.rating === 'number' ? r.rating : 5,
@@ -355,7 +367,7 @@ export async function buildEvidenceBundle(
       activeSourceIds.push(prodCitId);
     }
 
-    const livePrice = typeof p.price === 'bigint' ? p.price.toString() : String(p.price || 0);
+    const livePrice = liveCard.price.min;
 
     // Fetch latest score snapshot if available
     let scoreSnapshotDto: GroundedProductEvidence['scoreSnapshot'] = null;
@@ -398,9 +410,11 @@ export async function buildEvidenceBundle(
     productsEvidence.push({
       productId: p.id,
       productName: p.name,
+      variantId: selectedVariant?.id,
+      variantName: selectedVariant?.title,
       brand: brandName,
       livePriceVnd: livePrice,
-      liveStock: p.stock ?? 0,
+      liveStock: liveCard.stock,
       specs: specsMap,
       scoreSnapshot: scoreSnapshotDto,
       benchmarks: benchmarksDto.length > 0 ? benchmarksDto : undefined,

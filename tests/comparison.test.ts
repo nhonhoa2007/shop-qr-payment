@@ -295,3 +295,26 @@ describe('Commerce Intelligence: Product Comparison Engine', () => {
     }
   });
 });
+
+describe('Current electronics comparison contracts', () => {
+  it('unwraps stateful specifications and preserves unknown/unsupported', () => {
+    assert.equal(normalizeCanonicalSpec('ram_capacity_gb', {state:'KNOWN',value:16,unit:'GB'}).canonicalValue,16);
+    assert.equal(normalizeCanonicalSpec('gpu_model', {state:'UNKNOWN'}).status,'UNKNOWN');
+    assert.equal(normalizeCanonicalSpec('touchscreen', {state:'UNSUPPORTED'}).status,'UNSUPPORTED');
+  });
+  it('uses variant overrides and prices and rejects inactive/wrong variants', async () => {
+    const products = ['a','b'].map(id => ({id,name:`Laptop ${id}`,categoryId:'laptop',categoryRef:{id:'laptop',name:'Laptop'},brand:{name:'Lenovo'},isActive:true,inventoryMode:'VARIANT',price:99_000_000n,stock:0,
+      specs:{schemaVersion:1,values:{ram_capacity_gb:{state:'KNOWN',value:8}}},
+      variants:[{id:`v${id}`,title:'16GB',price:20_000_000n,stock:2,isActive:true,specOverrides:{ram_capacity_gb:{state:'KNOWN',value:16}}}]}));
+    const db = {product:{findMany:async()=>products},productScoreSnapshot:{findMany:async()=>[]},orderItem:{findMany:async()=>[]},review:{findMany:async()=>[]},dataSource:{findMany:async()=>[]}} as unknown as PrismaClientOrTx;
+    const result=await compareProducts({items:[{productId:'a',variantId:'va'},{productId:'b'}]},db);
+    assert.equal(result.items[0].canonicalSpecs.ram_capacity_gb.canonicalValue,16);
+    assert.equal(result.items[0].priceVnd,'20000000');
+    assert.equal(result.items[1].priceVnd,'20000000');
+    assert.equal(result.items[1].stock,2);
+    assert.equal(result.items[0].canonicalSpecs.schemaVersion,undefined);
+    await assert.rejects(()=>compareProducts({items:[{productId:'a',variantId:'missing'},{productId:'b'}]},db),/phiên bản|biến thể/);
+    products[0].isActive=false;
+    await assert.rejects(()=>compareProducts({items:[{productId:'a'},{productId:'b'}]},db),/ngừng|không còn/);
+  });
+});

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { prisma } from '@server/database/prisma';
 import { authOptions } from '@server/modules/auth/auth-options';
+import { serializeProductDto } from '@server/modules/money/money-serialization';
 
 export async function GET() {
   try {
@@ -22,7 +23,11 @@ export async function GET() {
       }
     });
 
-    return NextResponse.json({ items, wishlist: items });
+    const serializedItems = items.map(item => ({
+      ...item,
+      product: serializeProductDto(item.product),
+    }));
+    return NextResponse.json({ items: serializedItems, wishlist: serializedItems });
   } catch (error) {
     console.error('Get wishlist error:', error);
     return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });

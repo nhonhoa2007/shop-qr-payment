@@ -121,6 +121,9 @@ export function CheckoutForm({ initialName = '', initialEmail = '', onTotalsChan
   // Geolocation only provides an editable suggestion; user-confirmed fields remain authoritative.
   const [locating, setLocating] = useState(false);
   const [detectedLocation, setDetectedLocation] = useState<DetectedLocationState | null>(null);
+  const hasAutofilledLocation = Boolean(
+    detectedLocation && detectedLocation.quality !== 'UNRELIABLE' && detectedLocation.matchLevel !== 'NONE'
+  );
   const locationRunRef = useRef(0);
   const locationWatchRef = useRef<number | null>(null);
   const locationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -293,7 +296,7 @@ export function CheckoutForm({ initialName = '', initialEmail = '', onTotalsChan
         (ward?.code ?? '') !== selectedWardCode
       )
     );
-    const detectedSpecificAddress = quality === 'PRECISE' ? data.specificAddress.trim() : '';
+    const detectedSpecificAddress = quality !== 'UNRELIABLE' ? data.specificAddress.trim() : '';
 
     if (province) {
       setSelectedProvinceId(province.id);
@@ -301,7 +304,7 @@ export function CheckoutForm({ initialName = '', initialEmail = '', onTotalsChan
       setSelectedWardCode(ward?.code ?? '');
 
       // Không giữ số nhà cũ khi địa giới đổi. Nếu provider không có số nhà/đường,
-      // để trống để người dùng bắt buộc xác nhận thay vì ghép hai địa chỉ khác nhau.
+      // để trống để người dùng bổ sung thay vì ghép hai địa chỉ khác nhau.
       if (hierarchyChanged) setSpecificAddress(detectedSpecificAddress);
       else if (detectedSpecificAddress) setSpecificAddress(detectedSpecificAddress);
     }
@@ -320,7 +323,7 @@ export function CheckoutForm({ initialName = '', initialEmail = '', onTotalsChan
     if (quality === 'UNRELIABLE') {
       toast.info('Vị trí còn sai số lớn. Hãy xác nhận khu vực gợi ý hoặc chọn địa chỉ thủ công.');
     } else if (autofillLevel === 'WARD') {
-      toast.success('Đã điền địa chỉ gợi ý. Vui lòng kiểm tra trước khi đặt hàng.');
+      toast.success('Đã tự động điền địa chỉ từ vị trí hiện tại.');
     } else {
       toast.info('Chỉ nhận diện được một phần khu vực. Vui lòng chọn các mục còn thiếu.');
     }
@@ -713,13 +716,16 @@ export function CheckoutForm({ initialName = '', initialEmail = '', onTotalsChan
               <span className="font-semibold block mb-0.5">
                 {detectedLocation.confirmedArea
                   ? 'Đã chọn khu vực gợi ý'
-                  : detectedLocation.matchLevel === 'WARD'
-                    ? 'Địa chỉ gợi ý — cần kiểm tra'
+                  : hasAutofilledLocation
+                    ? 'Đã tự động điền địa chỉ'
                     : 'Vị trí chỉ mang tính ước lượng'}
               </span>
               <span className="leading-relaxed block">{detectedLocation.label}</span>
               <span className="block mt-1 opacity-80">
-                Sai lệch thiết bị: {formatAccuracy(detectedLocation.accuracy)}. Vui lòng xác nhận số nhà và khu vực bên dưới.
+                Sai lệch thiết bị: {formatAccuracy(detectedLocation.accuracy)}.
+                {hasAutofilledLocation
+                  ? ' Bạn có thể chỉnh sửa hoặc bổ sung các mục còn thiếu bên dưới.'
+                  : !detectedLocation.confirmedArea && ' Vui lòng xác nhận khu vực gợi ý hoặc chọn địa chỉ thủ công.'}
               </span>
               {detectedLocation.areaCandidate && (
                 <button

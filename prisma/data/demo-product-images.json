@@ -1,0 +1,396 @@
+{
+  "version": 1,
+  "assets": {
+    "macbook": {
+      "url": "https://cdn.dummyjson.com/product-images/laptops/apple-macbook-pro-14-inch-space-grey/1.webp",
+      "sourcePage": "https://dummyjson.com/products/78",
+      "sourceProduct": "Apple MacBook Pro 14 Inch Space Grey",
+      "publisher": "DummyJSON",
+      "localPath": "/demo/products/macbook.webp"
+    },
+    "asus": {
+      "url": "https://cdn.dummyjson.com/product-images/laptops/asus-zenbook-pro-dual-screen-laptop/1.webp",
+      "sourcePage": "https://dummyjson.com/products/79",
+      "sourceProduct": "Asus Zenbook Pro Dual Screen Laptop",
+      "publisher": "DummyJSON",
+      "localPath": "/demo/products/asus.webp"
+    },
+    "lenovo": {
+      "url": "https://cdn.dummyjson.com/product-images/laptops/lenovo-yoga-920/1.webp",
+      "sourcePage": "https://dummyjson.com/products/81",
+      "sourceProduct": "Lenovo Yoga 920",
+      "publisher": "DummyJSON",
+      "localPath": "/demo/products/lenovo.webp"
+    },
+    "dell": {
+      "url": "https://cdn.dummyjson.com/product-images/laptops/new-dell-xps-13-9300-laptop/1.webp",
+      "sourcePage": "https://dummyjson.com/products/82",
+      "sourceProduct": "New DELL XPS 13 9300 Laptop",
+      "publisher": "DummyJSON",
+      "localPath": "/demo/products/dell.webp"
+    },
+    "iphone": {
+      "url": "https://cdn.dummyjson.com/product-images/smartphones/iphone-13-pro/1.webp",
+      "sourcePage": "https://dummyjson.com/products/123",
+      "sourceProduct": "iPhone 13 Pro",
+      "publisher": "DummyJSON",
+      "localPath": "/demo/products/iphone.webp"
+    },
+    "samsung-phone": {
+      "url": "https://cdn.dummyjson.com/product-images/smartphones/samsung-galaxy-s7/1.webp",
+      "sourcePage": "https://dummyjson.com/products/131",
+      "sourceProduct": "Samsung Galaxy S7",
+      "publisher": "DummyJSON",
+      "localPath": "/demo/products/samsung-phone.webp"
+    },
+    "airpods": {
+      "url": "https://cdn.dummyjson.com/product-images/mobile-accessories/apple-airpods/1.webp",
+      "sourcePage": "https://dummyjson.com/products/100",
+      "sourceProduct": "Apple Airpods",
+      "publisher": "DummyJSON",
+      "localPath": "/demo/products/airpods.webp"
+    },
+    "airpods-max": {
+      "url": "https://cdn.dummyjson.com/product-images/mobile-accessories/apple-airpods-max-silver/1.webp",
+      "sourcePage": "https://dummyjson.com/products/101",
+      "sourceProduct": "Apple AirPods Max Silver",
+      "publisher": "DummyJSON",
+      "localPath": "/demo/products/airpods-max.webp"
+    },
+    "wireless-charger": {
+      "url": "https://cdn.dummyjson.com/product-images/mobile-accessories/apple-airpower-wireless-charger/1.webp",
+      "sourcePage": "https://dummyjson.com/products/102",
+      "sourceProduct": "Apple Airpower Wireless Charger",
+      "publisher": "DummyJSON",
+      "localPath": "/demo/products/wireless-charger.webp"
+    },
+    "charger": {
+      "url": "https://cdn.dummyjson.com/product-images/mobile-accessories/apple-iphone-charger/1.webp",
+      "sourcePage": "https://dummyjson.com/products/104",
+      "sourceProduct": "Apple iPhone Charger",
+      "publisher": "DummyJSON",
+      "localPath": "/demo/products/charger.webp"
+    },
+    "magnetic-powerbank": {
+      "url": "https://cdn.dummyjson.com/product-images/mobile-accessories/apple-magsafe-battery-pack/1.webp",
+      "sourcePage": "https://dummyjson.com/products/105",
+      "sourceProduct": "Apple MagSafe Battery Pack",
+      "publisher": "DummyJSON",
+      "localPath": "/demo/products/magnetic-powerbank.webp"
+    },
+    "mx-master": {
+      "url": "https://resource.logitech.com/w_800,h_686,c_pad,q_auto,f_png/d_transparent.gif/content/dam/logitech/en/products/mice/mx-master-3s/2025-update/mx-master-3s-bluetooth-edition-top-view-black-new-1.png",
+      "sourcePage": "https://www.logitech.com/en-us/shop/p/mx-master-3s",
+      "sourceProduct": "Logitech MX Master 3S",
+      "publisher": "Logitech",
+      "localPath": "/demo/products/mx-master.webp"
+    },
+    "mx-mechanical": {
+      "url": "https://resource.logitech.com/w_800,h_686,c_pad,q_auto,f_png/d_transparent.gif/content/dam/logitech/en/products/keyboards/mx-mechanical/migration-assets-for-delorean-2025/gallery/mx-mechanical-top-view-graphite-us.png",
+      "sourcePage": "https://www.logitech.com/en-us/shop/p/mx-mechanical",
+      "sourceProduct": "Logitech MX Mechanical",
+      "publisher": "Logitech",
+      "localPath": "/demo/products/mx-mechanical.webp"
+    },
+    "brio": {
+      "url": "https://resource.logitech.com/w_800,h_600,c_pad,q_auto,f_png/d_transparent.gif/content/dam/logitech/en/products/webcams/brio/gallery/brio-gallery-1.png",
+      "sourcePage": "https://www.logitech.com/en-us/business/shop/p/brio-4k-hdr-webcam",
+      "sourceProduct": "Logitech Brio 4K",
+      "publisher": "Logitech",
+      "localPath": "/demo/products/brio.webp"
+    },
+    "lift": {
+      "url": "https://resource.logitech.com/w_800,h_686,c_pad,q_auto,f_png/d_transparent.gif/content/dam/logitech/en/products/mice/lift-vertical-ergonomic-mouse/2026-update/gallery/rose/lift-mouse-top-angle-rose-gallery-1.png",
+      "sourcePage": "https://www.logitech.com/en-us/shop/p/lift-vertical-ergonomic-mouse",
+      "sourceProduct": "Logitech Lift",
+      "publisher": "Logitech",
+      "localPath": "/demo/products/lift.webp"
+    },
+    "hub": {
+      "url": "https://cdn.shopify.com/s/files/1/0493/9834/9974/files/A83830A3_TD01_533634ef-bb62-4009-92e0-a96c3a3d6a4d.png?v=1730774886&width=800",
+      "sourcePage": "https://www.anker.com/products/a8383",
+      "sourceProduct": "Anker 555 USB-C Hub",
+      "publisher": "Anker",
+      "localPath": "/demo/products/hub.webp"
+    },
+    "powerbank": {
+      "url": "https://cdn.shopify.com/s/files/1/0493/9834/9974/products/A1289011-Anker_737_Power_Bank_PowerCore_24K_1.png?v=1775967275&width=800",
+      "sourcePage": "https://www.anker.com/products/a1289",
+      "sourceProduct": "Anker 737 Power Bank",
+      "publisher": "Anker",
+      "localPath": "/demo/products/powerbank.webp"
+    },
+    "cable": {
+      "url": "https://cdn.shopify.com/s/files/1/0493/9834/9974/files/A8553012_Rich_image_TD01_US_V1.png?v=1753062423&width=800",
+      "sourcePage": "https://www.anker.com/products/a8552",
+      "sourceProduct": "Anker Flow USB-C cable",
+      "publisher": "Anker",
+      "localPath": "/demo/products/cable.webp"
+    },
+    "sony-headphones": {
+      "url": "https://cdn.uniquephoto.com/resources/uniquephoto/images/products/processed/SYCD3506.detail.a.png",
+      "sourcePage": "https://www.uniquephoto.com/product/sony-wh-1000xm5-noise-canceling-wireless-over-ear-headphones-black",
+      "sourceProduct": "Sony WH-1000XM5",
+      "publisher": "Unique Photo",
+      "localPath": "/demo/products/sony-headphones.webp"
+    },
+    "sony-earbuds": {
+      "url": "https://www.ryans.com/storage/products/main/sony-wf-1000xm5-black-true-wireless-bluetooth-41696505403.webp",
+      "sourcePage": "https://www.ryans.com/sony-wf-1000xm5-black-true-wireless-bluetooth-earbuds",
+      "sourceProduct": "Sony WF-1000XM5",
+      "publisher": "Ryans",
+      "localPath": "/demo/products/sony-earbuds.webp"
+    },
+    "sony-ch720n": {
+      "url": "https://sonycenter.kz/image/cache/catalog/products/new_img/audio/whch720n/naushniki-sony-whch720n-01-600x600.png",
+      "sourcePage": "https://sonycenter.kz/whch720nb",
+      "sourceProduct": "Sony WH-CH720N",
+      "publisher": "Sony Centre",
+      "localPath": "/demo/products/sony-ch720n.webp"
+    },
+    "sony-phone": {
+      "url": "https://res.cloudinary.com/telia-pim/image/upload/v1715597818/pood/sony/nutitelefonid/xperia-1-vi/must/xqec54eukcbgc/sony-xperia-1-vi-nutitelefon-must-eest-tagant-koos.png",
+      "sourcePage": "https://pood.telia.ee/nutitelefonid/sony-xperia-1-vi-must/XQEC54EUKCB.GC",
+      "sourceProduct": "Sony Xperia 1 VI",
+      "publisher": "Telia",
+      "localPath": "/demo/products/sony-phone.webp"
+    },
+    "magic-keyboard": {
+      "url": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/MXK73B?.v=1737735193130&fmt=jpeg&hei=800&qlt=85&wid=800",
+      "sourcePage": "https://www.apple.com/hk/shop/product/mxk73bx/a/",
+      "sourceProduct": "Apple Magic Keyboard with Touch ID and Numeric Keypad",
+      "publisher": "Apple",
+      "localPath": "/demo/products/magic-keyboard.webp"
+    },
+    "magic-mouse": {
+      "url": "https://cdn.cs.1worldsync.com/a4/11/a4117b00-6ab5-4abc-9fcc-5a4e62fba967.jpg",
+      "sourcePage": "https://www.londondrugs.com/products/apple-magic-mouse-white-mxk53ama/p/L2880521",
+      "sourceProduct": "Apple Magic Mouse USB-C",
+      "publisher": "London Drugs",
+      "localPath": "/demo/products/magic-mouse.webp"
+    },
+    "samsung-buds": {
+      "url": "https://www.callme.dk/globalassets/olympus/inriver/samsung-galaxy-buds3-pro-silver_1.png?w=480",
+      "sourcePage": "https://www.callme.dk/shop/accessories/samsung-galaxy-buds3-pro/",
+      "sourceProduct": "Samsung Galaxy Buds3 Pro",
+      "publisher": "Call me",
+      "localPath": "/demo/products/samsung-buds.webp"
+    },
+    "samsung-fold": {
+      "url": "https://design.samsung.com/global/contents/galaxy-z-fold-flip-6/img/samsung-q6b6-sec2-2-2.png",
+      "sourcePage": "https://design.samsung.com/global/contents/galaxy-z-fold-flip-6/",
+      "sourceProduct": "Samsung Galaxy Z Fold6",
+      "publisher": "Samsung",
+      "localPath": "/demo/products/samsung-fold.webp"
+    },
+    "samsung-flip": {
+      "url": "https://design.samsung.com/global/contents/galaxy-z-fold-flip-6/img/samsung-q6b6-sec2-2-4.png",
+      "sourcePage": "https://design.samsung.com/global/contents/galaxy-z-fold-flip-6/",
+      "sourceProduct": "Samsung Galaxy Z Flip6",
+      "publisher": "Samsung",
+      "localPath": "/demo/products/samsung-flip.webp"
+    }
+  },
+  "products": {
+    "prod-mbp14-m3": {
+      "asset": "macbook",
+      "illustrative": true
+    },
+    "prod-mbp16-m3max": {
+      "asset": "macbook",
+      "illustrative": true
+    },
+    "prod-mba13-m3": {
+      "asset": "macbook",
+      "illustrative": true
+    },
+    "prod-mba15-m3": {
+      "asset": "macbook",
+      "illustrative": true
+    },
+    "prod-dell-xps13": {
+      "asset": "dell",
+      "illustrative": true
+    },
+    "prod-dell-xps15": {
+      "asset": "dell",
+      "illustrative": true
+    },
+    "prod-dell-xps16": {
+      "asset": "dell",
+      "illustrative": true
+    },
+    "prod-lenovo-x1carbon": {
+      "asset": "lenovo",
+      "illustrative": true
+    },
+    "prod-lenovo-legion7": {
+      "asset": "lenovo",
+      "illustrative": true
+    },
+    "prod-lenovo-t14": {
+      "asset": "lenovo",
+      "illustrative": true
+    },
+    "prod-asus-zenbook14": {
+      "asset": "asus",
+      "illustrative": true
+    },
+    "prod-asus-rog-g14": {
+      "asset": "asus",
+      "illustrative": true
+    },
+    "prod-ip15promax": {
+      "asset": "iphone",
+      "illustrative": true
+    },
+    "prod-ip15pro": {
+      "asset": "iphone",
+      "illustrative": true
+    },
+    "prod-ip15plus": {
+      "asset": "iphone",
+      "illustrative": true
+    },
+    "prod-ip15": {
+      "asset": "iphone",
+      "illustrative": true
+    },
+    "prod-ip16promax": {
+      "asset": "iphone",
+      "illustrative": true
+    },
+    "prod-ip16pro": {
+      "asset": "iphone",
+      "illustrative": true
+    },
+    "prod-s24ultra": {
+      "asset": "samsung-phone",
+      "illustrative": true
+    },
+    "prod-s24plus": {
+      "asset": "samsung-phone",
+      "illustrative": true
+    },
+    "prod-s24": {
+      "asset": "samsung-phone",
+      "illustrative": true
+    },
+    "prod-zfold6": {
+      "asset": "samsung-fold",
+      "illustrative": false
+    },
+    "prod-zflip6": {
+      "asset": "samsung-flip",
+      "illustrative": false
+    },
+    "prod-sony-1vi": {
+      "asset": "sony-phone",
+      "illustrative": false
+    },
+    "prod-anker-737": {
+      "asset": "powerbank",
+      "illustrative": false
+    },
+    "prod-anker-735": {
+      "asset": "charger",
+      "illustrative": true
+    },
+    "prod-anker-prime-100w": {
+      "asset": "charger",
+      "illustrative": true
+    },
+    "prod-anker-prime-250w": {
+      "asset": "charger",
+      "illustrative": true
+    },
+    "prod-anker-maggo-10k": {
+      "asset": "magnetic-powerbank",
+      "illustrative": true
+    },
+    "prod-anker-powerline-flow": {
+      "asset": "cable",
+      "illustrative": true
+    },
+    "prod-anker-hub-8in1": {
+      "asset": "hub",
+      "illustrative": false
+    },
+    "prod-anker-prime-powerbank-20k": {
+      "asset": "powerbank",
+      "illustrative": true
+    },
+    "prod-apple-airpods-pro-2": {
+      "asset": "airpods",
+      "illustrative": true
+    },
+    "prod-apple-airpods-max": {
+      "asset": "airpods-max",
+      "illustrative": false
+    },
+    "prod-apple-magsafe-charger": {
+      "asset": "wireless-charger",
+      "illustrative": true
+    },
+    "prod-apple-magic-mouse": {
+      "asset": "magic-mouse",
+      "illustrative": false
+    },
+    "prod-apple-magic-keyboard": {
+      "asset": "magic-keyboard",
+      "illustrative": false
+    },
+    "prod-apple-usbc-cable-240w": {
+      "asset": "cable",
+      "illustrative": true
+    },
+    "prod-apple-dual-usbc-35w": {
+      "asset": "charger",
+      "illustrative": true
+    },
+    "prod-sony-wh1000xm5": {
+      "asset": "sony-headphones",
+      "illustrative": false
+    },
+    "prod-sony-wf1000xm5": {
+      "asset": "sony-earbuds",
+      "illustrative": false
+    },
+    "prod-sony-linkbuds-s": {
+      "asset": "sony-earbuds",
+      "illustrative": true
+    },
+    "prod-sony-ch720n": {
+      "asset": "sony-ch720n",
+      "illustrative": false
+    },
+    "prod-samsung-buds3pro": {
+      "asset": "samsung-buds",
+      "illustrative": false
+    },
+    "prod-samsung-buds3": {
+      "asset": "samsung-buds",
+      "illustrative": true
+    },
+    "prod-samsung-wireless-duo": {
+      "asset": "wireless-charger",
+      "illustrative": true
+    },
+    "prod-logitech-mxmaster3s": {
+      "asset": "mx-master",
+      "illustrative": false
+    },
+    "prod-logitech-mxmechanical": {
+      "asset": "mx-mechanical",
+      "illustrative": false
+    },
+    "prod-logitech-brio4k": {
+      "asset": "brio",
+      "illustrative": false
+    },
+    "prod-logitech-lift": {
+      "asset": "lift",
+      "illustrative": false
+    }
+  }
+}

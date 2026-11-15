@@ -3,6 +3,11 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@server/modules/auth/auth-options';
 import { prisma } from '@server/database/prisma';
 import { serializeCouponDto } from '@server/modules/money/money-serialization';
+import { parseMoneyVnd } from '@shared/utils/money';
+
+function isCouponInteger(value: unknown, minimum: number): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= minimum && value <= 2147483647;
+}
 
 export async function GET() {
   try {
@@ -50,14 +55,48 @@ export async function POST(req: Request) {
       isPublic,
     } = body;
 
-    if (!code || discountValue <= 0 || (isPublic !== undefined && typeof isPublic !== 'boolean')) {
-      return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
+    if (typeof code !== 'string' || !code.trim()) {
+      return NextResponse.json({ error: 'Vui lòng nhập mã giảm giá' }, { status: 400 });
+    }
+    if (!['FIXED', 'PERCENTAGE', 'FREE_SHIPPING'].includes(discountType)) {
+      return NextResponse.json({ error: 'Loại giảm giá không hợp lệ' }, { status: 400 });
+    }
+    if (!isCouponInteger(discountValue, discountType === 'FREE_SHIPPING' ? 0 : 1)) {
+      return NextResponse.json({ error: 'Mức giảm phải là số nguyên dương; mã miễn phí vận chuyển có thể dùng mức giảm 0' }, { status: 400 });
+    }
+    if (discountType === 'PERCENTAGE' && discountValue > 100) {
+      return NextResponse.json({ error: 'Mức giảm theo phần trăm phải từ 1 đến 100' }, { status: 400 });
+    }
+    if ((isPublic !== undefined && typeof isPublic !== 'boolean') ||
+      (isActive !== undefined && typeof isActive !== 'boolean')) {
+      return NextResponse.json({ error: 'Trạng thái mã giảm giá không hợp lệ' }, { status: 400 });
+    }
+    if ((usageLimit != null && !isCouponInteger(usageLimit, 1)) ||
+      (perUserLimit != null && !isCouponInteger(perUserLimit, 1))) {
+      return NextResponse.json({ error: 'Số lượt sử dụng phải là số nguyên dương' }, { status: 400 });
+    }
+
+    let minimumAmount: bigint;
+    let maximumDiscount: bigint | null;
+    try {
+      minimumAmount = parseMoneyVnd(minOrderAmount ?? 0, 'minOrderAmount');
+    } catch {
+      return NextResponse.json({ error: 'Giá trị đơn tối thiểu phải là số nguyên không âm hợp lệ' }, { status: 400 });
+    }
+    try {
+      maximumDiscount = maxDiscount == null ? null : parseMoneyVnd(maxDiscount, 'maxDiscount');
+    } catch {
+      return NextResponse.json({ error: 'Mức giảm tối đa phải là số nguyên không âm hợp lệ' }, { status: 400 });
     }
 
     const start = new Date(startDate);
     const end = new Date(endDate);
+    if (typeof startDate !== 'string' || typeof endDate !== 'string' ||
+      !Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) {
+      return NextResponse.json({ error: 'Ngày bắt đầu và ngày kết thúc không hợp lệ' }, { status: 400 });
+    }
     if (start >= end) {
-      return NextResponse.json({ error: 'Start date must be before end date' }, { status: 400 });
+      return NextResponse.json({ error: 'Ngày bắt đầu phải trước ngày kết thúc' }, { status: 400 });
     }
 
     const newCoupon = await prisma.coupon.create({
@@ -65,11 +104,13 @@ export async function POST(req: Request) {
         code: code.trim().toUpperCase(),
         description,
         discountType,
-        discountValue,
-        maxDiscount,
-        minOrderAmount: minOrderAmount || 0,
-        usageLimit: usageLimit || 100,
-        perUserLimit: perUserLimit || 1,
+        discountValue: discountType === 'FREE_SHIPPING' ? 0 : discountValue,
+        fixedDiscountAmount: discountType === 'FIXED' ? BigInt(discountValue) : null,
+        percentageRate: discountType === 'PERCENTAGE' ? discountValue : null,
+        maxDiscount: maximumDiscount,
+        minOrderAmount: minimumAmount,
+        usageLimit: usageLimit ?? 100,
+        perUserLimit: perUserLimit ?? 1,
         startDate: start,
         endDate: end,
         isActive: isActive ?? true,

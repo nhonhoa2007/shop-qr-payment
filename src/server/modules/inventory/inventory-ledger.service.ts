@@ -128,13 +128,16 @@ export async function applyInventoryMovement(
 
   const deltaStock = afterAvailable - beforeAvailable;
 
+  // Existing reservations must remain releasable after a product is unpublished.
+  const activeFilter = input.kind === 'RELEASE' ? {} : { isActive: true };
+
   // 6. CAS update on projection fields
   if (isVariant) {
     const updateResult = await tx.productVariant.updateMany({
       where: {
         id: targetEntity.id,
         stockVersion: beforeVersion,
-        isActive: true,
+        ...activeFilter,
       },
       data: {
         onHandStock: { increment: input.deltaOnHand },
@@ -167,7 +170,7 @@ export async function applyInventoryMovement(
       where: {
         id: targetEntity.id,
         stockVersion: beforeVersion,
-        isActive: true,
+        ...activeFilter,
       },
       data: {
         onHandStock: { increment: input.deltaOnHand },

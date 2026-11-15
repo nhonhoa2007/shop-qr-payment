@@ -1,3 +1,5 @@
+import { asRecord, readProductSpecs, canonicalSpecCode, SPEC_META } from '@shared/utils/product-specs';
+import { resolveProductPricing } from '@server/modules/catalog/catalog-query.service';
 import { prisma as globalPrisma } from '@server/database/prisma.ts';
 import type { PrismaClientOrTx } from './scoring.service.ts';
 import { getNetSales } from './sales.service.ts';
@@ -27,9 +29,14 @@ const SPEC_LABELS_AND_UNITS: Record<string, { label: string; unit?: string }> = 
 };
 
 export function normalizeCanonicalSpec(key: string, rawValue: unknown): CanonicalSpecValue {
-  const meta = SPEC_LABELS_AND_UNITS[key] || {
+  const meta = SPEC_LABELS_AND_UNITS[key] || SPEC_META[canonicalSpecCode(key)] || {
     label: key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
   };
+
+  const stateful = asRecord(rawValue);
+  if (stateful.state === 'KNOWN') rawValue = stateful.value;
+  else if (stateful.state === 'UNKNOWN') rawValue = null;
+  else if (stateful.state === 'UNSUPPORTED') rawValue = 'unsupported';
 
   // 1. Check for explicit UNSUPPORTED capability
   if (
@@ -94,6 +101,7 @@ interface RawProductWithRelations {
   brand: { name: string };
   price: bigint;
   stock: number;
+  inventoryMode?: string;
   isActive: boolean;
   specs?: unknown;
   variants?: Array<{
@@ -104,6 +112,7 @@ interface RawProductWithRelations {
     stock: number;
     isActive: boolean;
     specs?: unknown;
+    specOverrides?: unknown;
   }>;
 }
 
@@ -134,12 +143,12 @@ export async function compareProducts(
   const products = (await (client as unknown as {
     product: {
       findMany(args: {
-        where: { id: { in: string[] } };
+        where: { id: { in: string[] }; isActive: true };
         include: { categoryRef: boolean; brand: boolean; variants: boolean };
       }): Promise<RawProductWithRelations[]>;
     };
   }).product.findMany({
-    where: { id: { in: productIds } },
+    where: { id: { in: productIds }, isActive: true },
     include: {
       categoryRef: true,
       brand: true,
@@ -151,9 +160,11 @@ export async function compareProducts(
     throw new Error('Một số sản phẩm không tồn tại');
   }
 
+  if (products.some(p => p.isActive === false)) throw new Error('Sản phẩm đã ngừng bán');
+
   // Rule 3: Enforce same leaf category
   const categoryIds = new Set(products.map((p) => p.categoryId));
-  if (categoryIds.size !== 1) {
+  if (categoryIds.size !== 1 || !products[0].categoryId) {
     throw new Error('Chỉ được so sánh các sản phẩm trong cùng danh mục');
   }
 
@@ -180,7 +191,7 @@ export async function compareProducts(
     where: {
       productId: { in: productIds },
       useCase,
-      status: 'PUBLISHED',
+      status: 'ACTIVE',
     },
   })) as ScoreSnapshotDto[];
 
@@ -216,9 +227,20 @@ export async function compareProducts(
       ? prod.variants?.find((v) => v.id === item.variantId)
       : undefined;
 
-    const baseSpecs = (prod.specs as Record<string, unknown>) || {};
-    const variantSpecs = (variant?.specs as Record<string, unknown>) || {};
+    if (item.variantId && (!variant || variant.isActive === false)) throw new Error('Phiên bản hoặc biến thể không còn được bán');
+    const baseRoot = asRecord(prod.specs);
+    const overrideRoot = asRecord(variant?.specOverrides ?? variant?.specs);
+    const baseSpecs = asRecord(baseRoot.values ?? baseRoot.attributes ?? baseRoot);
+    const variantSpecs = asRecord(overrideRoot.values ?? overrideRoot.attributes ?? overrideRoot);
     const mergedSpecs = { ...baseSpecs, ...variantSpecs };
+    delete mergedSpecs.schemaVersion;
+    // Normalize aliases through the same path used by product evidence/cards,
+    // while keeping historical keys available to existing comparison clients.
+    const normalized = readProductSpecs(prod.specs, variant?.specOverrides ?? variant?.specs);
+    for (const key of Object.keys(mergedSpecs)) {
+      const cell = normalized[canonicalSpecCode(key)];
+      if (cell) mergedSpecs[key] = { state: cell.state, value: cell.value, unit: cell.unit };
+    }
 
     for (const k of Object.keys(mergedSpecs)) {
       allSpecKeys.add(k);
@@ -229,14 +251,15 @@ export async function compareProducts(
       canonicalSpecs[k] = normalizeCanonicalSpec(k, v);
     }
 
-    const price = variant ? variant.price : prod.price;
-    const stock = variant ? variant.stock : prod.stock;
+    const pricing = resolveProductPricing(prod);
+    const price = variant ? variant.price : pricing.effectivePrice;
+    const stock = variant ? variant.stock : pricing.totalStock;
     const isActive = variant ? variant.isActive && prod.isActive : prod.isActive;
 
     productDetails.push({
       productId: prod.id,
       productName: prod.name,
-      brandName: prod.brand.name,
+      brandName: prod.brand?.name || 'Chưa có thông tin hãng',
       variantId: variant?.id ?? null,
       variantName: variant?.title ?? null,
       sku: variant?.sku ?? null,
@@ -389,7 +412,7 @@ export async function compareProducts(
   }
 
   if (tradeOffSummary.length === 0) {
-    tradeOffSummary.push('Hai sản phẩm có cấu hình và tầm giá tương đương nhau.');
+    tradeOffSummary.push('Dữ liệu hiện tại chưa đủ để kết luận sản phẩm nào phù hợp hơn.');
   }
 
   return {

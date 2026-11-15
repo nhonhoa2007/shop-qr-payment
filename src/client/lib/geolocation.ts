@@ -22,7 +22,7 @@ export const USABLE_LOCATION_THRESHOLD_METERS = 1000;
 
 export function classifyLocationAccuracy(accuracy: number): LocationQuality {
   if (accuracy <= PRECISE_LOCATION_THRESHOLD_METERS) return 'PRECISE';
-  if (accuracy <= USABLE_LOCATION_THRESHOLD_METERS) return 'APPROXIMATE';
+  if (accuracy < USABLE_LOCATION_THRESHOLD_METERS) return 'APPROXIMATE';
   return 'UNRELIABLE';
 }
 
@@ -31,7 +31,6 @@ export function getAddressAutofillLevel(
   providerMatchLevel: LocationMatchLevel
 ): LocationMatchLevel {
   if (quality === 'UNRELIABLE') return 'NONE';
-  if (quality === 'APPROXIMATE' && providerMatchLevel === 'WARD') return 'DISTRICT';
   return providerMatchLevel;
 }
 

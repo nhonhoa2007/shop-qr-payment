@@ -9,11 +9,12 @@ import { ConfirmDialog } from '@client/components/ui/ConfirmDialog';
 import { formatVND } from '@shared/utils';
 import { Heart, Trash2, ArrowLeft, Plus } from 'lucide-react';
 import { toast } from 'sonner';
+import type { MoneyVnd } from '@shared/types/money';
 
 interface WishlistProduct {
   id: string;
   name: string;
-  price: number;
+  price: MoneyVnd;
   image: string | null;
   category: string | null;
   stock: number;

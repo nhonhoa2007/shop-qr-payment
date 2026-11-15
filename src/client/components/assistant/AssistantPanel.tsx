@@ -1,6 +1,11 @@
 'use client';
 
+import { AssistantProductCards } from './AssistantProductCards';
+import { AssistantComparison } from './AssistantComparison';
+import { assistantRefKey, toggleAssistantSelection, type AssistantSelection } from '@client/lib/assistant-selection';
+import type { AssistantProductCard, AssistantProductRef } from '@shared/types/assistant-commerce';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Bot, ChevronRight, CircleHelp, Scale, Search, Send, Sparkles, X } from 'lucide-react';
 import type {
   AssistantMessageDto,
   AssistantAnswerDto,
@@ -26,6 +31,8 @@ export function AssistantPanel({
   const [conversationId, setConversationId] = useState<string | null>(
     initialConversationId || null
   );
+  const [selected, setSelected] = useState<AssistantSelection[]>([]);
+  const initRequest = useRef<Promise<{ id: string; messages: AssistantMessageDto[] }> | null>(null);
   const [messages, setMessages] = useState<AssistantMessageDto[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -33,43 +40,37 @@ export function AssistantPanel({
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    async function initConversation() {
-      if (conversationId) {
-        try {
-          const res = await fetch(`/api/assistant/conversations/${conversationId}/messages`);
-          const data = await res.json();
-          if (data.success && Array.isArray(data.messages)) {
-            setMessages(data.messages);
-          }
-        } catch {
-          // ignore initial fetch error
-        }
-      } else {
-        try {
-          const res = await fetch('/api/assistant/conversations', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: 'Hỏi đáp kỹ thuật' }),
-          });
-          const data = await res.json();
-          if (data.success && data.conversation) {
-            setConversationId(data.conversation.id);
-          }
-        } catch {
-          setError('Không thể khởi tạo phiên trò chuyện trợ lý.');
-        }
+    let cancelled = false;
+    if (!initRequest.current) initRequest.current = (async () => {
+      let saved: string | null = initialConversationId || null;
+      try { saved ||= sessionStorage.getItem('shop_assistant_conversation'); } catch { /* storage unavailable */ }
+      if (saved) {
+        const res = await fetch(`/api/assistant/conversations/${encodeURIComponent(saved)}/messages`);
+        const data = await res.json();
+        if (res.ok && data.success && Array.isArray(data.messages)) return { id: saved, messages: data.messages };
       }
-    }
-
-    initConversation();
-  }, [conversationId]);
+      const res = await fetch('/api/assistant/conversations', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Tìm và so sánh sản phẩm' }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.conversation?.id) throw new Error('Không thể khởi tạo phiên trò chuyện.');
+      return { id: data.conversation.id, messages: [] };
+    })();
+    initRequest.current.then(result => {
+      if (cancelled) return;
+      setConversationId(result.id); setMessages(result.messages);
+      try { sessionStorage.setItem('shop_assistant_conversation', result.id); } catch { /* storage unavailable */ }
+    }).catch(() => { if (!cancelled) setError('Không thể kết nối trợ lý. Vui lòng mở lại để thử.'); });
+    return () => { cancelled = true; };
+  }, [initialConversationId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
 
   const handleSendMessage = useCallback(
-    async (textToSend?: string) => {
+    async (textToSend?: string, comparison?: AssistantProductRef[]) => {
       const text = (textToSend || inputMessage).trim();
       if (!text || !conversationId || isLoading) return;
 
@@ -99,6 +100,7 @@ export function AssistantPanel({
           body: JSON.stringify({
             content: text,
             productIds: defaultProductIds,
+            comparison,
           }),
         });
 
@@ -113,6 +115,7 @@ export function AssistantPanel({
           conversationId,
           role: 'ASSISTANT',
           content: answerDto.answer,
+          commerce: answerDto.commerce,
           followUpQuestion: answerDto.followUpQuestion,
           citations: answerDto.citations,
           claims: answerDto.claims,
@@ -122,6 +125,7 @@ export function AssistantPanel({
         };
 
         setMessages((prev) => [...prev, assistantMsg]);
+        if (answerDto.commerce?.kind === 'comparison') setSelected([]);
         onAnswerSuccess?.();
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : 'Lỗi kết nối trợ lý.');
@@ -135,41 +139,62 @@ export function AssistantPanel({
 
   return (
     <div
-      className={`flex flex-col h-[520px] max-w-lg w-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl shadow-lg overflow-hidden text-sm ${className}`}
+      className={`flex flex-col h-[min(720px,92dvh)] sm:h-[min(720px,calc(100dvh-128px))] min-h-0 max-w-lg w-full overflow-hidden rounded-[26px] border border-slate-200/80 bg-[#f8fafc] text-sm shadow-[0_24px_80px_rgba(15,23,42,0.2)] ring-1 ring-white/70 ${className}`}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-neutral-50 dark:bg-neutral-800/60 border-b border-neutral-200 dark:border-neutral-800">
-        <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-          <h3 className="font-semibold text-neutral-800 dark:text-neutral-100">
-            Trợ lý Công nghệ Grounded
-          </h3>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 font-medium">
-            Evidence-backed
-          </span>
-          {onClose && (
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Đóng trợ lý"
-              className="p-1 rounded-md text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 hover:bg-neutral-200/60 dark:hover:bg-neutral-700/60 transition-colors"
-            >
-              ✕
-            </button>
-          )}
+      <div className="relative shrink-0 overflow-hidden border-b border-slate-700/60 bg-slate-950 px-4 py-3.5 text-white">
+        <div className="absolute -right-8 -top-12 h-32 w-32 rounded-full bg-violet-500/20 blur-2xl" />
+        <div className="relative flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-400 to-fuchsia-500 shadow-lg shadow-violet-950/40">
+              <Bot aria-hidden="true" className="h-5 w-5 text-white" />
+              <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-slate-950 bg-emerald-400" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h3 className="truncate font-semibold tracking-tight">Trợ lý mua sắm</h3>
+                <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-medium text-violet-200">AI</span>
+              </div>
+              <p className="mt-0.5 truncate text-[11px] text-slate-400">Sẵn sàng tìm sản phẩm cho bạn</p>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="hidden rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-[10px] font-medium text-slate-200 sm:inline-flex">Tìm & so sánh</span>
+            {onClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Đóng trợ lý"
+                className="rounded-xl p-2 text-slate-400 transition hover:bg-white/10 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-300"
+              >
+                <X aria-hidden="true" className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Messages Scroll Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-y-auto overflow-x-hidden bg-[radial-gradient(circle_at_top,#f5f3ff_0,transparent_34%),#f8fafc] p-3 sm:p-4">
         {messages.length === 0 && (
-          <div className="text-center text-neutral-500 dark:text-neutral-400 py-10 space-y-2">
-            <p className="font-medium">Chào bạn! Tôi có thể giúp gì cho bạn hôm nay?</p>
-            <p className="text-xs">
-              Mọi câu trả lời được đối chiếu trực tiếp với thông số niêm yết và dữ liệu đo đạc thực tế.
-            </p>
+          <div className="mx-auto flex w-full max-w-sm flex-col items-center px-2 py-8 text-center">
+            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-[20px] bg-white text-shop-violet shadow-[0_12px_30px_rgba(91,33,182,0.14)] ring-1 ring-violet-100">
+              <Sparkles aria-hidden="true" className="h-6 w-6" />
+            </div>
+            <p className="font-semibold tracking-tight text-slate-900">Bạn muốn tìm gì hôm nay?</p>
+            <p className="mt-1 max-w-xs text-xs leading-relaxed text-slate-600">Mình có thể tìm sản phẩm đang bán, lọc theo nhu cầu và so sánh hai lựa chọn.</p>
+            <div className="mt-5 grid w-full gap-2 text-left">
+              {[
+                ['Tìm laptop đang bán', 'Xem các laptop hiện có'],
+                ['Tìm tai nghe Sony', 'Khám phá phụ kiện âm thanh'],
+                ['Tìm điện thoại dưới 20 triệu', 'Lọc theo ngân sách'],
+              ].map(([query, hint]) => (
+                <button key={query} type="button" onClick={() => handleSendMessage(query)} disabled={!conversationId || isLoading} className="group flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-3.5 py-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-violet-200 hover:shadow-md disabled:opacity-50">
+                  <span className="min-w-0"><span className="block text-xs font-semibold text-slate-800">{query}</span><span className="mt-0.5 block text-[10px] text-slate-500">{hint}</span></span>
+                  <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-shop-violet" />
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -178,25 +203,26 @@ export function AssistantPanel({
           return (
             <div
               key={m.id}
-              className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} space-y-1`}
+              className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} space-y-2 min-w-0`}
             >
               <div
-                className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 leading-relaxed whitespace-pre-wrap ${
+                className={`max-w-[95%] break-words leading-relaxed whitespace-pre-wrap ${
                   isUser
-                    ? 'bg-blue-600 text-white rounded-br-none'
-                    : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 rounded-bl-none'
+                    ? 'rounded-[20px] rounded-br-md bg-violet-700 px-3.5 py-2.5 text-white shadow-sm'
+                    : 'rounded-[20px] rounded-bl-md border border-slate-200/80 bg-white px-3.5 py-3 text-slate-800 shadow-sm'
                 }`}
               >
                 {m.content}
 
                 {/* Citations if available */}
-                {!isUser && m.citations && m.citations.length > 0 && (
-                  <div className="mt-2.5 pt-2 border-t border-neutral-200 dark:border-neutral-700 text-xs text-neutral-500 dark:text-neutral-400 space-y-1">
-                    <p className="font-medium text-[11px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
-                      Căn cứ xác minh:
+                {!isUser && m.citations?.some(c => !c.commerceContext) && (
+                  <div className="mt-3 space-y-1 border-t border-slate-100 pt-2.5 text-xs text-slate-500">
+                    <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                      <CircleHelp aria-hidden="true" className="h-3 w-3" />
+                      {m.commerce ? 'Dữ liệu từ shop:' : 'Căn cứ xác minh:'}
                     </p>
                     <ul className="list-disc list-inside space-y-0.5">
-                      {m.citations.map((c) => (
+                      {m.citations.filter(c => !c.commerceContext).map((c) => (
                         <li key={c.id} className="truncate">
                           {c.title} {c.publisher ? `(${c.publisher})` : ''}
                         </li>
@@ -206,14 +232,23 @@ export function AssistantPanel({
                 )}
               </div>
 
+              {!isUser && m.commerce && <div className="w-full min-w-0 space-y-2">
+                {m.commerce.refreshed && <p className="px-1 text-[10px] font-medium text-slate-500">Giá và tình trạng đã cập nhật khi mở lại hội thoại.</p>}
+                {m.commerce.notice && <p className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">{m.commerce.notice}</p>}
+                {m.commerce.comparison ? <AssistantComparison comparison={m.commerce.comparison} /> : <AssistantProductCards products={m.commerce.products} selected={selected} disabled={isLoading || !conversationId} onSelect={(product: AssistantProductCard) => {
+                  const result = toggleAssistantSelection(selected, { productId: product.productId, variantId: product.variantId, name: product.name, categoryId: product.categoryId });
+                  setSelected(result.selected); setError(result.error || null);
+                }} />}
+              </div>}
+
               {/* Follow-up Question Suggestion */}
               {!isUser && m.followUpQuestion && (
                 <button
                   type="button"
                   onClick={() => handleSendMessage(m.followUpQuestion || undefined)}
-                  className="mt-1 text-xs text-left bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800 rounded-lg px-2.5 py-1.5 transition-colors"
+                  className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-medium text-violet-700 transition hover:bg-violet-100"
                 >
-                  💡 {m.followUpQuestion}
+                  <Sparkles aria-hidden="true" className="h-3.5 w-3.5" /> {m.followUpQuestion}
                 </button>
               )}
             </div>
@@ -221,16 +256,18 @@ export function AssistantPanel({
         })}
 
         {isLoading && (
-          <div className="flex items-center gap-1.5 text-neutral-400 text-xs py-2">
+          <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-500 shadow-sm">
+            <Search aria-hidden="true" className="h-3.5 w-3.5 text-shop-violet" />
             <span className="w-1.5 h-1.5 rounded-full bg-neutral-400 animate-bounce" />
             <span className="w-1.5 h-1.5 rounded-full bg-neutral-400 animate-bounce [animation-delay:0.2s]" />
             <span className="w-1.5 h-1.5 rounded-full bg-neutral-400 animate-bounce [animation-delay:0.4s]" />
-            <span className="ml-1">Đang đối chiếu bằng chứng...</span>
+            <span className="ml-1">Đang tìm sản phẩm...</span>
           </div>
         )}
 
         {error && (
-          <div className="p-2.5 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-lg text-xs text-red-600 dark:text-red-400">
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-xs leading-relaxed text-red-700">
+            <div className="mb-1 flex items-center gap-1.5 font-semibold"><CircleHelp aria-hidden="true" className="h-3.5 w-3.5" /> Có lỗi xảy ra</div>
             {error}
           </div>
         )}
@@ -238,28 +275,35 @@ export function AssistantPanel({
         <div ref={messagesEndRef} />
       </div>
 
+      {selected.length > 0 && <div className="shrink-0 border-t border-violet-100 bg-white/95 px-3 py-2.5 shadow-[0_-8px_24px_rgba(91,33,182,0.08)] backdrop-blur" aria-label="Sản phẩm đã chọn">
+        <div className="flex items-center justify-between gap-2"><p className="text-xs font-semibold text-slate-800">Đã chọn <span className="text-shop-violet">{selected.length}/2</span></p><button type="button" disabled={isLoading || selected.length !== 2} onClick={() => handleSendMessage(`So sánh ${selected.map(p => p.name).join(' và ')}`, selected.map(({productId, variantId}) => ({productId, variantId})))} className="inline-flex items-center gap-1.5 rounded-full bg-shop-violet px-3.5 py-2 text-xs font-semibold text-white shadow-sm shadow-violet-300 transition hover:bg-violet-700 disabled:opacity-40"><Scale aria-hidden="true" className="h-3.5 w-3.5" /> So sánh</button></div>
+        <div className="mt-2 flex min-w-0 gap-1.5 overflow-x-auto pb-0.5">{selected.map(p => <button key={assistantRefKey(p)} type="button" disabled={isLoading || !conversationId} onClick={() => setSelected(prev => prev.filter(item => assistantRefKey(item) !== assistantRefKey(p)))} aria-label={`Bỏ chọn ${p.name}`} className="max-w-[48%] shrink-0 truncate rounded-full border border-violet-100 bg-violet-50 px-2.5 py-1.5 text-[10px] font-medium text-violet-700 transition hover:bg-violet-100">{p.name} ×</button>)}</div>
+      </div>}
+
       {/* Input Box */}
       <form
         onSubmit={(e) => {
           e.preventDefault();
           handleSendMessage();
         }}
-        className="p-3 bg-neutral-50 dark:bg-neutral-800/40 border-t border-neutral-200 dark:border-neutral-800 flex gap-2"
+        className="flex shrink-0 gap-2 border-t border-slate-200 bg-white/95 p-3 backdrop-blur"
       >
         <input
           type="text"
           value={inputMessage}
           onChange={(e) => setInputMessage(e.target.value)}
-          placeholder="Hỏi về RAM, giá niêm yết, thời lượng pin..."
-          disabled={isLoading}
-          className="flex-1 bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 rounded-lg px-3 py-2 text-neutral-800 dark:text-neutral-100 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 text-xs"
+          aria-label="Tin nhắn cho trợ lý"
+          placeholder="Tìm sản phẩm hoặc so sánh..."
+          disabled={isLoading || !conversationId}
+          className="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-800 placeholder-slate-500 outline-none transition focus:border-violet-300 focus:bg-white focus:ring-4 focus:ring-violet-100 disabled:opacity-50"
         />
         <button
           type="submit"
-          disabled={isLoading || !inputMessage.trim()}
-          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium px-4 py-2 rounded-lg text-xs transition-colors shrink-0"
+          disabled={isLoading || !conversationId || !inputMessage.trim()}
+          aria-label="Gửi tin nhắn"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-sm transition hover:bg-violet-700 disabled:opacity-40"
         >
-          Gửi
+          <Send aria-hidden="true" className="h-4 w-4" />
         </button>
       </form>
     </div>

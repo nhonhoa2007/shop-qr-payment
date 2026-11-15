@@ -123,11 +123,11 @@ export async function GET(req: Request) {
       ...(limit !== null && { skip: (page - 1) * limit, take: limit }),
     });
 
+    const serializedProducts = products.map(serializeProductDto);
     if (cacheKey) {
-      await setCachedProductList(cacheKey, products, 60);
+      await setCachedProductList(cacheKey, serializedProducts, 60);
     }
 
-    const serializedProducts = products.map(serializeProductDto);
     return NextResponse.json({ products: serializedProducts }, { headers: { 'X-Cache': 'MISS' } });
   } catch (error) {
     console.error('Get products error:', error);

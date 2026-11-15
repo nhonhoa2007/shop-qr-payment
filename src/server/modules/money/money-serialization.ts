@@ -115,6 +115,7 @@ export function serializeOrderDto<
     items?: Array<{
       price: MoneyValue;
       product?: { price: MoneyValue; variants?: Array<{ price: MoneyValue }> };
+      variant?: { price: MoneyValue } | null;
     }>;
   }
 >(order: T) {
@@ -168,6 +169,7 @@ export function serializeOrderDto<
         price: priceStr,
         unitPrice: unitPriceStr,
         product: item.product ? serializeProductDto(item.product) : undefined,
+        variant: item.variant ? serializeProductDto(item.variant) : item.variant,
       };
     }),
   };

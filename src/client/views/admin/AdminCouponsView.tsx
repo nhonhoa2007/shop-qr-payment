@@ -344,7 +344,11 @@ export function AdminCouponsView() {
                   <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Loại giảm giá</label>
                   <select
                     value={formData.discountType}
-                    onChange={(e) => setFormData({ ...formData, discountType: e.target.value as 'FIXED' | 'PERCENTAGE' | 'FREE_SHIPPING' })}
+                    onChange={(e) => {
+                      const discountType = e.target.value as 'FIXED' | 'PERCENTAGE' | 'FREE_SHIPPING';
+                      setFormData({ ...formData, discountType,
+                        discountValue: discountType === 'FREE_SHIPPING' ? 0 : discountType === 'PERCENTAGE' ? 10 : 20000 });
+                    }}
                     className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   >
                     <option value="FIXED">Tiền cố định (VND)</option>
@@ -360,6 +364,10 @@ export function AdminCouponsView() {
                   <input
                     type="number"
                     disabled={formData.discountType === 'FREE_SHIPPING'}
+                    required={formData.discountType !== 'FREE_SHIPPING'}
+                    min={formData.discountType === 'FREE_SHIPPING' ? 0 : 1}
+                    max={formData.discountType === 'PERCENTAGE' ? 100 : undefined}
+                    step={1}
                     value={formData.discountValue}
                     onChange={(e) => setFormData({ ...formData, discountValue: Number(e.target.value) })}
                     className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm disabled:bg-gray-100"
@@ -373,6 +381,8 @@ export function AdminCouponsView() {
                   <input
                     type="number"
                     placeholder="VD: 50000"
+                    min={0}
+                    step={1}
                     value={formData.maxDiscount}
                     onChange={(e) => setFormData({ ...formData, maxDiscount: e.target.value })}
                     className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm"
@@ -386,6 +396,8 @@ export function AdminCouponsView() {
                   <input
                     type="number"
                     value={formData.minOrderAmount}
+                    min={0}
+                    step={1}
                     onChange={(e) => setFormData({ ...formData, minOrderAmount: Number(e.target.value) })}
                     className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   />
@@ -395,6 +407,9 @@ export function AdminCouponsView() {
                   <input
                     type="number"
                     value={formData.usageLimit}
+                    min={1}
+                    step={1}
+                    required
                     onChange={(e) => setFormData({ ...formData, usageLimit: Number(e.target.value) })}
                     className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   />
@@ -407,6 +422,7 @@ export function AdminCouponsView() {
                   <input
                     type="date"
                     value={formData.startDate}
+                    required
                     onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
                     className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   />
@@ -416,6 +432,7 @@ export function AdminCouponsView() {
                   <input
                     type="date"
                     value={formData.endDate}
+                    required
                     onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
                     className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   />

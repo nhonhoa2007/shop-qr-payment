@@ -5,6 +5,7 @@ import {
   computeMovementFingerprint,
 } from '@server/modules/inventory/inventory-ledger.service';
 import type { ApplyMovementInput, StockTarget } from '@shared/types/inventory-ledger';
+import { releaseOrderStock, reserveOrderStock } from '@server/modules/inventory/inventory.service';
 
 type MockTx = any;
 
@@ -218,6 +219,71 @@ describe('Inventory Movement Ledger - applyInventoryMovement', () => {
     assert.equal(projection.onHandStock, 5);
     assert.equal(projection.reservedStock, 1);
     assert.equal(projection.availableStock, 4);
+  });
+
+  it('releases an inactive base product on cancellation exactly once without reactivating it', async () => {
+    const tx = createMockTx({ product: {
+      id: 'prod_1', isActive: false, onHandStock: 2, reservedStock: 1,
+      quarantinedStock: 0, stock: 1, stockVersion: 1,
+    } });
+    const items = [{ productId: 'prod_1', quantity: 1 }];
+    await releaseOrderStock(tx, items, 'order:cancel-inactive:release');
+    await releaseOrderStock(tx, items, 'order:cancel-inactive:release');
+    assert.equal(tx._state.product.stock, 2);
+    assert.equal(tx._state.product.reservedStock, 0);
+    assert.equal(tx._state.product.onHandStock, 2);
+    assert.equal(tx._state.product.stockVersion, 2);
+    assert.equal(tx._state.product.isActive, false);
+    assert.equal(tx._state.movements.length, 1);
+    assert.equal(tx._state.movements[0].kind, 'RELEASE');
+  });
+
+  it('releases an inactive variant and synchronizes its inactive parent on cancellation', async () => {
+    const projection = { isActive: false, onHandStock: 5, reservedStock: 2, quarantinedStock: 0, stock: 3, stockVersion: 4 };
+    const tx = createMockTx({
+      product: { id: 'prod_1', inventoryMode: 'VARIANT', ...projection },
+      variant: { id: 'var_1', productId: 'prod_1', ...projection },
+    });
+    await releaseOrderStock(tx, [{ productId: 'prod_1', variantId: 'var_1', quantity: 2 }], 'order:cancel-inactive-variant:release');
+    for (const entity of [tx._state.product, tx._state.variant]) {
+      assert.equal(entity.stock, 5);
+      assert.equal(entity.reservedStock, 0);
+      assert.equal(entity.stockVersion, 5);
+      assert.equal(entity.isActive, false);
+    }
+    assert.equal(tx._state.movements.length, 1);
+  });
+
+  it('still rejects new reservations for inactive base products and variants', async () => {
+    const projection = { isActive: false, onHandStock: 5, reservedStock: 0, quarantinedStock: 0, stock: 5, stockVersion: 1 };
+    for (const variantId of [undefined, 'var_1']) {
+      const tx = createMockTx({
+        product: { id: 'prod_1', ...projection },
+        variant: { id: 'var_1', productId: 'prod_1', ...projection },
+      });
+      await assert.rejects(reserveOrderStock(tx, [{ productId: 'prod_1', variantId, quantity: 1 }], 'order:inactive-reserve'));
+      assert.equal(tx._state.product.reservedStock, 0);
+      assert.equal(tx._state.variant.reservedStock, 0);
+      assert.equal(tx._state.movements.length, 0);
+    }
+  });
+
+  it('still rejects a stock-version conflict while releasing an inactive item', async () => {
+    for (const variantId of [undefined, 'var_1']) {
+      const projection = { isActive: false, onHandStock: 2, reservedStock: 1, quarantinedStock: 0, stock: 1, stockVersion: 1 };
+      const tx = createMockTx({ product: { id: 'prod_1', ...projection }, variant: { id: 'var_1', productId: 'prod_1', ...projection } });
+      const delegate = variantId ? tx.productVariant : tx.product;
+      const update = delegate.updateMany;
+      delegate.updateMany = async (args: unknown) => {
+        const entity = variantId ? tx._state.variant : tx._state.product;
+        entity.stockVersion += 1;
+        return update(args);
+      };
+      await assert.rejects(releaseOrderStock(tx, [{ productId: 'prod_1', variantId, quantity: 1 }], 'order:conflict:release'), /Concurrent stock modification/);
+      assert.equal(tx._state.product.reservedStock, 1);
+      assert.equal(tx._state.variant.reservedStock, 1);
+      assert.equal(tx._state.movements.length, 0);
+    }
   });
 
   it('should ship stock: consume 1 from reserved and onHand', async () => {

@@ -55,6 +55,13 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "media.nhonhoadev.id.vn",
       },
+      {
+        protocol: "https",
+        hostname: "shop-qr-payment.media.nhonhoadev.id.vn",
+        port: "",
+        pathname: "/**",
+        search: "",
+      },
     ],
   },
   async headers() {

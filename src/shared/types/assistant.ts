@@ -1,3 +1,4 @@
+import type { AssistantCommerce, AssistantCommerceRef, AssistantProductRef, AssistantSearchQuery } from './assistant-commerce';
 // ==========================================
 // GROUNDED ASSISTANT & EVIDENCE DTO TYPES
 // ==========================================
@@ -19,6 +20,8 @@ export interface EvidenceCitation {
   publisher?: string;
   license?: string;
   isSynthetic?: boolean;
+  productRef?: AssistantCommerceRef;
+  commerceContext?: { version: 1; kind: AssistantCommerce['kind']; query?: AssistantSearchQuery };
 }
 
 export interface GroundedProductEvidence {
@@ -104,6 +107,7 @@ export interface AssistantAnswerDto {
   conversationId?: string;
   messageId?: string;
   answer: string;
+  commerce?: AssistantCommerce;
   followUpQuestion?: string; // Mặc định so sánh tổng quan trước, sau đó hỏi đúng 1 câu về nhu cầu chính
   citations: EvidenceCitation[];
   claims: AssistantClaim[];
@@ -138,6 +142,7 @@ export interface AssistantMessageDto {
   conversationId: string;
   role: 'USER' | 'ASSISTANT';
   content: string;
+  commerce?: AssistantCommerce;
   followUpQuestion?: string | null;
   citations: EvidenceCitation[];
   claims: AssistantClaim[];
@@ -171,6 +176,7 @@ export interface AppendMessageInput {
 }
 
 export interface AnswerInput {
+  comparison?: AssistantProductRef[];
   conversationId: string;
   content: string;
   productIds?: string[];

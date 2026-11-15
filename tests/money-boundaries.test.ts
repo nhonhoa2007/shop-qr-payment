@@ -119,6 +119,7 @@ test('serializeOrderDto converts monetary fields to MoneyVnd decimal strings', (
           createdAt: new Date(),
           updatedAt: new Date(),
         },
+        variant: { id: 'variant-1', price: 52_000_000n },
       },
     ],
   };
@@ -134,6 +135,8 @@ test('serializeOrderDto converts monetary fields to MoneyVnd decimal strings', (
   assert.equal(dto.totalAmount, '48050000');
   assert.equal(typeof dto.items[0].price, 'string');
   assert.equal(dto.items[0].price, '50000000');
+  assert.equal(dto.items[0].variant?.price, '52000000');
+  assert.doesNotThrow(() => JSON.stringify(dto));
 });
 
 test('serializeWalletDto converts balance and transactions to MoneyVnd decimal strings', () => {
