@@ -41,6 +41,7 @@ export function CartSummary() {
           </div>
         </div>
       </div>
+      <Link href="/coupons" className="mt-5 block text-xs font-medium text-shop-violet underline">Khám phá mã giảm giá trước khi thanh toán</Link>
       <Link
         href="/checkout"
         className="flex items-center justify-center gap-2 w-full bg-shop-violet text-white text-center py-3.5 rounded-full font-medium tracking-[-0.014em] hover:bg-shop-violet-deep transition mt-6 shadow-violet text-sm"

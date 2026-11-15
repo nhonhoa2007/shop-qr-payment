@@ -22,6 +22,7 @@ import {
   Heart,
   ArrowRight,
   Wallet,
+  Ticket,
 } from 'lucide-react';
 
 export function Header() {
@@ -77,6 +78,9 @@ export function Header() {
                 className="px-3 py-1.5 text-sm tracking-tight-body text-muted-gray hover:text-ink-black transition rounded-full hover:bg-canvas-mist"
               >
                 Khám phá
+              </Link>
+              <Link href="/coupons" className="flex items-center gap-1 px-3 py-1.5 text-sm text-muted-gray transition hover:text-shop-violet">
+                <Ticket className="h-3.5 w-3.5" />Ưu đãi
               </Link>
               {session && (
                 <>
@@ -263,6 +267,9 @@ export function Header() {
           >
             <Search className="w-4 h-4 text-muted-gray" />
             <span>Khám phá</span>
+          </Link>
+          <Link href="/coupons" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 rounded-[20px] px-3 py-2.5 text-sm text-ink-black hover:bg-canvas-mist">
+            <Ticket className="h-4 w-4 text-shop-violet" /><span>Ưu đãi & Voucher của tôi</span>
           </Link>
           {session && (
             <>

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ProductGrid } from '@client/components/product/ProductGrid';
 import { HeroShowcase } from '@client/components/home/HeroShowcase';
+import { HomeCoupons } from '@client/components/coupon/HomeCoupons';
 import type { Product } from '@shared/types';
 import { Search, ChevronRight, ArrowRight, ArrowDownWideNarrow } from 'lucide-react';
 
@@ -132,6 +133,8 @@ export function HomeView({
           )}
         </section>
       )}
+
+      {!currentCategory && !searchQuery && <HomeCoupons />}
 
       {/* Main Catalog Grid */}
       <section className="space-y-6">
