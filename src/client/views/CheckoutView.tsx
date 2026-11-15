@@ -1,13 +1,13 @@
 'use client';
 
+import { useState } from 'react';
 import { useHydrated } from '@client/hooks/useHydrated';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { CheckoutForm } from '@client/components/checkout/CheckoutForm';
+import { CheckoutForm, type CheckoutPriceSummary } from '@client/components/checkout/CheckoutForm';
 import { useCartStore } from '@client/stores/cart-store';
 import { formatVND } from '@shared/utils';
-import { calculateCheckoutTotals } from '@shared/utils/checkout';
 import { ShieldCheck, ShoppingBag, Package } from 'lucide-react';
 
 export function CheckoutView() {
@@ -15,6 +15,7 @@ export function CheckoutView() {
   const hydrated = useHydrated();
   const items = useCartStore((s) => s.items);
   const getTotalAmount = useCartStore((s) => s.getTotalAmount);
+  const [checkoutTotals, setCheckoutTotals] = useState<CheckoutPriceSummary | null>(null);
 
   if (!hydrated) return null;
 
@@ -43,7 +44,11 @@ export function CheckoutView() {
   }
 
   const total = getTotalAmount();
-  const { shippingFee, totalAmount } = calculateCheckoutTotals(total);
+  const shownSubtotal = checkoutTotals?.subtotal ?? total;
+  const discountAmount = checkoutTotals?.discountAmount ?? 0;
+  const shippingReady = checkoutTotals?.shippingReady ?? false;
+  const shippingFee = checkoutTotals?.shippingFee ?? 0;
+  const totalAmount = checkoutTotals?.totalAmount ?? total;
 
   return (
     <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-8">
@@ -65,6 +70,7 @@ export function CheckoutView() {
           <CheckoutForm
             initialName={session?.user?.name || ''}
             initialEmail={session?.user?.email || ''}
+            onTotalsChange={setCheckoutTotals}
           />
         </div>
 
@@ -107,20 +113,21 @@ export function CheckoutView() {
           <div className="space-y-2.5 text-sm pt-4 border-t border-faint-border">
             <div className="flex justify-between text-muted-gray tracking-[-0.014em]">
               <span>Tạm tính</span>
-              <span className="font-medium text-ink-black">{formatVND(total)}</span>
+              <span className="font-medium text-ink-black">{formatVND(shownSubtotal)}</span>
             </div>
             <div className="flex justify-between text-muted-gray tracking-[-0.014em]">
               <span>Phí giao hàng</span>
               <span className="font-medium text-ink-black">
-                {shippingFee === 0 ? (
+                {!shippingReady ? 'Chọn địa chỉ để tính' : shippingFee === 0 ? (
                   <span className="text-ink-black font-semibold">Miễn phí</span>
                 ) : (
                   formatVND(shippingFee)
                 )}
               </span>
             </div>
+            {discountAmount > 0 && <div className="flex justify-between text-shop-violet"><span>Giảm giá voucher</span><span className="font-medium">−{formatVND(discountAmount)}</span></div>}
             <div className="flex justify-between text-base font-semibold text-ink-black pt-3 border-t border-faint-border tracking-[-0.05em]">
-              <span>Tổng thanh toán</span>
+              <span>{shippingReady ? 'Tổng thanh toán' : 'Tạm tính thanh toán'}</span>
               <span className="text-xl font-semibold text-ink-black">{formatVND(totalAmount)}</span>
             </div>
           </div>

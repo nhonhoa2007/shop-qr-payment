@@ -37,6 +37,15 @@ import {
 interface CheckoutFormProps {
   initialName?: string;
   initialEmail?: string;
+  onTotalsChange?: (totals: CheckoutPriceSummary) => void;
+}
+
+export interface CheckoutPriceSummary {
+  subtotal: number;
+  shippingFee: number;
+  discountAmount: number;
+  totalAmount: number;
+  shippingReady: boolean;
 }
 
 interface CreateOrderResponse {
@@ -84,7 +93,7 @@ const LOCATION_COLLECTION_MS = 2_000;
 const LOCATION_FIX_TIMEOUT_MS = 8_000;
 const LOCATION_REQUEST_TIMEOUT_MS = 20_000;
 
-export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFormProps) {
+export function CheckoutForm({ initialName = '', initialEmail = '', onTotalsChange }: CheckoutFormProps) {
   const router = useRouter();
   const { data: session } = useSession();
   const items = useCartStore((s) => s.items);
@@ -434,6 +443,10 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
     maxDiscount: appliedCoupon.maxDiscount == null ? null : BigInt(appliedCoupon.maxDiscount),
   }, BigInt(subtotal), BigInt(effectiveShippingFee))) : 0;
   const finalTotalAmount = Math.max(0, subtotal + effectiveShippingFee - discountAmount);
+
+  useEffect(() => {
+    onTotalsChange?.({ subtotal, shippingFee: effectiveShippingFee, discountAmount, totalAmount: finalTotalAmount, shippingReady: quoteReady });
+  }, [onTotalsChange, subtotal, effectiveShippingFee, discountAmount, finalTotalAmount, quoteReady]);
 
   // Kiểm tra số dư ví có đủ thanh toán đơn hàng không
   const isWalletEligible = session?.user?.id && walletBalance !== null && walletBalance >= finalTotalAmount;
