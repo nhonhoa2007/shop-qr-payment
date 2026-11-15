@@ -47,9 +47,10 @@ export async function POST(req: Request) {
       startDate,
       endDate,
       isActive,
+      isPublic,
     } = body;
 
-    if (!code || discountValue <= 0) {
+    if (!code || discountValue <= 0 || (isPublic !== undefined && typeof isPublic !== 'boolean')) {
       return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
     }
 
@@ -72,6 +73,7 @@ export async function POST(req: Request) {
         startDate: start,
         endDate: end,
         isActive: isActive ?? true,
+        isPublic: isPublic ?? false,
       },
     });
 
@@ -94,15 +96,18 @@ export async function PATCH(req: Request) {
     }
 
     const body = await req.json();
-    const { id, isActive } = body;
+    const { id, isActive, isPublic } = body;
 
-    if (!id || typeof isActive !== 'boolean') {
-      return NextResponse.json({ error: 'Thiếu ID hoặc trạng thái isActive' }, { status: 400 });
+    if (typeof id !== 'string' || !id ||
+      (isActive === undefined && isPublic === undefined) ||
+      (isActive !== undefined && typeof isActive !== 'boolean') ||
+      (isPublic !== undefined && typeof isPublic !== 'boolean')) {
+      return NextResponse.json({ error: 'Thiếu ID hoặc trạng thái voucher không hợp lệ' }, { status: 400 });
     }
 
     const updated = await prisma.coupon.update({
       where: { id },
-      data: { isActive },
+      data: { ...(isActive === undefined ? {} : { isActive }), ...(isPublic === undefined ? {} : { isPublic }) },
     });
 
     return NextResponse.json({ success: true, coupon: serializeCouponDto(updated) });

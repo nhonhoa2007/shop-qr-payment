@@ -20,6 +20,7 @@ interface CouponItem {
   startDate: string;
   endDate: string;
   isActive: boolean;
+  isPublic: boolean;
   _count?: {
     userUsages: number;
   };
@@ -37,6 +38,7 @@ function getDefaultFormData() {
     minOrderAmount: 0,
     usageLimit: 100,
     perUserLimit: 1,
+    isPublic: false,
     startDate: now.toISOString().split('T')[0],
     endDate: nextMonth.toISOString().split('T')[0],
   };
@@ -126,6 +128,19 @@ export function AdminCouponsView() {
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Lỗi cập nhật');
     }
+  };
+
+  const handleTogglePublic = async (coupon: CouponItem) => {
+    try {
+      const res = await fetch('/api/admin/coupons', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: coupon.id, isPublic: !coupon.isPublic }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Không thể thay đổi hiển thị voucher');
+      setCoupons(prev => prev.map(c => c.id === coupon.id ? { ...c, isPublic: data.coupon.isPublic } : c));
+      toast.success(data.coupon.isPublic ? 'Đã công khai trong kho ưu đãi' : 'Đã ẩn khỏi kho ưu đãi');
+    } catch (error) { toast.error(error instanceof Error ? error.message : 'Không thể cập nhật voucher'); }
   };
 
   const handleDelete = async (id: string, code: string) => {
@@ -219,6 +234,9 @@ export function AdminCouponsView() {
                           {c.code}
                         </span>
                         {c.description && <p className="text-xs text-gray-500 mt-1">{c.description}</p>}
+                        <button type="button" onClick={() => handleTogglePublic(c)} aria-label={`${c.isPublic ? 'Ẩn' : 'Công khai'} mã ${c.code}`} className={`mt-2 rounded-full border px-2.5 py-1 text-[11px] font-medium ${c.isPublic ? 'border-violet-200 bg-violet-50 text-violet-700' : 'border-gray-200 text-gray-500'}`}>
+                          {c.isPublic ? 'Công khai · Bấm để ẩn' : 'Chỉ chia sẻ mã · Bấm để công khai'}
+                        </button>
                       </td>
                       <td className="py-4 px-4">
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
@@ -291,7 +309,7 @@ export function AdminCouponsView() {
       {/* Modal Tạo Mã Giảm Giá */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl animate-scale-up">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl animate-scale-up">
             <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
               <Tag className="w-5 h-5 text-blue-600" />
               <span>Phát hành Mã Voucher Mới</span>
@@ -403,6 +421,11 @@ export function AdminCouponsView() {
                   />
                 </div>
               </div>
+
+              <label className="flex items-start gap-3 rounded-xl border border-violet-100 bg-violet-50 p-3 text-sm text-gray-700">
+                <input type="checkbox" checked={formData.isPublic} onChange={e => setFormData({ ...formData, isPublic: e.target.checked })} className="mt-1 accent-violet-600" />
+                <span><span className="font-semibold">Công khai trong kho ưu đãi</span><span className="mt-1 block text-xs text-gray-500">Hiển thị trên trang chủ và trang Ưu đãi khi mã còn hiệu lực. Bỏ chọn nếu chỉ muốn chia sẻ mã riêng.</span></span>
+              </label>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
                 <button
