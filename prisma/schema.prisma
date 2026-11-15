@@ -18,6 +18,7 @@ model User {
   role          Role                  @default(CUSTOMER)
   isVerified    Boolean               @default(false)
   isBlocked     Boolean               @default(false)
+  savedCouponIds String[]             @default([])
   orders        Order[]
   sentMessages  Message[]             @relation("sender")
   customerChatRooms ChatRoom[]         @relation("CustomerChatRooms")
@@ -614,9 +615,12 @@ model Coupon {
   startDate      DateTime
   endDate        DateTime
   isActive       Boolean       @default(true)
+  isPublic       Boolean       @default(false)
   orders         Order[]
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
+
+  @@index([isPublic, isActive, endDate])
 }
 
 enum DiscountType {
