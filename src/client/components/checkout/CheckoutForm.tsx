@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useCartStore } from '@client/stores/cart-store';
 import { formatVND } from '@shared/utils';
-import { calculateDiscount } from '@shared/utils/checkout';
+import { calculateDiscountBigInt } from '@shared/utils/checkout';
+import { CheckoutCoupons } from '@client/components/coupon/CheckoutCoupons';
 import { getErrorMessage } from '@shared/errors';
 import {
   Tag,
@@ -48,7 +49,10 @@ interface AppliedCoupon {
   code: string;
   discountType: string;
   discountValue: number;
-  maxDiscount: number | null;
+  maxDiscount: string | number | null;
+  fixedDiscountAmount?: string | null;
+  percentageRate?: number | null;
+  minOrderAmount: string | number;
 }
 
 type PaymentMethodType = 'VIETQR' | 'WALLET';
@@ -90,8 +94,9 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [couponCodeInput, setCouponCodeInput] = useState('');
-  const [applyingCoupon, setApplyingCoupon] = useState(false);
-  const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
+  const [applyingContext, setApplyingContext] = useState<{ context: string; requestId: number } | null>(null);
+  const [couponSelection, setCouponSelection] = useState<(AppliedCoupon & { context: string }) | null>(null);
+  const couponRequestRef = useRef(0);
 
   // Payment method state
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>('VIETQR');
@@ -167,6 +172,9 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
   const quoteKey = JSON.stringify({ toDistrictId: selectedDistrictId, toWardCode: selectedWardCode, items: items.map((item) => ({ productId: item.productId, variantId: item.variantId, quantity: item.quantity })) });
   const quoteReady = destinationReady && settledQuoteKey === quoteKey;
   const subtotal = quoteReady && quotedSubtotal !== null ? quotedSubtotal : getTotalAmount();
+  const couponContext = `${session?.user?.id ?? 'guest'}:${subtotal}`;
+  const appliedCoupon = couponSelection?.context === couponContext ? couponSelection : null;
+  const applyingCoupon = applyingContext?.context === couponContext;
   const calculatingShipping = destinationReady && !quoteReady;
 
   // Auto-calculate dynamic GHN shipping fee only after the full hierarchy is valid.
@@ -420,7 +428,11 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
 
   // Calculate discount & totals
   const effectiveShippingFee = isFreeShipping || subtotal >= 500_000 ? 0 : shippingFee;
-  const discountAmount = appliedCoupon ? calculateDiscount(appliedCoupon, subtotal, effectiveShippingFee) : 0;
+  const discountAmount = appliedCoupon ? Number(calculateDiscountBigInt({
+    ...appliedCoupon,
+    fixedDiscountAmount: appliedCoupon.fixedDiscountAmount == null ? null : BigInt(appliedCoupon.fixedDiscountAmount),
+    maxDiscount: appliedCoupon.maxDiscount == null ? null : BigInt(appliedCoupon.maxDiscount),
+  }, BigInt(subtotal), BigInt(effectiveShippingFee))) : 0;
   const finalTotalAmount = Math.max(0, subtotal + effectiveShippingFee - discountAmount);
 
   // Kiểm tra số dư ví có đủ thanh toán đơn hàng không
@@ -433,37 +445,44 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
     return parts.join(', ');
   }, [specificAddress, currentWard, currentDistrict, currentProvince]);
 
-  const handleApplyCoupon = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!couponCodeInput.trim()) return;
+  useEffect(() => {
+    // Revalidate against the new cart/account rather than keeping a stale preview.
+    couponRequestRef.current += 1;
+  }, [subtotal, session?.user?.id]);
 
-    setApplyingCoupon(true);
+  const handleApplyCoupon = async (code: string) => {
+    if (!code.trim() || applyingCoupon) return;
+    const requestId = ++couponRequestRef.current;
+
+    setApplyingContext({ context: couponContext, requestId });
     try {
       const res = await fetch('/api/coupons/validate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          code: couponCodeInput.trim().toUpperCase(),
+          code: code.trim().toUpperCase(),
           subtotal,
         }),
       });
 
       const data = await res.json();
+      if (requestId !== couponRequestRef.current) return;
       if (!res.ok || !data.coupon) {
         throw new Error(data.error || 'Mã giảm giá không hợp lệ');
       }
 
-      setAppliedCoupon(data.coupon);
+      setCouponSelection({ ...data.coupon, context: couponContext });
+      setCouponCodeInput(data.coupon.code);
       toast.success(`Đã áp dụng mã "${data.coupon.code}" thành công!`);
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Mã giảm giá không hợp lệ');
+      if (requestId === couponRequestRef.current) toast.error(err instanceof Error ? err.message : 'Mã giảm giá không hợp lệ');
     } finally {
-      setApplyingCoupon(false);
+      setApplyingContext(active => active?.requestId === requestId ? null : active);
     }
   };
 
   const handleRemoveCoupon = () => {
-    setAppliedCoupon(null);
+    setCouponSelection(null);
     setCouponCodeInput('');
     toast.info('Đã hủy áp dụng mã giảm giá');
   };
@@ -986,6 +1005,8 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
           <span>Mã giảm giá / Voucher</span>
         </h2>
 
+        <CheckoutCoupons subtotal={subtotal} shippingFee={effectiveShippingFee} onSelect={handleApplyCoupon} applying={applyingCoupon} />
+
         {appliedCoupon ? (
           <div className="flex items-center justify-between p-3 bg-canvas-mist rounded-full">
             <div className="flex items-center gap-2 pl-2">
@@ -1011,6 +1032,7 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
             <input
               type="text"
               placeholder="Nhập mã ưu đãi..."
+              aria-label="Nhập mã giảm giá"
               value={couponCodeInput}
               onChange={(e) => setCouponCodeInput(e.target.value.toUpperCase())}
               className="flex-1 px-4 py-2 rounded-full border border-ink-black/10 bg-white uppercase text-xs font-medium text-ink-black placeholder:text-muted-gray focus:outline-none focus:border-shop-violet/40 tracking-wider"
@@ -1018,7 +1040,7 @@ export function CheckoutForm({ initialName = '', initialEmail = '' }: CheckoutFo
             <button
               type="button"
               disabled={applyingCoupon || !couponCodeInput.trim()}
-              onClick={handleApplyCoupon}
+              onClick={() => handleApplyCoupon(couponCodeInput)}
               className="bg-ink-black text-white px-5 py-2 rounded-full text-xs font-medium hover:bg-slate-ink disabled:opacity-40 transition tracking-[-0.014em]"
             >
               {applyingCoupon ? 'Đang kiểm tra...' : 'Áp dụng'}
