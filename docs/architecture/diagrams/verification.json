@@ -1,0 +1,97 @@
+{
+  "diagrams": [
+    {
+      "diagram": "01-system-map",
+      "nodes": 17,
+      "brokenImages": 0,
+      "overflow": []
+    },
+    {
+      "diagram": "02-identity-access",
+      "nodes": 15,
+      "brokenImages": 0,
+      "overflow": []
+    },
+    {
+      "diagram": "03-order-lifecycle",
+      "nodes": 15,
+      "brokenImages": 0,
+      "overflow": []
+    },
+    {
+      "diagram": "04-wallet-shipping",
+      "nodes": 15,
+      "brokenImages": 0,
+      "overflow": []
+    },
+    {
+      "diagram": "05-inventory-aftersales",
+      "nodes": 15,
+      "brokenImages": 0,
+      "overflow": []
+    },
+    {
+      "diagram": "06-admin-realtime-telegram",
+      "nodes": 15,
+      "brokenImages": 0,
+      "overflow": []
+    },
+    {
+      "diagram": "07-ai-catalog-intelligence",
+      "nodes": 15,
+      "brokenImages": 0,
+      "overflow": []
+    }
+  ],
+  "atlas": {
+    "sections": 8,
+    "canvases": 7,
+    "unresolved": false,
+    "brokenImages": 0,
+    "sourceLinks": [
+      "../../../src/server/database/prisma.ts",
+      "../../../src/server/infrastructure/redis.ts",
+      "../../../src/server/modules/upload/upload.service.ts",
+      "../../../prisma/schema.prisma",
+      "../../../src/server/modules/auth/auth-options.ts",
+      "../../../src/server/modules/auth/register.controller.ts",
+      "../../../src/server/modules/auth/password-reset.service.ts",
+      "../../../src/server/modules/admin/guards.ts",
+      "../../../src/shared/constants/permissions.ts",
+      "../../../src/server/modules/orders/orders.controller.ts",
+      "../../../src/server/modules/compatibility/compatibility-cart.service.ts",
+      "../../../src/server/modules/shipping/shipping-quote.service.ts",
+      "../../../src/server/modules/payment/sepay-webhook.controller.ts",
+      "../../../src/server/modules/payment/bank-order-payment.service.ts",
+      "../../../src/server/modules/wallet/wallet-topup.service.ts",
+      "../../../src/server/modules/wallet/wallet.service.ts",
+      "../../../src/server/modules/wallet/refund-case.service.ts",
+      "../../../src/server/modules/orders/order-fulfillment.service.ts",
+      "../../../src/server/modules/admin/fulfillment-review.controller.ts",
+      "../../../src/server/modules/admin/bank-review.controller.ts",
+      "../../../vercel.json",
+      "../../../src/server/modules/procurement/procurement.service.ts",
+      "../../../src/server/modules/inventory/inventory-ledger.service.ts",
+      "../../../src/server/modules/inventory/serialized-unit.service.ts",
+      "../../../src/server/modules/returns/return.service.ts",
+      "../../../src/server/modules/warranties/warranty.service.ts",
+      "../../../src/server/modules/reviews/review.service.ts",
+      "../../../src/server/modules/chat/chat-messages.controller.ts",
+      "../../../src/server/modules/chat/pusher-auth.controller.ts",
+      "../../../src/server/modules/notifications/notifications.service.ts",
+      "../../../src/server/modules/telegram/telegram-outbox.service.ts",
+      "../../../src/server/infrastructure/telegram.ts",
+      "../../../src/server/modules/telegram/telegram-webhook.controller.ts",
+      "../../../src/server/modules/catalog/data-source.service.ts",
+      "../../../src/server/modules/intelligence/scoring.service.ts",
+      "../../../src/server/modules/compatibility/compatibility.service.ts",
+      "../../../src/server/modules/assistant/assistant.controller.ts",
+      "../../../src/server/modules/assistant/assistant.service.ts",
+      "../../../src/server/infrastructure/ai/quota.ts"
+    ],
+    "missingLocalSources": [],
+    "darkToggle": true,
+    "navigation": true,
+    "mobileOverflow": false
+  }
+}

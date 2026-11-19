@@ -1,0 +1,186 @@
+{
+  "nextjs": {
+    "source": "reused embedded asset",
+    "from": "system-architecture.html",
+    "mime": "image/svg+xml"
+  },
+  "postgresql": {
+    "source": "reused embedded asset",
+    "from": "system-architecture.html",
+    "mime": "image/svg+xml"
+  },
+  "customer": {
+    "source": "reused embedded asset",
+    "from": "system-activity.html",
+    "mime": "image/svg+xml"
+  },
+  "admin": {
+    "source": "reused embedded asset",
+    "from": "system-activity.html",
+    "mime": "image/svg+xml"
+  },
+  "react": {
+    "source": "reused embedded asset",
+    "from": "system-architecture.html",
+    "mime": "image/svg+xml"
+  },
+  "service": {
+    "source": "reused embedded asset",
+    "from": "system-architecture.html",
+    "mime": "image/svg+xml"
+  },
+  "webhook": {
+    "source": "Lucide",
+    "from": "lucide-react/dist/esm/icons/webhook.mjs"
+  },
+  "cron": {
+    "source": "reused embedded asset",
+    "from": "system-architecture.html",
+    "mime": "image/svg+xml"
+  },
+  "upstash": {
+    "source": "reused embedded asset",
+    "from": "system-architecture.html",
+    "mime": "image/svg+xml"
+  },
+  "sepay": {
+    "source": "reused embedded asset",
+    "from": "system-activity.html",
+    "mime": "image/svg+xml"
+  },
+  "ghn": {
+    "source": "reused embedded asset",
+    "from": "system-architecture.html",
+    "mime": "image/png"
+  },
+  "pusher": {
+    "source": "reused embedded asset",
+    "from": "system-architecture.html",
+    "mime": "image/svg+xml"
+  },
+  "resend": {
+    "source": "reused embedded asset",
+    "from": "system-architecture.html",
+    "mime": "image/svg+xml"
+  },
+  "cloudflare": {
+    "source": "reused embedded asset",
+    "from": "system-architecture.html",
+    "mime": "image/svg+xml"
+  },
+  "telegram": {
+    "source": "reused embedded asset",
+    "from": "system-architecture.html",
+    "mime": "image/svg+xml"
+  },
+  "order": {
+    "source": "reused embedded asset",
+    "from": "system-activity.html",
+    "mime": "image/svg+xml"
+  },
+  "inventory": {
+    "source": "reused embedded asset",
+    "from": "system-activity.html",
+    "mime": "image/svg+xml"
+  },
+  "payment": {
+    "source": "reused embedded asset",
+    "from": "system-activity.html",
+    "mime": "image/svg+xml"
+  },
+  "bank": {
+    "source": "reused embedded asset",
+    "from": "system-activity.html",
+    "mime": "image/svg+xml"
+  },
+  "notify": {
+    "source": "reused embedded asset",
+    "from": "system-activity.html",
+    "mime": "image/svg+xml"
+  },
+  "expire": {
+    "source": "reused embedded asset",
+    "from": "system-activity.html",
+    "mime": "image/svg+xml"
+  },
+  "database": {
+    "source": "Lucide",
+    "from": "lucide-react/dist/esm/icons/database.mjs"
+  },
+  "layers": {
+    "source": "Lucide",
+    "from": "lucide-react/dist/esm/icons/layers.mjs"
+  },
+  "mail": {
+    "source": "Lucide",
+    "from": "lucide-react/dist/esm/icons/mail.mjs"
+  },
+  "sparkles": {
+    "source": "Lucide",
+    "from": "lucide-react/dist/esm/icons/sparkles.mjs"
+  },
+  "cart": {
+    "source": "Lucide",
+    "from": "lucide-react/dist/esm/icons/shopping-cart.mjs"
+  },
+  "wallet": {
+    "source": "Lucide",
+    "from": "lucide-react/dist/esm/icons/wallet.mjs"
+  },
+  "shield": {
+    "source": "Lucide",
+    "from": "lucide-react/dist/esm/icons/shield-check.mjs"
+  },
+  "search": {
+    "source": "Lucide",
+    "from": "lucide-react/dist/esm/icons/search.mjs"
+  },
+  "book": {
+    "source": "Lucide",
+    "from": "lucide-react/dist/esm/icons/book-open.mjs"
+  },
+  "return": {
+    "source": "Lucide",
+    "from": "lucide-react/dist/esm/icons/rotate-ccw.mjs"
+  },
+  "badge": {
+    "source": "Lucide",
+    "from": "lucide-react/dist/esm/icons/badge-check.mjs"
+  },
+  "clipboard": {
+    "source": "Lucide",
+    "from": "lucide-react/dist/esm/icons/clipboard-list.mjs"
+  },
+  "lock": {
+    "source": "Lucide",
+    "from": "lucide-react/dist/esm/icons/lock-keyhole.mjs"
+  },
+  "qr": {
+    "source": "Lucide",
+    "from": "lucide-react/dist/esm/icons/qr-code.mjs"
+  },
+  "chart": {
+    "source": "Lucide",
+    "from": "lucide-react/dist/esm/icons/chart-no-axes-combined.mjs"
+  },
+  "coupon": {
+    "source": "Lucide",
+    "from": "lucide-react/dist/esm/icons/ticket-percent.mjs"
+  },
+  "check": {
+    "source": "Lucide",
+    "from": "lucide-react/dist/esm/icons/circle-check.mjs"
+  },
+  "cpu": {
+    "source": "Lucide",
+    "from": "lucide-react/dist/esm/icons/cpu.mjs"
+  },
+  "compare": {
+    "source": "Lucide",
+    "from": "lucide-react/dist/esm/icons/columns-2.mjs"
+  },
+  "settings": {
+    "source": "Lucide",
+    "from": "lucide-react/dist/esm/icons/settings-2.mjs"
+  }
+}

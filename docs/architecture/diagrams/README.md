@@ -1,24 +1,36 @@
-# Sơ đồ Shop QR Payment
+# Shop QR Payment — bản đồ toàn bộ chức năng
 
-| Sơ đồ | HTML tự chứa | PNG sáng | PNG tối |
+Mở [project-flows.html](project-flows.html) để xem atlas tương tác gồm 7 sơ đồ và bảng coverage. Atlas là file HTML tự chứa, có nút đổi sáng/tối, mục lục, mô tả theo luồng và đường dẫn đối chiếu tới mã nguồn.
+
+[PROJECT_FLOWS.md](../PROJECT_FLOWS.md) là bản đọc Markdown, có ảnh minh họa, mô tả chi tiết và danh sách đầy đủ trang/API cùng controller.
+
+## Các sơ đồ riêng
+
+| Phần | HTML | PNG sáng | PNG tối |
 | --- | --- | --- | --- |
-| Kiến trúc hệ thống | [system-architecture.html](system-architecture.html) | [system-architecture.png](system-architecture.png) | [system-architecture-dark.png](system-architecture-dark.png) |
-| Luồng hoạt động đặt hàng | [system-activity.html](system-activity.html) | [system-activity.png](system-activity.png) | [system-activity-dark.png](system-activity-dark.png) |
+| Kiến trúc tổng thể | [01-system-map.html](01-system-map.html) | [01-system-map.png](01-system-map.png) | [01-system-map-dark.png](01-system-map-dark.png) |
+| Tài khoản, OTP, RBAC | [02-identity-access.html](02-identity-access.html) | [02-identity-access.png](02-identity-access.png) | [02-identity-access-dark.png](02-identity-access-dark.png) |
+| Checkout và thanh toán | [03-order-lifecycle.html](03-order-lifecycle.html) | [03-order-lifecycle.png](03-order-lifecycle.png) | [03-order-lifecycle-dark.png](03-order-lifecycle-dark.png) |
+| Ví, GHN và ngoại lệ | [04-wallet-shipping.html](04-wallet-shipping.html) | [04-wallet-shipping.png](04-wallet-shipping.png) | [04-wallet-shipping-dark.png](04-wallet-shipping-dark.png) |
+| Kho, đổi trả, bảo hành | [05-inventory-aftersales.html](05-inventory-aftersales.html) | [05-inventory-aftersales.png](05-inventory-aftersales.png) | [05-inventory-aftersales-dark.png](05-inventory-aftersales-dark.png) |
+| Chat, realtime, Telegram | [06-admin-realtime-telegram.html](06-admin-realtime-telegram.html) | [06-admin-realtime-telegram.png](06-admin-realtime-telegram.png) | [06-admin-realtime-telegram-dark.png](06-admin-realtime-telegram-dark.png) |
+| AI và catalog intelligence | [07-ai-catalog-intelligence.html](07-ai-catalog-intelligence.html) | [07-ai-catalog-intelligence.png](07-ai-catalog-intelligence.png) | [07-ai-catalog-intelligence-dark.png](07-ai-catalog-intelligence-dark.png) |
 
-Các sơ đồ được tạo bằng skill [stack-diagram](https://github.com/caru-ini/stack-diagram). HTML chứa sẵn font và biểu tượng, mở được khi không có mạng. File `*.draft.html` và [generate_stack_diagrams.py](generate_stack_diagrams.py) là nguồn chỉnh sửa.
+## Nguồn và tái tạo
 
-Sơ đồ kiến trúc mô tả các thành phần ứng dụng và tích hợp có trong mã nguồn, không khẳng định môi trường triển khai cụ thể. Luồng hoạt động tập trung vào đơn hàng thanh toán bằng VietQR qua SePay; thanh toán ví và hoàn trả là các luồng riêng. Nhánh `PENDING_REVIEW` dành cho webhook hợp lệ nhưng giao dịch không thể tự khớp; chữ ký không hợp lệ bị từ chối trước bước này.
+- Script dựng: [scripts/build-architecture-diagrams.py](../../../scripts/build-architecture-diagrams.py)
+- Script render và kiểm tra: [scripts/render-architecture-diagrams.mjs](../../../scripts/render-architecture-diagrams.mjs)
+- Ghi chú nội dung: [atlas-notes.html](atlas-notes.html)
+- Kiểm tra render: [verification.json](verification.json)
+- Chạy lại: `python3 scripts/build-architecture-diagrams.py`
+- Render PNG: `node scripts/render-architecture-diagrams.mjs` (Playwright + Chromium). Có thể đặt `PLAYWRIGHT_MODULE` và `CHROMIUM_EXECUTABLE` để dùng runtime riêng; mặc định hỗ trợ runtime Codex cục bộ hoặc package Playwright đã cài.
+- PNG được render từ HTML bằng Chromium/Playwright; HTML là nguồn hiển thị chính.
 
-## Mã nguồn đối chiếu
+Các sơ đồ mô tả mã nguồn hiện tại. Chúng không khẳng định secret, biến môi trường, lịch triển khai hoặc dịch vụ ngoài đã được cấu hình trong môi trường production.
 
-- Tạo đơn, giữ kho, tạo QR: `src/server/modules/orders/orders.controller.ts`
-- Đối soát SePay: `src/server/modules/payment/sepay-webhook.controller.ts`
-- Ghi nhận thanh toán: `src/server/modules/payment/bank-order-payment.service.ts`
-- Duyệt và tạo vận đơn: `src/server/modules/orders/order-fulfillment.service.ts`
-- Cập nhật vận chuyển: `src/server/modules/shipping/ghn-webhook.controller.ts`
-- Cron: `vercel.json`, `src/app/api/cron/expire-orders/route.ts`
-- Các tích hợp khác: `src/server/infrastructure/`, `src/server/modules/upload/upload.service.ts`
+## Sơ đồ có sẵn trước bản atlas
 
-## Tái tạo
+- [Kiến trúc hệ thống](system-architecture.html) · [PNG sáng](system-architecture.png) · [PNG tối](system-architecture-dark.png)
+- [Luồng đặt hàng VietQR](system-activity.html) · [PNG sáng](system-activity.png) · [PNG tối](system-activity-dark.png)
 
-Cần cài skill vào `~/.codex/skills/stack-diagram`, Python 3.9+, Playwright và Chromium. Chạy `python3 generate_stack_diagrams.py`, rồi `scripts/build.py` và `scripts/render_png.py` theo hướng dẫn của skill. Biểu tượng được tải từ svgl, gilbarbara, Lucide, [SePay](https://sepay.vn/brand-assets.html) và [GHN](https://ghn.vn/); file nguồn biểu tượng được nhúng vào HTML và không lưu riêng trong repo.
+Các bản này được giữ lại để tham khảo. Bộ 01–07 mở rộng phạm vi sang tài khoản, ví, kho, hậu mãi, chat, Telegram và AI.
