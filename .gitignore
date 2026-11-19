@@ -14,11 +14,16 @@
 /coverage
 
 # next.js
-/.next/
+/.next*/
 /out/
 
 # production
 /build
+/dist_packages/
+
+# Local agent state (keep shared launch configuration tracked)
+/.claude/progress/
+/.claude/worktrees/
 
 # misc
 .DS_Store

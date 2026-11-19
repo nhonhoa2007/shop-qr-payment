@@ -19,6 +19,9 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     "scripts/**",
     ".claude/**",
+    // Bundled vendor runtimes for the standalone design prototype.
+    "designs/shop-qr-dashboard/src/*-runtime.js",
+    "designs/shop-qr-dashboard/src/animate-components.js",
   ]),
 ]);
 
