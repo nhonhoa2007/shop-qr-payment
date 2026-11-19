@@ -19,12 +19,6 @@ import type {
 const COMPAT_CACHE_PREFIX = 'compat:';
 const COMPAT_CACHE_TTL_SECONDS = 3600; // 1 hour
 
-function buildCacheKey(query: CompatibilityQuery): string {
-  const dev = query.deviceVariantId || query.deviceProductId || 'unknown-device';
-  const acc = query.accessoryVariantId || query.accessoryProductId || 'unknown-accessory';
-  return `${COMPAT_CACHE_PREFIX}${dev}:${acc}`;
-}
-
 /**
  * Checks whether user has permission to draft rules (STAFF with knowledge permission or ADMIN).
  */

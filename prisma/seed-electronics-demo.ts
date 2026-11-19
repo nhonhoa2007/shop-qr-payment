@@ -28,8 +28,7 @@ export interface SeedDemoReport {
  * Seeds isolated, idempotent synthetic demo fixtures for electronics commerce operations & aftersales.
  */
 export async function seedElectronicsDemo(
-  db: PrismaClient,
-  options?: { clean?: boolean }
+  db: PrismaClient
 ): Promise<SeedDemoReport> {
   const report: SeedDemoReport = {
     success: true,

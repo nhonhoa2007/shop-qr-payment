@@ -1071,9 +1071,9 @@ const diagrams = [
 ├── auth/ (LoginForm, Register, OtpInput)
 ├── cart/ (CartItem, CartSummary)
 ├── chat/ (ChatWindow, MessageBubble, ChatRoomList)
-├── home/ (HeroFloatingConstellation 3D)
+├── home/ (HeroShowcase)
 ├── layout/ (Header, Footer, Notifications)
-├── payment/ (QRPayment, PaymentStatus)
+├── payment/ (QRPayment)
 ├── product/ (ProductCard, ProductGrid, Reviews)
 └── wallet/ (WalletTopupModal, BalanceCard)"]
             ClientViews["views/

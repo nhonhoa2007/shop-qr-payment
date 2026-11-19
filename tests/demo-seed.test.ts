@@ -139,32 +139,4 @@ describe('Task 5: Electronics Synthetic Demo Data Fixtures', () => {
     assert.equal(report2.created.warrantyClaims, 0, 'Second run must not re-create claim');
   });
 
-  it('guarantees demo fixtures carry synthetic tags and do not overwrite human reviews', async () => {
-    const existingHumanReview = {
-      id: 'rev-human-1',
-      productId: 'p1',
-      userId: 'user-human-1',
-      orderId: 'order-human-1',
-      rating: 5,
-      comment: 'Authentic customer review',
-    };
-
-    const reviewsInDb = [existingHumanReview];
-
-    const mockDb: any = {
-      review: {
-        findMany: async () => reviewsInDb,
-        update: async () => {
-          throw new Error('Must NOT mutate human reviews');
-        },
-        delete: async () => {
-          throw new Error('Must NOT delete human reviews');
-        },
-      },
-    };
-
-    // Human reviews in database must remain unmodified
-    assert.equal(reviewsInDb[0].comment, 'Authentic customer review');
-    assert.equal(reviewsInDb.length, 1);
-  });
 });

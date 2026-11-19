@@ -1,9 +1,6 @@
 import type {
   WarrantyClaimStatus,
   WarrantyResolutionOutcome,
-  WarrantyTimelineEntry,
-  WarrantyEvidenceRef,
-  WarrantyResolution,
 } from '@shared/types/warranty';
 
 export const WARRANTY_TRANSITIONS: Record<WarrantyClaimStatus, WarrantyClaimStatus[]> = {

@@ -11,7 +11,7 @@ import {
   consumeShippedStock,
   quarantineReturnedStock,
 } from '@server/modules/inventory/inventory.service';
-import type { ApplyMovementInput, StockTarget } from '@shared/types/inventory-ledger';
+import type { StockTarget } from '@shared/types/inventory-ledger';
 
 describe('Inventory Movement Ledger - Integration & Lifecycle', () => {
   function createInMemoryLedgerDb() {

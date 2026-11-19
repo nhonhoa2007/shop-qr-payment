@@ -6,7 +6,6 @@ import {
   releaseAiBudget,
   resetAiQuotaStore,
   setAiQuotaConfig,
-  getAiQuotaConfig,
 } from '../src/server/infrastructure/ai/quota.ts';
 import { redis } from '../src/server/infrastructure/redis.ts';
 

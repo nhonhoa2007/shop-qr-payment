@@ -12,12 +12,9 @@ import {
 import { executeRefundCase } from '@server/modules/wallet/refund-case.service';
 import type {
   CreateWarrantyInput,
-  WarrantyTransitionInput,
 } from '@shared/types/warranty';
 import type {
   RequestReturnInput,
-  ReturnTransitionInput,
-  ReturnDispositionInput,
 } from '@shared/types/return';
 import type { ExecuteRefundInput } from '@server/modules/returns/refund-allocation';
 
@@ -354,7 +351,6 @@ describe('After-Sales & Warranty End-to-End Lifecycle', () => {
       serializedUnits,
       userWallets,
       walletTransactions,
-      inventoryMovements,
     } = createFullAfterSalesMockDb();
 
     // ==========================================

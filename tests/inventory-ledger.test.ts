@@ -2,7 +2,6 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   applyInventoryMovement,
-  computeMovementFingerprint,
 } from '@server/modules/inventory/inventory-ledger.service';
 import type { ApplyMovementInput, StockTarget } from '@shared/types/inventory-ledger';
 import { releaseOrderStock, reserveOrderStock } from '@server/modules/inventory/inventory.service';

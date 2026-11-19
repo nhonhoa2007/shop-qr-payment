@@ -1,5 +1,4 @@
 import type {
-  WarrantyPolicyConfig,
   WarrantySnapshot,
   WarrantyTerms,
   WarrantyPolicyType,

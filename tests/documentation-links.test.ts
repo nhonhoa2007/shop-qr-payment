@@ -24,8 +24,6 @@ describe('Task 7: Documentation Links and Environment Configuration', () => {
 
   it('ensures referenced script files and directories in README.md exist on disk', () => {
     assert.ok(fs.existsSync(README_PATH), 'README.md must exist');
-    const readme = fs.readFileSync(README_PATH, 'utf8');
-
     const referencedFiles = [
       'scripts/check-prisma-model-budget.mjs',
       'scripts/import-electronics-catalog.ts',

@@ -7,8 +7,6 @@ import {
 } from '@server/modules/returns/return.service';
 import type {
   RequestReturnInput,
-  ReturnTransitionInput,
-  ReturnDispositionInput,
 } from '@shared/types/return';
 
 describe('Return Request - Quantity Limits, Quarantine FSM & Disposition Integration', () => {

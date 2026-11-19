@@ -22,10 +22,6 @@ const PROMPT_INJECTION_PATTERNS = [
   /you\s+are\s+now\s+(an?\s+)?unrestricted/i,
 ];
 
-function sanitizeString(str: string): string {
-  return str.trim();
-}
-
 function extractUrls(text: string): string[] {
   const urlRegex = /https?:\/\/[^\s"'<>)]+/gi;
   return text.match(urlRegex) || [];

@@ -10,7 +10,7 @@ import {
 } from '@server/modules/procurement/procurement.service';
 import type { PurchaseOrderStatus } from '@shared/types/procurement';
 
-export async function getSuppliersHandler(req: Request) {
+export async function getSuppliersHandler() {
   const session = await getServerSession(authOptions);
   if (!session?.user || !resolveOperatorAccess(session.user, 'inventory')) {
     return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 403 });
@@ -57,7 +57,7 @@ export async function createSupplierHandler(req: Request) {
   }
 }
 
-export async function getPurchaseOrdersHandler(req: Request) {
+export async function getPurchaseOrdersHandler() {
   const session = await getServerSession(authOptions);
   if (!session?.user || !resolveOperatorAccess(session.user, 'inventory')) {
     return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 403 });

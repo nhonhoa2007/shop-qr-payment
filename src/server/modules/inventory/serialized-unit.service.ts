@@ -38,7 +38,7 @@ export function normalizeSerialIdentifiers(
 export function validateSerialIdentifiers(
   input: SerialIdentifiersInput
 ): { valid: boolean; error?: string } {
-  const { serialNumber, imei1, imei2 } = normalizeSerialIdentifiers(input);
+  const { imei1, imei2 } = normalizeSerialIdentifiers(input);
 
   const imeiRegex = /^\d{15}$/;
   if (imei1 && !imeiRegex.test(imei1)) {

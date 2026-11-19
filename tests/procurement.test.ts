@@ -5,7 +5,6 @@ import {
   validateCreatePoInput,
   calculatePoTotals,
 } from '@server/modules/procurement/procurement.fsm';
-import type { PurchaseOrderStatus } from '@shared/types/procurement';
 
 describe('Procurement FSM & Validation - PurchaseOrder', () => {
   describe('FSM Transitions', () => {

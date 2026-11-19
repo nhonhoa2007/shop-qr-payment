@@ -5,7 +5,6 @@ import { PrismaClient } from '@prisma/client';
 import {
   importElectronicsCatalog,
   type CatalogManifest,
-  type ImportReport,
 } from '../../scripts/import-electronics-catalog.ts';
 
 const db = new PrismaClient();

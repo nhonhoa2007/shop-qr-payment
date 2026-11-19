@@ -7,7 +7,6 @@ import {
   deleteConversation,
   purgeExpiredConversations,
   getConversationMessages,
-  listUserConversations,
   type AssistantDb,
 } from '../src/server/modules/assistant/assistant.service.ts';
 import { FakeAiProvider } from '../src/server/infrastructure/ai/fake-provider.ts';

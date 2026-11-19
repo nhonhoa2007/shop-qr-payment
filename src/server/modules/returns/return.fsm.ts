@@ -1,7 +1,6 @@
 import type {
   ReturnRequestStatus,
   ReturnDisposition,
-  ReturnTimelineEntry,
   ReturnItemPayload,
 } from '@shared/types/return';
 
