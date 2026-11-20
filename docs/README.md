@@ -1,31 +1,33 @@
-# 📚 Chỉ mục Tài liệu — Shop QR Payment
+# Tài liệu Shop QR Payment
 
-Toàn bộ tài liệu phân tích, thiết kế và vận hành của dự án. Xem thêm hướng dẫn cài đặt tại [README.md gốc](../README.md).
+Tài liệu này phân biệt hướng dẫn mô tả hiện trạng với hồ sơ được giữ lại từ các đợt triển khai trước. Mã nguồn và cấu hình hiện tại là căn cứ cuối cùng khi có khác biệt.
 
-## Tài liệu chính
+## Đọc để hiểu hệ thống hiện tại
 
-| Tài liệu | Nội dung | Dành cho |
-| :--- | :--- | :--- |
-| **[HE-THONG-CHUC-NANG.md](./HE-THONG-CHUC-NANG.md)** | 14+ luồng chức năng hoạt động ra sao & tại sao: catalog, checkout, GPS, VietQR, ví, FSM đơn hàng, GHN, chat, OTP, RBAC, dashboard… — đối chiếu trực tiếp với mã nguồn (đường dẫn file kèm theo) | Người bảo trì, người mới vào dự án |
-| **[../SYSTEM_DESIGN.md](../SYSTEM_DESIGN.md)** | Phân tích & thiết kế hệ thống (v3.0): yêu cầu chức năng, kiến trúc 3 lớp, ERD, đặc tả API, 6 phân hệ mở rộng — **tất cả đã triển khai xong** | Đồ án / hồ sơ thiết kế |
-| **[uml/README.md](./uml/README.md)** | Bộ **21 sơ đồ UML** chuẩn 2.5: use case, class/domain, sequence (VietQR, ví, hủy đơn, chat, GHN, OTP), activity (giữ kho, webhook, GPS), state machine (đơn hàng, vận đơn), component, deployment, package. Kèm [bảng xem trực tuyến](./uml/index.html) mở bằng trình duyệt | Thuyết trình, tài liệu đồ án |
-| **[architecture/DESIGN.md](./architecture/DESIGN.md)** | Style reference UI: token màu (Shop Violet `#5433eb`), typography, radii — chuẩn cho mọi thiết kế giao diện | Thiết kế UI |
+| Tài liệu | Nội dung |
+| --- | --- |
+| [README dự án](../README.md) | Cài đặt, lệnh phát triển và liên kết nhanh |
+| [PROJECT_FLOWS.md](architecture/PROJECT_FLOWS.md) | Luồng vận hành hiện tại, bản đồ trang/API và liên kết tới mã nguồn |
+| [HE-THONG-CHUC-NANG.md](HE-THONG-CHUC-NANG.md) | Tóm tắt chức năng theo nhóm người dùng |
+| [SYSTEM_DESIGN.md](../SYSTEM_DESIGN.md) | Phân tích kiến trúc, dữ liệu, ranh giới tích hợp và các giới hạn đã biết |
+| [CRON_SETUP.md](architecture/CRON_SETUP.md) | Lịch cron có trong repository và cách xác thực endpoint |
+| [prisma-model-registry.md](architecture/prisma-model-registry.md) | Danh mục model Prisma và giới hạn schema |
+| [DESIGN.md](architecture/DESIGN.md) | Token giao diện đang dùng trong ứng dụng |
+| [Sơ đồ kiến trúc](architecture/diagrams/README.md) | Atlas luồng hiện tại, ảnh và HTML tương tác |
 
-## Kiến trúc & hồ sơ triển khai (`docs/architecture/`)
+## Hồ sơ thiết kế và lịch sử
 
-Tất cả các đợt phát triển lớn dưới đây **đã hoàn thành** — tài liệu giữ làm hồ sơ thiết kế gốc và tham chiếu bảo trì:
+- `architecture/PLAN_*.md`, `architecture/SYSTEM_DESIGN_*.md`, `superpowers/plans/` và `superpowers/specs/` ghi lại kế hoạch/đặc tả tại thời điểm tạo; trạng thái checkbox và quyết định trong đó không tự động phản ánh code hiện tại.
+- `verification/` và tài liệu có ngày trong `data/` là bằng chứng hoặc snapshot của một lần kiểm tra cụ thể. Không dùng số liệu cũ ở đó như kết quả kiểm thử hiện tại.
+- [Bộ UML](uml/README.md) là gói sơ đồ học thuật ngày 18/10/2026, trước các thay đổi gần đây về thanh toán và vận hành. Dùng [PROJECT_FLOWS.md](architecture/PROJECT_FLOWS.md) cho mô tả hiện trạng.
+- Tài liệu học thuật trong `academic/` là bản nháp, cần đối chiếu lại với mã nguồn và báo cáo kiểm chứng mới trước khi nộp hoặc xuất bản; xem [README học thuật](academic/README.md).
 
-| Tài liệu | Phạm vi |
-| :--- | :--- |
-| **[SYSTEM_DESIGN_REFACTOR_STRUCTURE.md](./architecture/SYSTEM_DESIGN_REFACTOR_STRUCTURE.md)** + [PLAN](./architecture/PLAN_REFACTOR_STRUCTURE.md) | Tái cấu trúc Layered Clean Architecture `@client` / `@server` / `@shared`, path aliases, shims `src/lib/` |
-| **[SYSTEM_DESIGN_AUTH_ADMIN_RBAC.md](./architecture/SYSTEM_DESIGN_AUTH_ADMIN_RBAC.md)** + [PLAN](./architecture/PLAN_AUTH_ADMIN_RBAC.md) | Quên/đặt lại mật khẩu bằng OTP, RBAC CUSTOMER/STAFF/ADMIN, ma trận phân quyền STAFF |
-| **[SYSTEM_DESIGN_ADMIN_REDESIGN.md](./architecture/SYSTEM_DESIGN_ADMIN_REDESIGN.md)** + [PLAN](./architecture/PLAN_ADMIN_REDESIGN.md) | Dashboard admin SaaS Bento Grid, AdminSidebar/AdminTopbar, analytics 21 metrics |
-| **[CRON_SETUP.md](./architecture/CRON_SETUP.md)** | 3 phương án chạy cron hủy đơn quá hạn 5 phút/lần miễn phí (cron-job.org, GitHub Actions, Upstash QStash) |
+## Sinh tài liệu
 
-## Tài nguyên sinh tự động
-
-- `docs/uml/` — sinh lại bằng **`npm run docs:uml`** (script `scripts/generate-uml.js`): 21 file `.mmd` + `README.md` + `index.html`.
-- `src/shared/constants/vietnam-locations.ts` — sinh lại bằng **`npm run ghn:import`** (dataset địa giới 63 tỉnh của GHN).
+- `npm run docs:uml` sinh lại bộ UML lịch sử từ `scripts/generate-uml.js`.
+- Atlas kiến trúc là HTML/ảnh được lưu trong `architecture/diagrams/`; hướng dẫn dựng và kiểm tra nằm trong [README sơ đồ](architecture/diagrams/README.md).
+- `npm run ghn:import` cập nhật dữ liệu địa bàn GHN tại `src/shared/constants/vietnam-locations.ts`.
 
 ---
-*Cập nhật lần cuối: 10/2026.*
+
+Cập nhật chỉ mục: 20/11/2026.

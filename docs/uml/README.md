@@ -1,9 +1,10 @@
 # BỘ 21 SƠ ĐỒ UML KIẾN TRÚC TOÀN DIỆN — DỰ ÁN SHOP-QR-PAYMENT (SHOP.)
 
-> **Tài liệu đặc tả kiến trúc kỹ thuật chuẩn UML 2.5**
-> **Hệ thống:** Website Thương mại điện tử Bán lẻ Tích hợp Thanh toán VietQR Tự động & Quản trị SaaS Bento Grid
-> **Chỉ huy kiến trúc:** Tech Lead & System Architect
-> **Ngày cập nhật:** 18/10/2026
+> **Snapshot lịch sử, không phải đặc tả runtime hiện tại.** Bộ sơ đồ này được dựng từ nội dung học thuật ngày 18/10/2026, trước khi SePay trở thành webhook thanh toán hiện tại và trước một số thay đổi schema/luồng vận hành. Một số sơ đồ hoặc số liệu có thể không còn khớp code. Xem [PROJECT_FLOWS.md](../architecture/PROJECT_FLOWS.md) để đối chiếu trạng thái hiện tại. Chạy lại generator chỉ tái tạo snapshot này, không đồng bộ nó với kiến trúc mới.
+
+> **Bộ sơ đồ UML 2.5 theo snapshot học thuật tháng 10/2026**
+> **Hệ thống:** Shop QR Payment
+> **Ngày snapshot nội dung:** 18/10/2026
 
 ---
 

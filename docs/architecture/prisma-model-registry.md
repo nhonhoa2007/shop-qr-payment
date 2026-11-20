@@ -1,6 +1,6 @@
 # Prisma Model Registry and Database Budget
 
-This registry tracks all Prisma models across project milestones in accordance with the database budget rules defined in `docs/superpowers/specs/2026-10-17-electronics-commerce-intelligence-design.md` (Section 3 and Section 4).
+The **active registry** below is checked against `prisma/schema.prisma` by `npm run schema:budget`. The milestone counts are historical snapshots from the implementation plan; the current schema contains 35 models. Read the active table for current model names and roles.
 
 ## 1. Budget Rules
 
@@ -64,7 +64,7 @@ This registry tracks all Prisma models across project milestones in accordance w
 
 ---
 
-## 3. Four Legacy Models Scheduled for Consolidation (M5)
+## 3. Four Legacy Models Retired in M5
 
 | Legacy Model | Target Replacement | Milestone | Consolidation Strategy | Status |
 |---|---|---|---|---|

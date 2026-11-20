@@ -1,6 +1,8 @@
 # THIẾT KẾ HỆ THỐNG: QUÊN MẬT KHẨU & QUẢN LÝ PHÂN QUYỀN ADMIN (RBAC)
 
-> ✅ **Đã triển khai** — đặc tả này mô tả hiện trạng (kèm mở rộng Ma trận phân quyền STAFF `StaffPermission`).
+> **Hồ sơ thiết kế gốc.** Các luồng/đoạn code minh họa bên dưới có thể còn ghi bcrypt, Google OAuth và path cũ. Code hiện dùng Argon2id và NextAuth Credentials; dùng [PROJECT_FLOWS.md](PROJECT_FLOWS.md) và source để xem hiện trạng.
+
+Các luồng này đã được triển khai và lưu lại làm hồ sơ thiết kế. Các đoạn code minh họa bên dưới là phiên bản lúc thiết kế, không phải hướng dẫn triển khai hiện tại.
 
 Dự án: **Shop QR Payment**  
 Tác giả: **Tech Lead / System Architect**  

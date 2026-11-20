@@ -1,5 +1,7 @@
 # PLAN: KẾ HOẠCH TRIỂN KHAI THIẾT KẾ LẠI GIAO DIỆN ADMIN (OPTION 1)
 
+> **Kế hoạch đã hoàn tất; nội dung bên dưới là proposal ban đầu.** Một số chi tiết như các kênh PayOS và widget/KPI cũ không phản ánh UI hiện tại. Checkbox được giữ làm lịch sử, không phải backlog; xem [luồng hiện tại](PROJECT_FLOWS.md).
+
 > ✅ **TRẠNG THÁI: HOÀN THÀNH** — Dashboard Bento Grid + Admin App Shell đã triển khai
 > (commit `507026b`, mở rộng thêm trên nhánh `feature/admin-saas-workspace`).
 > Tài liệu giữ nguyên làm hồ sơ thiết kế gốc.

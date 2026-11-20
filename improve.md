@@ -1,4 +1,6 @@
-# Improve Plan
+# Improve Plan — historical snapshot
+
+> **Kế hoạch lịch sử (09/2026), không phải danh sách việc còn tồn.** Phần lớn vấn đề checkout, tồn kho và webhook dưới đây đã được xử lý từ các đợt triển khai sau. Dùng [README](README.md), [PROJECT_FLOWS](docs/architecture/PROJECT_FLOWS.md) và [SYSTEM_DESIGN](SYSTEM_DESIGN.md) để xem hiện trạng; kiểm tra lại code trước khi mở lại bất kỳ mục nào.
 
 ## Tong quan
 

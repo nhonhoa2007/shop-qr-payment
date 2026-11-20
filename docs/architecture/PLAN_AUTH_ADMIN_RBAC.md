@@ -1,5 +1,7 @@
 # KẾ HOẠCH TRIỂN KHAI: QUÊN MẬT KHẨU & PHÂN QUYỀN ADMIN (PLAN_AUTH_ADMIN_RBAC.md)
 
+> **Kế hoạch đã hoàn tất; nội dung bên dưới là proposal ban đầu.** Một số bước còn ghi bcrypt, Google OAuth hoặc path cũ; code hiện dùng Argon2id và NextAuth Credentials. Checkbox không phải backlog hiện tại; xem [luồng hiện tại](PROJECT_FLOWS.md).
+
 > ✅ **TRẠNG THÁI: HOÀN THÀNH** — Quên/đặt lại mật khẩu (OTP `PASSWORD_RESET`) và quản trị
 > phân quyền đã chạy, mở rộng thêm **Ma trận phân quyền STAFF** (`StaffPermission`) so với kế hoạch gốc.
 > Test tương ứng: `password-reset.test.ts`, `rbac-user-management.test.ts`, `permissions.test.ts`, `admin-rbac-permissions.test.ts`.

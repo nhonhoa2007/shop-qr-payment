@@ -1,4 +1,7 @@
 # BÁO CÁO ĐỒ ÁN CƠ SỞ 2 (BẢN THẢO CHI TIẾT)
+
+> **Bản nháp học thuật theo snapshot 10/2026.** Nội dung kỹ thuật và số liệu kiểm thử cần được đồng bộ trước khi nộp. Xem [hướng dẫn cập nhật bản thảo](README.md) và tài liệu hiện trạng của project.
+
 ## ĐỀ TÀI: WEBSITE THƯƠNG MẠI ĐIỆN TỬ TÍCH HỢP THANH TOÁN VIETQR TỰ ĐỘNG VÀ QUẢN TRỊ SAAS BENTO GRID (SHOP QR PAYMENT)
 
 ---

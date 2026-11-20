@@ -1,6 +1,8 @@
 # SYSTEM DESIGN: THIẾT KẾ LẠI GIAO DIỆN ADMIN (OPTION 1: MODERN SAAS WORKSPACE)
 
-> ✅ **Đã triển khai** — đặc tả này mô tả hiện trạng dashboard `/admin` (Bento Grid, AdminSidebar/AdminTopbar).
+> **Hồ sơ thiết kế tại thời điểm triển khai, không phải mô tả đầy đủ UI hiện tại.** Proposal cũ có nhắc PayOS và các widget ban đầu; hãy dùng [PROJECT_FLOWS.md](PROJECT_FLOWS.md) cùng các page/component hiện tại để kiểm tra hành vi.
+
+Đề xuất này đã được triển khai và lưu lại làm hồ sơ thiết kế; các component/KPI bên dưới mô tả phiên bản lúc thiết kế, không phải inventory đầy đủ của dashboard hiện tại.
 
 **Dự án:** `shop-qr-payment`  
 **Phiên bản thiết kế:** v1.0.0  

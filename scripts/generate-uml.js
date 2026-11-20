@@ -1427,10 +1427,11 @@ async function main() {
   console.log('  📄 Đang biên soạn tài liệu tổng hợp docs/uml/README.md...');
   let mdContent = `# BỘ 21 SƠ ĐỒ UML KIẾN TRÚC TOÀN DIỆN — DỰ ÁN SHOP-QR-PAYMENT (SHOP.)
 
-> **Tài liệu đặc tả kiến trúc kỹ thuật chuẩn UML 2.5**
-> **Hệ thống:** Website Thương mại điện tử Bán lẻ Tích hợp Thanh toán VietQR Tự động & Quản trị SaaS Bento Grid
-> **Chỉ huy kiến trúc:** Tech Lead & System Architect
-> **Ngày cập nhật:** ${new Date().toLocaleDateString('vi-VN')}
+> **Snapshot lịch sử, không phải đặc tả runtime hiện tại.** Bộ sơ đồ này được dựng từ nội dung học thuật ngày 18/10/2026, trước khi SePay trở thành webhook thanh toán hiện tại và trước một số thay đổi schema/luồng vận hành. Một số sơ đồ hoặc số liệu có thể không còn khớp code. Xem [PROJECT_FLOWS.md](../architecture/PROJECT_FLOWS.md) để đối chiếu trạng thái hiện tại. Chạy lại generator chỉ tái tạo snapshot này, không đồng bộ nó với kiến trúc mới.
+
+> **Bộ sơ đồ UML 2.5 theo snapshot học thuật tháng 10/2026**
+> **Hệ thống:** Shop QR Payment
+> **Ngày snapshot nội dung:** 18/10/2026
 
 ---
 
@@ -1520,6 +1521,10 @@ ${d.mermaid.trim()}
   </style>
 </head>
 <body class="min-h-screen p-4 sm:p-6 lg:p-8 flex flex-col">
+
+  <div class="max-w-7xl w-full mx-auto mb-4 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+    <strong>Snapshot UML lịch sử:</strong> các sơ đồ này không phải đặc tả runtime hiện tại. Đọc <a class="font-semibold underline" href="../architecture/PROJECT_FLOWS.md">bản đồ luồng hiện tại</a> để đối chiếu code.
+  </div>
 
   <!-- TOP BAR -->
   <header class="max-w-7xl w-full mx-auto mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-4 sm:p-6 rounded-[24px] border border-slate-200 shadow-card">

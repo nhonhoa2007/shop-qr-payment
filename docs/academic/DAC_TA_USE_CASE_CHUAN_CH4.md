@@ -1,4 +1,7 @@
 # BẢN ĐẶC TẢ USE CASE CHUẨN MÔ HÌNH HÓA YÊU CẦU (REQUIREMENTS MODELING)
+
+> **Bản nháp theo snapshot 10/2026.** Luồng và tác nhân cần được rà soát với code hiện tại trước khi dùng trong báo cáo. Xem [hướng dẫn tài liệu học thuật](README.md).
+
 ## HỆ THỐNG THƯƠNG MẠI ĐIỆN TỬ SHOP-QR-PAYMENT (SHOP.)
 
 > **Tài liệu tham chiếu chuẩn:** Giáo trình & Bài giảng *System Analysis and Design - Chapter 4: Requirements Modeling (Khoa Khoa học Máy tính)*.  
